@@ -1,0 +1,29 @@
+{
+  "name": "chess-quiz-composer",
+  "version": "1.0.0",
+  "description": "Chess puzzle generator with theme-specific quizzes",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "chess",
+    "puzzle",
+    "quiz",
+    "stockfish",
+    "checkmate"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "chess.js": "^1.0.0-beta.8",
+    "papaparse": "^5.4.1",
+    "stockfish": "^17.1.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.11"
+  }
+}

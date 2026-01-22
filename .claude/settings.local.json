@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(test:*)",
+      "Bash(npm install)",
+      "Bash(npm run dev:*)",
+      "Bash(node scripts/download-puzzles.js:*)",
+      "Bash(npm install:*)",
+      "Bash(chmod:*)",
+      "Bash(node scripts/filter-lichess-puzzles.js:*)",
+      "Bash(pkill -f \"cp src/database\")",
+      "Bash(curl:*)",
+      "Bash(bash:*)"
+    ]
+  }
+}
