@@ -19,14 +19,11 @@ export class DatabaseLoader {
    * @param {function} onProgress - Optional callback for progress updates
    */
   async load(dbPath = '/database/puzzles.db', onProgress = null) {
-    console.log('Loading puzzle database from:', dbPath);
-
     try {
       await this.db.initialize(dbPath, onProgress);
       this.loaded = true;
       return this;
     } catch (error) {
-      console.error('Database loading error:', error);
       throw error;
     }
   }
@@ -182,7 +179,6 @@ export class DatabaseLoader {
    * @deprecated Use queryPuzzles() instead
    */
   getPuzzles() {
-    console.warn('getPuzzles() is deprecated with SQLite. Use queryPuzzles() instead.');
     return [];
   }
 
@@ -191,7 +187,6 @@ export class DatabaseLoader {
    * @deprecated
    */
   filterByTheme(themeName) {
-    console.warn('filterByTheme() is deprecated. Use queryPuzzles() instead.');
     return this.queryPuzzles({ themes: [themeName.toLowerCase()], limit: 1000 });
   }
 
@@ -200,7 +195,6 @@ export class DatabaseLoader {
    * @deprecated
    */
   filterByRating(minRating, maxRating) {
-    console.warn('filterByRating() is deprecated. Use queryPuzzles() instead.');
     return this.queryPuzzles({ minRating, maxRating, limit: 1000 });
   }
 
@@ -209,7 +203,6 @@ export class DatabaseLoader {
    * @deprecated
    */
   filterByPopularity(minPopularity) {
-    console.warn('filterByPopularity() is deprecated. Use queryPuzzles() instead.');
     return this.queryPuzzles({ minPopularity, limit: 1000 });
   }
 }

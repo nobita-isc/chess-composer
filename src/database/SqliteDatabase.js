@@ -45,12 +45,10 @@ export class SqliteDatabase {
    */
   async initialize(dbPath = '/database/puzzles.db', onProgress = null) {
     if (this.initialized) {
-      console.log('Database already initialized');
       return;
     }
 
     const updateProgress = (msg) => {
-      console.log(msg);
       if (onProgress) onProgress(msg);
     };
 
@@ -85,15 +83,12 @@ export class SqliteDatabase {
       // Verify database
       const puzzleCount = this.queryScalar('SELECT COUNT(*) FROM puzzles');
       const themeCount = this.queryScalar('SELECT COUNT(*) FROM themes');
-      console.log(`Database loaded: ${puzzleCount.toLocaleString()} puzzles, ${themeCount} themes`);
 
       // Build in-memory theme index for fast lookups
-      updateProgress('Building search index (this speeds up puzzle generation)...');
+      updateProgress('Building search index...');
       await this.buildThemeIndex(onProgress);
-      console.log('Theme index built');
 
     } catch (error) {
-      console.error('Failed to initialize SQLite database:', error);
       throw error;
     }
   }
@@ -137,12 +132,8 @@ export class SqliteDatabase {
 
       offset += batchSize;
       const progress = Math.min(100, Math.round((offset / totalCount) * 100));
-      const msg = `Building search index... ${progress}%`;
-      console.log(msg);
-      if (onProgress) onProgress(msg);
+      if (onProgress) onProgress(`Building search index... ${progress}%`);
     }
-
-    console.log(`Theme index: ${this.themeIndex.size} themes`);
   }
 
   /**

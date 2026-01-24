@@ -23,7 +23,7 @@ import { getCategoryMapping, getThemeMapping } from './theme-mapper.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DEFAULT_INPUT = path.join(__dirname, '../src/database/data/lichess_puzzles.csv');
+const DEFAULT_INPUT = path.join(__dirname, '../data_sources/lichess_puzzles.csv');
 const DEFAULT_OUTPUT = path.join(__dirname, '../public/database/puzzles.db');
 
 class DatabaseBuilder {

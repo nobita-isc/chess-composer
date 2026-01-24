@@ -23,8 +23,6 @@ class ChessQuizComposer {
    */
   async initialize() {
     try {
-      console.log('Initializing Chess Quiz Composer...');
-
       // Show loading state
       this.showLoading('Downloading puzzle database...');
 
@@ -36,7 +34,6 @@ class ChessQuizComposer {
         const dbLoaded = await this.databaseGenerator.initialize('/database/puzzles.db', updateLoading);
         if (dbLoaded) {
           this.useDatabasePuzzles = true;
-          console.log('SQLite puzzle database loaded');
 
           // Populate theme selector with all available themes
           this.populateThemeSelector();
@@ -51,23 +48,11 @@ class ChessQuizComposer {
         this.showMessage('Using sample puzzles (database unavailable)', 'info');
       }
 
-      // Try to initialize Stockfish engine (optional) - TEMPORARILY DISABLED
-      // this.showLoading('Initializing chess engine...');
-      // try {
-      //   this.engine = new ChessEngine();
-      //   await this.engine.initialize();
-      //   console.log('Chess engine loaded successfully!');
-      // } catch (engineError) {
-      //   console.warn('Chess engine failed to load, continuing without it:', engineError);
-      //   this.engine = null;
-      // }
-      this.engine = null;  // Engine disabled
-      console.log('Chess engine disabled (temporary)');
+      // Chess engine disabled (can be re-enabled later)
+      this.engine = null;
 
       // Hide loading
       this.hideLoading();
-
-      console.log('Application initialized successfully!');
 
     } catch (error) {
       console.error('Initialization error:', error);
@@ -201,7 +186,6 @@ class ChessQuizComposer {
       themeSelect.appendChild(optgroup);
     }
 
-    console.log(`📋 Loaded ${availableThemes.length + 1} themes into UI with ${Object.keys(themeCategories).length} categories`);
   }
 
   /**
@@ -389,7 +373,6 @@ class ChessQuizComposer {
           maxRating,
           minPopularity
         });
-        console.log(`📚 Using ${puzzleData.length} puzzles from Lichess database`);
       } catch (error) {
         console.warn('Database generation failed, falling back to samples:', error);
         puzzleData = getRandomPuzzles(theme, count);
@@ -397,7 +380,6 @@ class ChessQuizComposer {
     } else {
       // Fallback to sample puzzles
       puzzleData = getRandomPuzzles(theme, count);
-      console.log(`📝 Using ${puzzleData.length} sample puzzles`);
     }
 
     // Process each puzzle
@@ -622,7 +604,6 @@ class ChessQuizComposer {
 
           // Define move handler ONCE and reuse it (important for event persistence)
           const moveHandler = (orig, dest) => {
-            console.log('🔥 Event handler FIRED!', { puzzleId: puzzle.id, orig, dest });
             this.handleMove(puzzle.id, puzzleState, orig, dest, ground);
           };
 
@@ -657,15 +638,6 @@ class ChessQuizComposer {
             }
           });
 
-          console.log('✅ Board initialized:', {
-            puzzleId: puzzle.id,
-            fen: puzzle.fen,
-            turn: chess.turn(),
-            orientation: chess.turn() === 'w' ? 'white' : 'black',
-            movableColor: chess.turn() === 'w' ? 'white' : 'black',
-            solutionLine: puzzle.solutionLine
-          });
-
           // Store board instance with puzzle ID and state
           this.boardInstances.push({
             puzzleId: puzzle.id,
@@ -687,26 +659,11 @@ class ChessQuizComposer {
     const dests = new Map();
     const moves = chess.moves({ verbose: true });
 
-    console.log('🎯 getDestinationMap called:', {
-      fen: chess.fen(),
-      turn: chess.turn(),
-      totalLegalMoves: moves.length,
-      isCheck: chess.inCheck(),
-      isCheckmate: chess.isCheckmate(),
-      isGameOver: chess.isGameOver(),
-      legalMoves: moves.map(m => `${m.from}${m.to} (${m.san})`).join(', ')
-    });
-
     moves.forEach(move => {
       if (!dests.has(move.from)) {
         dests.set(move.from, []);
       }
       dests.get(move.from).push(move.to);
-    });
-
-    console.log('🎯 Destination map created:', {
-      squares: Array.from(dests.keys()).join(', '),
-      details: Array.from(dests.entries()).map(([from, tos]) => `${from}→[${tos.join(',')}]`).join(', ')
     });
 
     return dests;
@@ -719,14 +676,6 @@ class ChessQuizComposer {
    * Handle a move made by the user
    */
   handleMove(puzzleId, puzzleState, source, target, ground) {
-    console.log('🎮 handleMove called:', {
-      puzzleId,
-      move: `${source}→${target}`,
-      currentMoveIndex: puzzleState.currentMoveIndex,
-      fenBefore: puzzleState.chess.fen(),
-      turn: puzzleState.chess.turn()
-    });
-
     const puzzle = this.puzzles.find(p => p.id === puzzleId);
     if (!puzzle) return;
 
@@ -734,15 +683,6 @@ class ChessQuizComposer {
     const expectedMoveIndex = puzzleState.currentMoveIndex;
     const solutionLine = puzzle.solutionLine;
     const expectedMove = solutionLine[expectedMoveIndex];
-
-    console.log('🔍 PRE-MOVE validation:', {
-      from: source,
-      to: target,
-      expectedMoveIndex: expectedMoveIndex,
-      expectedMove: expectedMove,
-      solutionLineLength: solutionLine.length,
-      currentFEN: puzzleState.chess.fen()
-    });
 
     // Try to make the move
     let move = null;
@@ -754,19 +694,9 @@ class ChessQuizComposer {
       });
     } catch (error) {
       // Illegal move - Chessground handles snapback automatically
-      console.error('❌ Illegal move error:', error);
       this.showFeedback(puzzleId, 'illegal', 'Illegal move!');
       return;
     }
-
-    // Debug logging
-    console.log('✅ Move validation:', {
-      playerMove: move.san,
-      expectedMove: expectedMove,
-      moveIndex: expectedMoveIndex,
-      solutionLine: solutionLine,
-      matches: move.san === expectedMove
-    });
 
     // Simple SAN comparison (chess.js handles the conversion)
     if (move.san === expectedMove) {
@@ -783,19 +713,11 @@ class ChessQuizComposer {
         }
       });
 
-      console.log('✅ Board updated after correct move:', {
-        puzzleId,
-        newFen: puzzleState.chess.fen(),
-        newTurn: puzzleState.chess.turn(),
-        movableColor: newColor,
-        currentMoveIndex: puzzleState.currentMoveIndex
-      });
-
       // Check if puzzle is complete
       if (puzzleState.currentMoveIndex >= solutionLine.length) {
         puzzleState.isComplete = true;
         ground.set({ movable: { color: undefined } });  // Disable moves
-        this.showFeedback(puzzleId, 'complete', '🎉 Puzzle solved! Excellent!');
+        this.showFeedback(puzzleId, 'complete', 'Puzzle solved! Excellent!');
         this.markPuzzleComplete(puzzleId);
         return;
       }
@@ -829,12 +751,6 @@ class ChessQuizComposer {
 
     const opponentMoveSAN = solutionLine[puzzleState.currentMoveIndex];
 
-    console.log('Playing opponent move:', {
-      opponentMove: opponentMoveSAN,
-      moveIndex: puzzleState.currentMoveIndex,
-      solutionLine: solutionLine
-    });
-
     try {
       const move = puzzleState.chess.move(opponentMoveSAN);
       if (move) {
@@ -842,26 +758,11 @@ class ChessQuizComposer {
         const newColor = puzzleState.chess.turn() === 'w' ? 'white' : 'black';
         const newDests = this.getDestinationMap(puzzleState.chess);
 
-        console.log('🔧 About to update board after opponent move:', {
-          puzzleId,
-          opponentMove: move.san,
-          newFen: puzzleState.chess.fen(),
-          newTurn: puzzleState.chess.turn(),
-          movableColor: newColor,
-          destMapSize: newDests.size,
-          destMapKeys: Array.from(newDests.keys()).join(', '),
-          destMapDetails: Array.from(newDests.entries()).map(([from, tos]) => `${from}→[${tos.join(',')}]`).join(', '),
-          currentMoveIndex: puzzleState.currentMoveIndex,
-          solutionLength: puzzle.solutionLine.length
-        });
-
         // Update move index first
         puzzleState.currentMoveIndex++;
 
         // Use requestAnimationFrame to ensure update happens after current animation frame
-        // This ensures Chessground's internal state is ready for the update
         requestAnimationFrame(() => {
-          console.log('🔄 Updating board after opponent move');
           ground.set({
             fen: puzzleState.chess.fen(),
             lastMove: [move.from, move.to],
@@ -873,15 +774,6 @@ class ChessQuizComposer {
               showDests: true
             }
           });
-
-          console.log('✅ Board updated and ready for player move');
-        });
-
-        console.log('✅ Board updated after opponent move:', {
-          newMoveIndex: puzzleState.currentMoveIndex,
-          solutionLength: puzzle.solutionLine.length,
-          nextExpectedMove: puzzle.solutionLine[puzzleState.currentMoveIndex],
-          puzzleWillBeComplete: puzzleState.currentMoveIndex >= puzzle.solutionLine.length
         });
 
         // Show opponent's move
@@ -891,13 +783,13 @@ class ChessQuizComposer {
         if (puzzleState.currentMoveIndex >= solutionLine.length) {
           puzzleState.isComplete = true;
           setTimeout(() => {
-            this.showFeedback(puzzleId, 'complete', '🎉 Puzzle solved! Excellent!');
+            this.showFeedback(puzzleId, 'complete', 'Puzzle solved! Excellent!');
             this.markPuzzleComplete(puzzleId);
           }, 1000);
         }
       }
     } catch (error) {
-      console.error('Error playing opponent move:', error);
+      // Silently handle error
     }
   }
 
@@ -905,27 +797,10 @@ class ChessQuizComposer {
    * Handle a move made in fullscreen view
    */
   handleFullscreenMove(puzzle, puzzleState, source, target, ground, feedbackArea) {
-    console.log('🎮 [Fullscreen] handleFullscreenMove called:', {
-      puzzleId: puzzle.id,
-      move: `${source}→${target}`,
-      currentMoveIndex: puzzleState.currentMoveIndex,
-      fenBefore: puzzleState.chess.fen(),
-      turn: puzzleState.chess.turn()
-    });
-
     // Check if move matches the expected move in solution line BEFORE making it
     const expectedMoveIndex = puzzleState.currentMoveIndex;
     const solutionLine = puzzle.solutionLine;
     const expectedMove = solutionLine[expectedMoveIndex];
-
-    console.log('🔍 [Fullscreen] PRE-MOVE validation:', {
-      from: source,
-      to: target,
-      expectedMoveIndex: expectedMoveIndex,
-      expectedMove: expectedMove,
-      solutionLineLength: solutionLine.length,
-      currentFEN: puzzleState.chess.fen()
-    });
 
     // Try to make the move
     let move = null;
@@ -937,19 +812,9 @@ class ChessQuizComposer {
       });
     } catch (error) {
       // Illegal move - Chessground handles snapback automatically
-      console.error('❌ [Fullscreen] Illegal move error:', error);
       this.showFullscreenFeedback(feedbackArea, 'illegal', 'Illegal move!');
       return;
     }
-
-    // Debug logging
-    console.log('✅ [Fullscreen] Move validation:', {
-      playerMove: move.san,
-      expectedMove: expectedMove,
-      moveIndex: expectedMoveIndex,
-      solutionLine: solutionLine,
-      matches: move.san === expectedMove
-    });
 
     // Simple SAN comparison
     if (move.san === expectedMove) {
@@ -966,25 +831,17 @@ class ChessQuizComposer {
         }
       });
 
-      console.log('✅ [Fullscreen] Board updated after correct move:', {
-        puzzleId: puzzle.id,
-        newFen: puzzleState.chess.fen(),
-        newTurn: puzzleState.chess.turn(),
-        movableColor: newColor,
-        currentMoveIndex: puzzleState.currentMoveIndex
-      });
-
       // Check if puzzle is complete
       if (puzzleState.currentMoveIndex >= solutionLine.length) {
         puzzleState.isComplete = true;
         ground.set({ movable: { color: undefined } });  // Disable moves
-        this.showFullscreenFeedback(feedbackArea, 'complete', '🎉 Puzzle solved! Excellent!');
+        this.showFullscreenFeedback(feedbackArea, 'complete', 'Puzzle solved! Excellent!');
         this.markFullscreenPuzzleComplete(puzzle.id);
         return;
       }
 
       // Show success feedback
-      this.showFullscreenFeedback(feedbackArea, 'correct', `✓ Correct! ${move.san}`);
+      this.showFullscreenFeedback(feedbackArea, 'correct', `Correct! ${move.san}`);
 
       // Auto-play opponent's response after a delay
       if (puzzleState.currentMoveIndex < solutionLine.length) {
@@ -1009,13 +866,6 @@ class ChessQuizComposer {
 
     const opponentMoveSAN = solutionLine[puzzleState.currentMoveIndex];
 
-    console.log('🤖 [Fullscreen] Playing opponent move:', {
-      puzzleId: puzzle.id,
-      opponentMove: opponentMoveSAN,
-      moveIndex: puzzleState.currentMoveIndex,
-      solutionLine: solutionLine
-    });
-
     try {
       const move = puzzleState.chess.move(opponentMoveSAN);
       if (move) {
@@ -1023,26 +873,11 @@ class ChessQuizComposer {
         const newColor = puzzleState.chess.turn() === 'w' ? 'white' : 'black';
         const newDests = this.getDestinationMap(puzzleState.chess);
 
-        console.log('🔧 [Fullscreen] About to update board after opponent move:', {
-          puzzleId: puzzle.id,
-          opponentMove: move.san,
-          newFen: puzzleState.chess.fen(),
-          newTurn: puzzleState.chess.turn(),
-          movableColor: newColor,
-          destMapSize: newDests.size,
-          destMapKeys: Array.from(newDests.keys()).join(', '),
-          destMapDetails: Array.from(newDests.entries()).map(([from, tos]) => `${from}→[${tos.join(',')}]`).join(', '),
-          currentMoveIndex: puzzleState.currentMoveIndex,
-          solutionLength: solutionLine.length
-        });
-
         // Update move index first
         puzzleState.currentMoveIndex++;
 
         // Use requestAnimationFrame to ensure update happens after current animation frame
-        // This ensures Chessground's internal state is ready for the update
         requestAnimationFrame(() => {
-          console.log('🔄 Updating board after opponent move');
           ground.set({
             fen: puzzleState.chess.fen(),
             lastMove: [move.from, move.to],
@@ -1054,15 +889,6 @@ class ChessQuizComposer {
               showDests: true
             }
           });
-
-          console.log('✅ Board updated and ready for player move');
-        });
-
-        console.log('✅ [Fullscreen] Board updated after opponent move:', {
-          newMoveIndex: puzzleState.currentMoveIndex,
-          solutionLength: solutionLine.length,
-          nextExpectedMove: solutionLine[puzzleState.currentMoveIndex],
-          puzzleWillBeComplete: puzzleState.currentMoveIndex >= solutionLine.length
         });
 
         // Show opponent's move
@@ -1072,13 +898,13 @@ class ChessQuizComposer {
         if (puzzleState.currentMoveIndex >= solutionLine.length) {
           puzzleState.isComplete = true;
           setTimeout(() => {
-            this.showFullscreenFeedback(feedbackArea, 'complete', '🎉 Puzzle solved! Excellent!');
+            this.showFullscreenFeedback(feedbackArea, 'complete', 'Puzzle solved! Excellent!');
             this.markFullscreenPuzzleComplete(puzzle.id);
           }, 1000);
         }
       }
     } catch (error) {
-      console.error('Error playing opponent move:', error);
+      // Silently handle error
     }
   }
 
@@ -1193,7 +1019,6 @@ class ChessQuizComposer {
       const newDests = this.getDestinationMap(boardInstance.state.chess);
 
       requestAnimationFrame(() => {
-        console.log('🔄 [Button] Updating board after opponent move');
         boardInstance.board.set({
           fen: boardInstance.state.chess.fen(),
           lastMove: move ? [move.from, move.to] : undefined,
@@ -1205,7 +1030,6 @@ class ChessQuizComposer {
             showDests: true
           }
         });
-        console.log('✅ [Button] Board updated and ready for player move');
       });
 
       // Update button to show it's been played
@@ -1234,7 +1058,7 @@ class ChessQuizComposer {
       // Show feedback
       this.showFeedback(puzzleId, 'opponent', `Opponent played: ${puzzle.opponentMove}`);
     } catch (error) {
-      console.error('Error animating opponent move:', error);
+      // Silently handle error
     }
   }
 
@@ -1271,14 +1095,6 @@ class ChessQuizComposer {
   showFullscreen(puzzleId) {
     const puzzle = this.puzzles.find(p => p.id === puzzleId);
     if (!puzzle) return;
-
-    // Debug logging
-    console.log('Fullscreen puzzle data:', {
-      id: puzzle.id,
-      opponentMove: puzzle.opponentMove,
-      solution: puzzle.solution,
-      solutionLine: puzzle.solutionLine
-    });
 
     const solutionMoves = puzzle.solutionLine.slice(1).filter((_, i) => i % 2 === 0);
     const fullSolutionText = solutionMoves.length > 0 ? solutionMoves.join(' → ') : (puzzle.solution || 'N/A');
@@ -1371,9 +1187,8 @@ class ChessQuizComposer {
     feedbackArea.className = 'move-feedback';
     feedbackArea.id = `fullscreen-feedback-${puzzle.id}`;
 
-    // Define fullscreen move handler ONCE and reuse it (important for event persistence)
+    // Define fullscreen move handler
     const fullscreenMoveHandler = (orig, dest) => {
-      console.log('🔥 [Fullscreen] Event handler FIRED!', { puzzleId: puzzle.id, orig, dest });
       this.handleFullscreenMove(puzzle, fullscreenPuzzleState, orig, dest, boardInstance, feedbackArea);
     };
 
@@ -1584,7 +1399,6 @@ class ChessQuizComposer {
    * Show success message
    */
   showMessage(message, type = 'info') {
-    console.log(`[${type}]`, message);
     if (type === 'success' || type === 'info') {
       this.showToast(message, type);
     }

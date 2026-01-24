@@ -24,10 +24,8 @@ export class DatabaseGenerator {
     try {
       await this.loader.load(dbPath, onProgress);
       this.initialized = true;
-      console.log('DatabaseGenerator initialized successfully (SQLite mode)');
       return true;
     } catch (error) {
-      console.error('DatabaseGenerator initialization failed:', error);
       return false;
     }
   }
@@ -114,7 +112,6 @@ export class DatabaseGenerator {
    */
   async generatePuzzles(theme, count = 10, options = {}) {
     if (!this.initialized) {
-      console.warn('DatabaseGenerator not initialized, using fallback');
       return [];
     }
 
@@ -140,11 +137,8 @@ export class DatabaseGenerator {
       limit: count * 2  // Get extras in case some are filtered
     });
 
-    console.log(`Theme "${theme}": found ${candidates.length} puzzles after initial query`);
-
     // If not enough puzzles, relax criteria
     if (candidates.length < count) {
-      console.warn(`Not enough puzzles for ${theme}, relaxing filters`);
       candidates = this.loader.queryPuzzles({
         themes,
         minRating: minRating - 200,
@@ -206,7 +200,7 @@ export class DatabaseGenerator {
         return move.san;
       }
     } catch (error) {
-      console.warn('Failed to convert UCI to SAN:', uciMove, error);
+      // Fall through to return fallback
     }
 
     // Fallback to UCI notation if conversion fails
@@ -230,7 +224,6 @@ export class DatabaseGenerator {
       chess.move({ from, to, promotion });
       return chess.fen();
     } catch (error) {
-      console.warn('Failed to apply move:', uciMove, error);
       return fen;
     }
   }
@@ -256,7 +249,6 @@ export class DatabaseGenerator {
           sanMoves.push(move.san);
         }
       } catch (error) {
-        console.warn(`Failed to convert move ${uciMove}:`, error);
         sanMoves.push(`${from}-${to}`);
       }
     }
