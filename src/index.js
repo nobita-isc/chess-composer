@@ -803,7 +803,7 @@ class ChessQuizComposer {
   /**
    * Handle a move made in fullscreen view
    */
-  handleFullscreenMove(puzzle, puzzleState, source, target, ground, feedbackArea) {
+  handleFullscreenMove(puzzle, puzzleState, source, target, ground, feedbackArea, moveHandler) {
     // Check if move matches the expected move in solution line BEFORE making it
     const expectedMoveIndex = puzzleState.currentMoveIndex;
     const solutionLine = puzzle.solutionLine;
@@ -853,7 +853,7 @@ class ChessQuizComposer {
       // Auto-play opponent's response after a delay
       if (puzzleState.currentMoveIndex < solutionLine.length) {
         setTimeout(() => {
-          this.playFullscreenOpponentMove(puzzle, puzzleState, ground, feedbackArea);
+          this.playFullscreenOpponentMove(puzzle, puzzleState, ground, feedbackArea, moveHandler);
         }, 800);
       }
     } else {
@@ -867,7 +867,7 @@ class ChessQuizComposer {
   /**
    * Play opponent's move in fullscreen
    */
-  playFullscreenOpponentMove(puzzle, puzzleState, ground, feedbackArea) {
+  playFullscreenOpponentMove(puzzle, puzzleState, ground, feedbackArea, moveHandler) {
     const solutionLine = puzzle.solutionLine;
     if (puzzleState.currentMoveIndex >= solutionLine.length) return;
 
@@ -891,9 +891,13 @@ class ChessQuizComposer {
             check: puzzleState.chess.inCheck(),
             turnColor: newColor,
             movable: {
+              free: false,
               color: newColor,
               dests: newDests,
-              showDests: true
+              showDests: true,
+              events: {
+                after: moveHandler
+              }
             }
           });
         });
@@ -1097,7 +1101,6 @@ class ChessQuizComposer {
       boardInstance.state.opponentMoveShown = true;
 
       // Update Chessground board to position after opponent's move
-      // Use requestAnimationFrame for proper synchronization
       const newColor = boardInstance.state.chess.turn() === 'w' ? 'white' : 'black';
       const newDests = this.getDestinationMap(boardInstance.state.chess);
 
@@ -1108,6 +1111,7 @@ class ChessQuizComposer {
           check: boardInstance.state.chess.inCheck(),
           turnColor: newColor,
           movable: {
+            free: false,
             color: newColor,
             dests: newDests,
             showDests: true,
@@ -1275,7 +1279,7 @@ class ChessQuizComposer {
 
     // Define fullscreen move handler
     const fullscreenMoveHandler = (orig, dest) => {
-      this.handleFullscreenMove(puzzle, fullscreenPuzzleState, orig, dest, boardInstance, feedbackArea);
+      this.handleFullscreenMove(puzzle, fullscreenPuzzleState, orig, dest, boardInstance, feedbackArea, fullscreenMoveHandler);
     };
 
     // Initialize board in fullscreen
@@ -1369,13 +1373,17 @@ class ChessQuizComposer {
           fullscreenPuzzleState.currentMoveIndex = 1; // Move to next position
           fullscreenPuzzleState.opponentMoveShown = true;
 
-          // Update board with highlight
+          // Update board with highlight - MUST include events to preserve move handler
           boardInstance.set({
             fen: puzzle.fenAfterOpponent,
             lastMove: move ? [move.from, move.to] : undefined,
             movable: {
+              free: false,
               color: fullscreenPuzzleState.chess.turn() === 'w' ? 'white' : 'black',
-              dests: this.getDestinationMap(fullscreenPuzzleState.chess)
+              dests: this.getDestinationMap(fullscreenPuzzleState.chess),
+              events: {
+                after: fullscreenMoveHandler
+              }
             }
           });
           currentPosition = puzzle.fenAfterOpponent;
