@@ -638,11 +638,12 @@ class ChessQuizComposer {
             }
           });
 
-          // Store board instance with puzzle ID and state
+          // Store board instance with puzzle ID, state, and move handler for event preservation
           this.boardInstances.push({
             puzzleId: puzzle.id,
             board: ground,
-            state: puzzleState
+            state: puzzleState,
+            moveHandler: moveHandler
           });
         } catch (error) {
           console.error('Error creating board:', error);
@@ -751,6 +752,9 @@ class ChessQuizComposer {
 
     const opponentMoveSAN = solutionLine[puzzleState.currentMoveIndex];
 
+    // Get move handler from board instance to preserve events
+    const boardInstance = this.boardInstances.find(b => b.puzzleId === puzzleId);
+
     try {
       const move = puzzleState.chess.move(opponentMoveSAN);
       if (move) {
@@ -771,7 +775,10 @@ class ChessQuizComposer {
             movable: {
               color: newColor,
               dests: newDests,
-              showDests: true
+              showDests: true,
+              events: {
+                after: boardInstance?.moveHandler
+              }
             }
           });
         });
@@ -942,6 +949,9 @@ class ChessQuizComposer {
     if (content) {
       content.style.border = '3px solid #28a745';
     }
+
+    // Sync completion state to card
+    this.markPuzzleComplete(puzzleId);
   }
 
   /**
@@ -976,6 +986,9 @@ class ChessQuizComposer {
     const card = document.querySelector(`[data-puzzle-id="${puzzleId}"]`)?.closest('.puzzle-card');
     if (!card) return;
 
+    // Prevent duplicate completion styling
+    if (card.classList.contains('puzzle-complete')) return;
+
     // Add completion styling
     card.classList.add('puzzle-complete');
 
@@ -994,6 +1007,76 @@ class ChessQuizComposer {
         solutionMove.style.filter = 'none';
       }
     }
+  }
+
+  /**
+   * Sync fullscreen puzzle state to corresponding card
+   * Creates new state object (immutable) while preserving board reference
+   */
+  syncFullscreenToCard(puzzleId, fullscreenState) {
+    const boardInstance = this.boardInstances.find(b => b.puzzleId === puzzleId);
+    if (!boardInstance) return;
+
+    // Create new state object (immutability)
+    const updatedState = {
+      ...boardInstance.state,
+      currentMoveIndex: fullscreenState.currentMoveIndex,
+      isComplete: fullscreenState.isComplete,
+      opponentMoveShown: fullscreenState.opponentMoveShown
+    };
+
+    // Update boardInstance with new state reference
+    const instanceIndex = this.boardInstances.findIndex(b => b.puzzleId === puzzleId);
+    if (instanceIndex !== -1) {
+      this.boardInstances[instanceIndex] = {
+        ...this.boardInstances[instanceIndex],
+        state: updatedState
+      };
+    }
+
+    // Sync chess.js position
+    boardInstance.state.chess.load(fullscreenState.chess.fen());
+
+    // Update board visual state
+    this.updateCardBoardPosition(puzzleId, fullscreenState.chess.fen(), fullscreenState.isComplete);
+
+    // Update opponent move button if it was shown in fullscreen
+    if (fullscreenState.opponentMoveShown) {
+      const card = document.querySelector(`[data-puzzle-id="${puzzleId}"]`)?.closest('.puzzle-card');
+      const btn = card?.querySelector('.animate-opponent-btn');
+      if (btn && !btn.disabled) {
+        const puzzle = this.puzzles.find(p => p.id === puzzleId);
+        if (puzzle) {
+          btn.disabled = true;
+          btn.textContent = `✓ Opponent played: ${puzzle.opponentMove}`;
+          btn.style.background = '#6c757d';
+        }
+      }
+    }
+  }
+
+  /**
+   * Update card board to match fullscreen position
+   */
+  updateCardBoardPosition(puzzleId, fen, isComplete) {
+    const boardInstance = this.boardInstances.find(b => b.puzzleId === puzzleId);
+    if (!boardInstance) return;
+
+    const newColor = boardInstance.state.chess.turn() === 'w' ? 'white' : 'black';
+
+    // Create new configuration (immutable)
+    const boardConfig = {
+      fen: fen,
+      movable: {
+        color: isComplete ? undefined : newColor,
+        dests: isComplete ? new Map() : this.getDestinationMap(boardInstance.state.chess),
+        events: {
+          after: boardInstance.moveHandler
+        }
+      }
+    };
+
+    boardInstance.board.set(boardConfig);
   }
 
   /**
@@ -1027,7 +1110,10 @@ class ChessQuizComposer {
           movable: {
             color: newColor,
             dests: newDests,
-            showDests: true
+            showDests: true,
+            events: {
+              after: boardInstance.moveHandler
+            }
           }
         });
       });
@@ -1246,12 +1332,28 @@ class ChessQuizComposer {
     // Close button functionality
     const closeBtn = overlay.querySelector('.fullscreen-close');
     closeBtn.addEventListener('click', () => {
+      // Sync state to card if progress was made
+      if (fullscreenPuzzleState.currentMoveIndex > 0 || fullscreenPuzzleState.isComplete) {
+        this.syncFullscreenToCard(puzzle.id, fullscreenPuzzleState);
+      }
+      // Clean up Chessground instance to prevent memory leaks
+      if (boardInstance && typeof boardInstance.destroy === 'function') {
+        boardInstance.destroy();
+      }
       document.body.removeChild(overlay);
     });
 
     // Click overlay to close
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) {
+        // Sync state to card if progress was made
+        if (fullscreenPuzzleState.currentMoveIndex > 0 || fullscreenPuzzleState.isComplete) {
+          this.syncFullscreenToCard(puzzle.id, fullscreenPuzzleState);
+        }
+        // Clean up Chessground instance to prevent memory leaks
+        if (boardInstance && typeof boardInstance.destroy === 'function') {
+          boardInstance.destroy();
+        }
         document.body.removeChild(overlay);
       }
     });
