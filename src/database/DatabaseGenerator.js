@@ -51,11 +51,74 @@ export class DatabaseGenerator {
 
   /**
    * Map theme names to Lichess theme tags
-   * Since we're using Lichess tags directly, just normalize to lowercase
+   * Maps our theme names to one or more Lichess database tags
    */
   toLichessTag(theme) {
-    // Return the theme as-is (already in Lichess format)
-    return theme.toLowerCase();
+    const themeMap = {
+      // Checkmate patterns
+      'backRankMate': ['backrankmate', 'mate', 'matein1', 'matein2'],
+      'smotheredMate': ['smotheredmate', 'mate'],
+      'arabanMate': ['arabianmate', 'mate'],
+      'anastasiasMate': ['anastasiamate', 'mate'],
+      'doubleBishopMate': ['doublebishopmate', 'mate'],
+      'boden': ['bodenmate', 'mate'],
+
+      // Tactical motifs
+      'fork': ['fork', 'knightfork', 'royalfork'],
+      'pin': ['pin', 'pinning'],
+      'skewer': ['skewer'],
+      'discoveredAttack': ['discoveredattack', 'discoveredcheck'],
+      'deflection': ['deflection', 'decoy'],
+      'attraction': ['attraction'],
+      'trapped': ['trappedpiece'],
+      'sacrifice': ['sacrifice', 'queensacrifice', 'rooksacrifice'],
+      'defensiveMove': ['defensivemove'],
+      'clearance': ['clearance'],
+      'interference': ['interference'],
+      'zugzwang': ['zugzwang'],
+      'perpetualCheck': ['perpetualcheck', 'repetition'],
+      'hangingPiece': ['hangingpiece'],
+      'capturingDefender': ['capturingdefender'],
+      'exposedKing': ['exposedking'],
+      'kingsideAttack': ['kingsideattack'],
+      'queensideAttack': ['queensideattack'],
+      'doubleCheck': ['doublecheck'],
+      'promotion': ['promotion', 'underpromotion'],
+      'enPassant': ['enpassant'],
+      'xRayAttack': ['xrayattack'],
+      'quietMove': ['quietmove'],
+      'intermezzo': ['intermezzo', 'zwischenzug'],
+      'crushingMove': ['master', 'brilliant'],
+
+      // Advanced pawn structures
+      'advancedPawn': ['advancedpawn'],
+      'pawnEndgame': ['pawnendgame', 'endgame'],
+
+      // Piece-specific
+      'knightEndgame': ['knightendgame', 'endgame'],
+      'bishopEndgame': ['bishopendgame', 'endgame'],
+      'rookEndgame': ['rookendgame', 'endgame'],
+      'queenEndgame': ['queenendgame', 'endgame'],
+      'queenRookEndgame': ['queenrookendgame', 'endgame'],
+
+      // Game phases
+      'opening': ['opening', 'short'],
+      'middlegame': ['middlegame'],
+      'endgame': ['endgame'],
+
+      // Special
+      'oneMove': ['onemo ve', 'short'],
+      'long': ['long', 'verylong'],
+      'master': ['master', 'brilliant', 'superiorposition']
+    };
+
+    // If theme is in our map, return the mapped tags
+    if (themeMap[theme]) {
+      return themeMap[theme];
+    }
+
+    // Otherwise, return the theme as-is (for direct Lichess tags)
+    return [theme.toLowerCase()];
   }
 
   /**

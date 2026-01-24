@@ -10,7 +10,8 @@
       "Bash(node scripts/filter-lichess-puzzles.js:*)",
       "Bash(pkill -f \"cp src/database\")",
       "Bash(curl:*)",
-      "Bash(bash:*)"
+      "Bash(bash:*)",
+      "Bash(npm view:*)"
     ]
   }
 }

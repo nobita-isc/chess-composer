@@ -3,6 +3,7 @@
  */
 
 import { Chess } from 'chess.js';
+import { Chessground } from 'chessground';
 import { ChessEngine } from './core/ChessEngine.js';
 import { getRandomPuzzles } from './data/samplePuzzles.js';
 import { DatabaseGenerator } from './database/DatabaseGenerator.js';
@@ -47,16 +48,18 @@ class ChessQuizComposer {
         this.showMessage('Using sample puzzles (database unavailable)', 'info');
       }
 
-      // Try to initialize Stockfish engine (optional)
-      this.showLoading('Initializing chess engine...');
-      try {
-        this.engine = new ChessEngine();
-        await this.engine.initialize();
-        console.log('Chess engine loaded successfully!');
-      } catch (engineError) {
-        console.warn('Chess engine failed to load, continuing without it:', engineError);
-        this.engine = null;
-      }
+      // Try to initialize Stockfish engine (optional) - TEMPORARILY DISABLED
+      // this.showLoading('Initializing chess engine...');
+      // try {
+      //   this.engine = new ChessEngine();
+      //   await this.engine.initialize();
+      //   console.log('Chess engine loaded successfully!');
+      // } catch (engineError) {
+      //   console.warn('Chess engine failed to load, continuing without it:', engineError);
+      //   this.engine = null;
+      // }
+      this.engine = null;  // Engine disabled
+      console.log('Chess engine disabled (temporary)');
 
       // Hide loading
       this.hideLoading();
@@ -101,12 +104,32 @@ class ChessQuizComposer {
     const stats = this.databaseGenerator.getStats();
     const themeCounts = new Map(stats.themes.map(t => [t.theme, t.count]));
 
-    // Sort themes by puzzle count (most popular first)
-    const sortedThemes = availableThemes.sort((a, b) => {
-      const countA = themeCounts.get(a) || 0;
-      const countB = themeCounts.get(b) || 0;
-      return countB - countA;
-    });
+    // Define theme categories
+    const themeCategories = {
+      'Checkmate Patterns': [
+        'backrankmate', 'smotheredmate', 'arabianmate', 'anastasiasmate',
+        'doublebishopmate', 'dovetailmate', 'hookmate', 'operamate',
+        'pillsburysmate', 'bodenmate', 'matein1', 'matein2', 'matein3'
+      ],
+      'Tactical Motifs': [
+        'fork', 'pin', 'skewer', 'discoveredattack', 'deflection',
+        'attraction', 'sacrifice', 'hangingpiece', 'capturingdefender',
+        'trappedpiece', 'xrayattack', 'intermezzo', 'zwischenzug'
+      ],
+      'Advanced Tactics': [
+        'zugzwang', 'perpetualcheck', 'clearance', 'interference',
+        'doublecheck', 'discoveredcheck', 'quietmove', 'defensivemove',
+        'exposedking', 'kingsideattack', 'queensideattack', 'promotion',
+        'underpromotion', 'enpassant', 'master', 'brilliant'
+      ],
+      'Endgames': [
+        'endgame', 'queenendgame', 'rookendgame', 'bishopendgame',
+        'knightendgame', 'queenrookendgame', 'pawnendgame', 'advancedpawn'
+      ],
+      'Game Phases': [
+        'opening', 'middlegame', 'short', 'long', 'verylong'
+      ]
+    };
 
     // Clear existing options
     themeSelect.innerHTML = '';
@@ -117,16 +140,65 @@ class ChessQuizComposer {
     allOption.textContent = `All Themes (${stats.totalPuzzles.toLocaleString()} puzzles)`;
     themeSelect.appendChild(allOption);
 
-    // Add all themes
-    sortedThemes.forEach(theme => {
-      const option = document.createElement('option');
-      option.value = theme;
-      const count = themeCounts.get(theme) || 0;
-      option.textContent = `${this.formatThemeName(theme)} (${count.toLocaleString()} puzzles)`;
-      themeSelect.appendChild(option);
+    // Create categorized options
+    Object.entries(themeCategories).forEach(([category, themeIds]) => {
+      // Filter themes that exist in the database
+      const availableInCategory = themeIds.filter(id => availableThemes.includes(id));
+
+      if (availableInCategory.length > 0) {
+        // Create optgroup
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = category;
+
+        // Sort themes in this category by puzzle count
+        const sortedCategoryThemes = availableInCategory.sort((a, b) => {
+          const countA = themeCounts.get(a) || 0;
+          const countB = themeCounts.get(b) || 0;
+          return countB - countA;
+        });
+
+        // Add options to the group
+        sortedCategoryThemes.forEach(theme => {
+          const option = document.createElement('option');
+          option.value = theme;
+          const count = themeCounts.get(theme) || 0;
+          option.textContent = `${this.formatThemeName(theme)} (${count.toLocaleString()})`;
+          optgroup.appendChild(option);
+        });
+
+        themeSelect.appendChild(optgroup);
+      }
     });
 
-    console.log(`📋 Loaded ${sortedThemes.length + 1} themes into UI (including All Themes)`);
+    // Add "Other Themes" category for uncategorized themes
+    const categorizedThemes = new Set(
+      Object.values(themeCategories).flat()
+    );
+    const otherThemes = availableThemes.filter(t => !categorizedThemes.has(t));
+
+    if (otherThemes.length > 0) {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = 'Other Themes';
+
+      // Sort by popularity
+      const sortedOtherThemes = otherThemes.sort((a, b) => {
+        const countA = themeCounts.get(a) || 0;
+        const countB = themeCounts.get(b) || 0;
+        return countB - countA;
+      });
+
+      sortedOtherThemes.forEach(theme => {
+        const option = document.createElement('option');
+        option.value = theme;
+        const count = themeCounts.get(theme) || 0;
+        option.textContent = `${this.formatThemeName(theme)} (${count.toLocaleString()})`;
+        optgroup.appendChild(option);
+      });
+
+      themeSelect.appendChild(optgroup);
+    }
+
+    console.log(`📋 Loaded ${availableThemes.length + 1} themes into UI with ${Object.keys(themeCategories).length} categories`);
   }
 
   /**
@@ -135,36 +207,99 @@ class ChessQuizComposer {
   formatThemeName(themeId) {
     // Special cases for known patterns
     const specialCases = {
+      // Mate patterns
       'matein1': 'Mate in 1',
       'matein2': 'Mate in 2',
       'matein3': 'Mate in 3',
       'matein4': 'Mate in 4',
       'matein5': 'Mate in 5',
       'backrankmate': 'Back Rank Mate',
+      'backRankMate': 'Back Rank Mate',
       'smotheredmate': 'Smothered Mate',
+      'smotheredMate': 'Smothered Mate',
       'anastasiasmate': "Anastasia's Mate",
+      'anastasiasMate': "Anastasia's Mate",
       'arabianmate': 'Arabian Mate',
+      'arabanMate': 'Arabian Mate',
       'doubleBishopMate': 'Double Bishop Mate',
+      'doublebishopmate': 'Double Bishop Mate',
       'dovetailmate': 'Dovetail Mate',
       'hookmate': 'Hook Mate',
       'operamate': 'Opera Mate',
       'pillsburysmate': "Pillsbury's Mate",
+      'bodenmate': "Boden's Mate",
+      'boden': "Boden's Mate",
+
+      // Tactical motifs
+      'fork': 'Fork',
+      'knightfork': 'Knight Fork',
+      'royalfork': 'Royal Fork',
+      'pin': 'Pin',
+      'pinning': 'Pin',
+      'skewer': 'Skewer',
+      'discoveredattack': 'Discovered Attack',
+      'discoveredAttack': 'Discovered Attack',
+      'discoveredcheck': 'Discovered Check',
+      'doublecheck': 'Double Check',
+      'doubleCheck': 'Double Check',
+      'deflection': 'Deflection',
+      'attraction': 'Attraction',
+      'trappedpiece': 'Trapped Piece',
+      'trapped': 'Trapped Piece',
+      'sacrifice': 'Sacrifice',
+      'queensacrifice': 'Queen Sacrifice',
+      'rooksacrifice': 'Rook Sacrifice',
+      'defensivemove': 'Defensive Move',
+      'defensiveMove': 'Defensive Move',
+      'clearance': 'Clearance',
+      'interference': 'Interference',
+      'zugzwang': 'Zugzwang',
+      'perpetualcheck': 'Perpetual Check',
+      'perpetualCheck': 'Perpetual Check',
+      'hangingpiece': 'Hanging Piece',
+      'hangingPiece': 'Hanging Piece',
+      'capturingdefender': 'Capturing Defender',
+      'capturingDefender': 'Capturing Defender',
+      'exposedking': 'Exposed King',
+      'exposedKing': 'Exposed King',
+      'kingsideattack': 'Kingside Attack',
+      'kingsideAttack': 'Kingside Attack',
+      'queensideattack': 'Queenside Attack',
+      'queensideAttack': 'Queenside Attack',
+      'promotion': 'Promotion',
+      'underpromotion': 'Underpromotion',
+      'enpassant': 'En Passant',
+      'enPassant': 'En Passant',
+      'xrayattack': 'X-Ray Attack',
+      'xRayAttack': 'X-Ray Attack',
+      'quietmove': 'Quiet Move',
+      'quietMove': 'Quiet Move',
+      'intermezzo': 'Intermezzo',
+      'zwischenzug': 'Zwischenzug',
+
+      // Endgames
       'queenendgame': 'Queen Endgame',
       'rookendgame': 'Rook Endgame',
       'bishopendgame': 'Bishop Endgame',
       'knightendgame': 'Knight Endgame',
       'queenrookendgame': 'Queen & Rook Endgame',
-      'hangingpiece': 'Hanging Piece',
-      'pin': 'Pin',
-      'fork': 'Fork',
-      'skewer': 'Skewer',
-      'discoveredattack': 'Discovered Attack',
-      'defensivemove': 'Defensive Move',
-      'quietmove': 'Quiet Move',
-      'sacrifice': 'Sacrifice',
+      'pawnendgame': 'Pawn Endgame',
+      'advancedpawn': 'Advanced Pawn',
+      'advancedPawn': 'Advanced Pawn',
+
+      // Game phases
       'middlegame': 'Middlegame',
       'endgame': 'Endgame',
-      'opening': 'Opening'
+      'opening': 'Opening',
+      'short': 'Short Puzzle',
+      'long': 'Long Puzzle',
+      'verylong': 'Very Long Puzzle',
+
+      // Special
+      'master': 'Master-level',
+      'brilliant': 'Brilliant Move',
+      'crushing': 'Crushing Move',
+      'crushingMove': 'Crushing Move'
     };
 
     const lower = themeId.toLowerCase();
@@ -343,22 +478,40 @@ class ChessQuizComposer {
     const solutionMoves = puzzle.solutionLine.slice(1).filter((_, i) => i % 2 === 0);  // Only your moves
     const fullSolutionText = solutionMoves.length > 0 ? solutionMoves.join(' → ') : (puzzle.solution || 'N/A');
 
+    // Determine difficulty based on rating
+    let difficultyStars = '⭐';
+    let difficultyLabel = 'Beginner';
+    const rating = puzzle.rating || 1200;
+
+    if (rating >= 2500) {
+      difficultyStars = '⭐⭐⭐⭐';
+      difficultyLabel = 'Expert';
+    } else if (rating >= 2000) {
+      difficultyStars = '⭐⭐⭐';
+      difficultyLabel = 'Advanced';
+    } else if (rating >= 1500) {
+      difficultyStars = '⭐⭐';
+      difficultyLabel = 'Intermediate';
+    }
+
     card.innerHTML = `
       <div class="puzzle-header">
         <span class="puzzle-number">Puzzle #${number}</span>
         <span class="puzzle-theme">${puzzle.themeName}</span>
+        ${puzzle.rating ? `<span class="puzzle-difficulty" title="Rating: ${rating}">${difficultyStars} ${difficultyLabel}</span>` : ''}
         <button class="fullscreen-btn" data-puzzle-id="${puzzle.id}" title="View full screen">⛶</button>
       </div>
 
       <div class="board-container">
-        <div id="board-${puzzle.id}" style="width: 300px"></div>
-        ${puzzle.opponentMove ?
-          `<div class="opponent-move-indicator">
-            <button class="animate-opponent-btn" data-puzzle-id="${puzzle.id}">
-              ▶️ Play Opponent's Move: <code>${puzzle.opponentMove}</code>
-            </button>
-          </div>` : ''}
+        <div id="board-${puzzle.id}" style="width: 300px; height: 300px;"></div>
       </div>
+
+      ${puzzle.opponentMove ?
+        `<div class="opponent-move-indicator">
+          <button class="animate-opponent-btn" data-puzzle-id="${puzzle.id}">
+            ▶️ Play Opponent's Move: <code>${puzzle.opponentMove}</code>
+          </button>
+        </div>` : ''}
 
       <div class="puzzle-meta">
         <div class="puzzle-meta-item">
@@ -375,6 +528,11 @@ class ChessQuizComposer {
           `<div class="puzzle-meta-item">
             <strong>Rating:</strong> ${puzzle.rating}
           </div>` : ''}
+        <div class="puzzle-instructions">
+          <strong>💡 Instructions:</strong> ${puzzle.opponentMove ?
+            'Click "Play Opponent\'s Move" first, then drag your pieces to solve!' :
+            'Drag your pieces to find the winning move!'}
+        </div>
       </div>
 
       <div class="puzzle-solution">
@@ -389,7 +547,10 @@ class ChessQuizComposer {
       <div class="puzzle-fen">
         <span class="fen-label">FEN:</span>
         <div style="font-size: 0.8em; word-break: break-all;">${puzzle.fen}</div>
-        <button class="copy-fen" data-fen="${puzzle.fen}">Copy FEN</button>
+        <div class="fen-buttons">
+          <button class="copy-fen" data-fen="${puzzle.fen}">Copy FEN</button>
+          <button class="lichess-analyze" data-fen="${puzzle.fen}">📊 Analyze on Lichess</button>
+        </div>
       </div>
     `;
 
@@ -401,6 +562,13 @@ class ChessQuizComposer {
       setTimeout(() => {
         copyBtn.textContent = 'Copy FEN';
       }, 2000);
+    });
+
+    // Add Lichess analysis functionality
+    const lichessBtn = card.querySelector('.lichess-analyze');
+    lichessBtn.addEventListener('click', () => {
+      const fenEncoded = encodeURIComponent(puzzle.fen);
+      window.open(`https://lichess.org/analysis/${fenEncoded}`, '_blank');
     });
 
     // Add animate opponent move functionality
@@ -433,24 +601,567 @@ class ChessQuizComposer {
 
     this.puzzles.forEach((puzzle) => {
       const boardElement = document.getElementById(`board-${puzzle.id}`);
-      if (boardElement && typeof Chessboard === 'function') {
+      if (boardElement) {
         try {
-          const board = Chessboard(`board-${puzzle.id}`, {
-            position: puzzle.fen,
-            draggable: false,
-            pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
+          // Initialize chess.js instance for this puzzle
+          const chess = new Chess(puzzle.fen);
+
+          // Track puzzle solving state
+          const puzzleState = {
+            currentMoveIndex: 0,  // Index in solution line
+            chess: chess,
+            isComplete: false,
+            opponentMoveShown: false
+          };
+
+          // Define move handler ONCE and reuse it (important for event persistence)
+          const moveHandler = (orig, dest) => {
+            console.log('🔥 Event handler FIRED!', { puzzleId: puzzle.id, orig, dest });
+            this.handleMove(puzzle.id, puzzleState, orig, dest, ground);
+          };
+
+          // Create Chessground instance
+          const ground = Chessground(boardElement, {
+            fen: puzzle.fen,
+            orientation: chess.turn() === 'w' ? 'white' : 'black',
+            coordinates: true,  // Enable board coordinates (A-H, 1-8)
+            movable: {
+              free: false,
+              color: chess.turn() === 'w' ? 'white' : 'black',
+              dests: this.getDestinationMap(chess),
+              events: {
+                after: moveHandler
+              }
+            },
+            draggable: {
+              enabled: true,
+              showGhost: true,
+              distance: 0
+            },
+            animation: {
+              enabled: true,
+              duration: 200
+            },
+            highlight: {
+              lastMove: true,
+              check: true
+            },
+            selectable: {
+              enabled: true  // Built-in click-to-move!
+            }
           });
 
-          // Store board instance with puzzle ID
+          console.log('✅ Board initialized:', {
+            puzzleId: puzzle.id,
+            fen: puzzle.fen,
+            turn: chess.turn(),
+            orientation: chess.turn() === 'w' ? 'white' : 'black',
+            movableColor: chess.turn() === 'w' ? 'white' : 'black',
+            solutionLine: puzzle.solutionLine
+          });
+
+          // Store board instance with puzzle ID and state
           this.boardInstances.push({
             puzzleId: puzzle.id,
-            board: board
+            board: ground,
+            state: puzzleState
           });
         } catch (error) {
           console.error('Error creating board:', error);
         }
       }
     });
+  }
+
+  /**
+   * Generate legal move destinations map for Chessground
+   * Required by Chessground instead of onDragStart validation
+   */
+  getDestinationMap(chess) {
+    const dests = new Map();
+    const moves = chess.moves({ verbose: true });
+
+    console.log('🎯 getDestinationMap called:', {
+      fen: chess.fen(),
+      turn: chess.turn(),
+      totalLegalMoves: moves.length,
+      isCheck: chess.inCheck(),
+      isCheckmate: chess.isCheckmate(),
+      isGameOver: chess.isGameOver(),
+      legalMoves: moves.map(m => `${m.from}${m.to} (${m.san})`).join(', ')
+    });
+
+    moves.forEach(move => {
+      if (!dests.has(move.from)) {
+        dests.set(move.from, []);
+      }
+      dests.get(move.from).push(move.to);
+    });
+
+    console.log('🎯 Destination map created:', {
+      squares: Array.from(dests.keys()).join(', '),
+      details: Array.from(dests.entries()).map(([from, tos]) => `${from}→[${tos.join(',')}]`).join(', ')
+    });
+
+    return dests;
+  }
+
+  /**
+   * Add click-to-move functionality to a board
+   */
+  /**
+   * Handle a move made by the user
+   */
+  handleMove(puzzleId, puzzleState, source, target, ground) {
+    console.log('🎮 handleMove called:', {
+      puzzleId,
+      move: `${source}→${target}`,
+      currentMoveIndex: puzzleState.currentMoveIndex,
+      fenBefore: puzzleState.chess.fen(),
+      turn: puzzleState.chess.turn()
+    });
+
+    const puzzle = this.puzzles.find(p => p.id === puzzleId);
+    if (!puzzle) return;
+
+    // Check if move matches the expected move in solution line BEFORE making it
+    const expectedMoveIndex = puzzleState.currentMoveIndex;
+    const solutionLine = puzzle.solutionLine;
+    const expectedMove = solutionLine[expectedMoveIndex];
+
+    console.log('🔍 PRE-MOVE validation:', {
+      from: source,
+      to: target,
+      expectedMoveIndex: expectedMoveIndex,
+      expectedMove: expectedMove,
+      solutionLineLength: solutionLine.length,
+      currentFEN: puzzleState.chess.fen()
+    });
+
+    // Try to make the move
+    let move = null;
+    try {
+      move = puzzleState.chess.move({
+        from: source,
+        to: target,
+        promotion: 'q' // Always promote to queen for simplicity
+      });
+    } catch (error) {
+      // Illegal move - Chessground handles snapback automatically
+      console.error('❌ Illegal move error:', error);
+      this.showFeedback(puzzleId, 'illegal', 'Illegal move!');
+      return;
+    }
+
+    // Debug logging
+    console.log('✅ Move validation:', {
+      playerMove: move.san,
+      expectedMove: expectedMove,
+      moveIndex: expectedMoveIndex,
+      solutionLine: solutionLine,
+      matches: move.san === expectedMove
+    });
+
+    // Simple SAN comparison (chess.js handles the conversion)
+    if (move.san === expectedMove) {
+      // Correct move!
+      puzzleState.currentMoveIndex++;
+
+      // Update board with new position and legal moves
+      const newColor = puzzleState.chess.turn() === 'w' ? 'white' : 'black';
+      ground.set({
+        fen: puzzleState.chess.fen(),
+        movable: {
+          color: newColor,
+          dests: this.getDestinationMap(puzzleState.chess)
+        }
+      });
+
+      console.log('✅ Board updated after correct move:', {
+        puzzleId,
+        newFen: puzzleState.chess.fen(),
+        newTurn: puzzleState.chess.turn(),
+        movableColor: newColor,
+        currentMoveIndex: puzzleState.currentMoveIndex
+      });
+
+      // Check if puzzle is complete
+      if (puzzleState.currentMoveIndex >= solutionLine.length) {
+        puzzleState.isComplete = true;
+        ground.set({ movable: { color: undefined } });  // Disable moves
+        this.showFeedback(puzzleId, 'complete', '🎉 Puzzle solved! Excellent!');
+        this.markPuzzleComplete(puzzleId);
+        return;
+      }
+
+      // Show success feedback
+      this.showFeedback(puzzleId, 'correct', `✓ Correct! ${move.san}`);
+
+      // Auto-play opponent's response after a delay
+      if (puzzleState.currentMoveIndex < solutionLine.length) {
+        setTimeout(() => {
+          this.playOpponentMove(puzzleId, puzzleState, ground);
+        }, 800);
+      }
+    } else {
+      // Incorrect move - undo and reset board
+      puzzleState.chess.undo();
+      ground.set({ fen: puzzleState.chess.fen() });
+      this.showFeedback(puzzleId, 'incorrect', `✗ Wrong move! Expected: ${expectedMove}`);
+    }
+  }
+
+  /**
+   * Play the opponent's move automatically
+   */
+  playOpponentMove(puzzleId, puzzleState, ground) {
+    const puzzle = this.puzzles.find(p => p.id === puzzleId);
+    if (!puzzle) return;
+
+    const solutionLine = puzzle.solutionLine;
+    if (puzzleState.currentMoveIndex >= solutionLine.length) return;
+
+    const opponentMoveSAN = solutionLine[puzzleState.currentMoveIndex];
+
+    console.log('Playing opponent move:', {
+      opponentMove: opponentMoveSAN,
+      moveIndex: puzzleState.currentMoveIndex,
+      solutionLine: solutionLine
+    });
+
+    try {
+      const move = puzzleState.chess.move(opponentMoveSAN);
+      if (move) {
+        // Animate opponent's move with highlight
+        const newColor = puzzleState.chess.turn() === 'w' ? 'white' : 'black';
+        const newDests = this.getDestinationMap(puzzleState.chess);
+
+        console.log('🔧 About to update board after opponent move:', {
+          puzzleId,
+          opponentMove: move.san,
+          newFen: puzzleState.chess.fen(),
+          newTurn: puzzleState.chess.turn(),
+          movableColor: newColor,
+          destMapSize: newDests.size,
+          destMapKeys: Array.from(newDests.keys()).join(', '),
+          destMapDetails: Array.from(newDests.entries()).map(([from, tos]) => `${from}→[${tos.join(',')}]`).join(', '),
+          currentMoveIndex: puzzleState.currentMoveIndex,
+          solutionLength: puzzle.solutionLine.length
+        });
+
+        // Update move index first
+        puzzleState.currentMoveIndex++;
+
+        // Use requestAnimationFrame to ensure update happens after current animation frame
+        // This ensures Chessground's internal state is ready for the update
+        requestAnimationFrame(() => {
+          console.log('🔄 Updating board after opponent move');
+          ground.set({
+            fen: puzzleState.chess.fen(),
+            lastMove: [move.from, move.to],
+            check: puzzleState.chess.inCheck(),
+            turnColor: newColor,
+            movable: {
+              color: newColor,
+              dests: newDests,
+              showDests: true
+            }
+          });
+
+          console.log('✅ Board updated and ready for player move');
+        });
+
+        console.log('✅ Board updated after opponent move:', {
+          newMoveIndex: puzzleState.currentMoveIndex,
+          solutionLength: puzzle.solutionLine.length,
+          nextExpectedMove: puzzle.solutionLine[puzzleState.currentMoveIndex],
+          puzzleWillBeComplete: puzzleState.currentMoveIndex >= puzzle.solutionLine.length
+        });
+
+        // Show opponent's move
+        this.showFeedback(puzzleId, 'opponent', `Opponent played: ${move.san}`);
+
+        // Check if puzzle is complete
+        if (puzzleState.currentMoveIndex >= solutionLine.length) {
+          puzzleState.isComplete = true;
+          setTimeout(() => {
+            this.showFeedback(puzzleId, 'complete', '🎉 Puzzle solved! Excellent!');
+            this.markPuzzleComplete(puzzleId);
+          }, 1000);
+        }
+      }
+    } catch (error) {
+      console.error('Error playing opponent move:', error);
+    }
+  }
+
+  /**
+   * Handle a move made in fullscreen view
+   */
+  handleFullscreenMove(puzzle, puzzleState, source, target, ground, feedbackArea) {
+    console.log('🎮 [Fullscreen] handleFullscreenMove called:', {
+      puzzleId: puzzle.id,
+      move: `${source}→${target}`,
+      currentMoveIndex: puzzleState.currentMoveIndex,
+      fenBefore: puzzleState.chess.fen(),
+      turn: puzzleState.chess.turn()
+    });
+
+    // Check if move matches the expected move in solution line BEFORE making it
+    const expectedMoveIndex = puzzleState.currentMoveIndex;
+    const solutionLine = puzzle.solutionLine;
+    const expectedMove = solutionLine[expectedMoveIndex];
+
+    console.log('🔍 [Fullscreen] PRE-MOVE validation:', {
+      from: source,
+      to: target,
+      expectedMoveIndex: expectedMoveIndex,
+      expectedMove: expectedMove,
+      solutionLineLength: solutionLine.length,
+      currentFEN: puzzleState.chess.fen()
+    });
+
+    // Try to make the move
+    let move = null;
+    try {
+      move = puzzleState.chess.move({
+        from: source,
+        to: target,
+        promotion: 'q'
+      });
+    } catch (error) {
+      // Illegal move - Chessground handles snapback automatically
+      console.error('❌ [Fullscreen] Illegal move error:', error);
+      this.showFullscreenFeedback(feedbackArea, 'illegal', 'Illegal move!');
+      return;
+    }
+
+    // Debug logging
+    console.log('✅ [Fullscreen] Move validation:', {
+      playerMove: move.san,
+      expectedMove: expectedMove,
+      moveIndex: expectedMoveIndex,
+      solutionLine: solutionLine,
+      matches: move.san === expectedMove
+    });
+
+    // Simple SAN comparison
+    if (move.san === expectedMove) {
+      // Correct move!
+      puzzleState.currentMoveIndex++;
+
+      // Update board with new position and legal moves
+      const newColor = puzzleState.chess.turn() === 'w' ? 'white' : 'black';
+      ground.set({
+        fen: puzzleState.chess.fen(),
+        movable: {
+          color: newColor,
+          dests: this.getDestinationMap(puzzleState.chess)
+        }
+      });
+
+      console.log('✅ [Fullscreen] Board updated after correct move:', {
+        puzzleId: puzzle.id,
+        newFen: puzzleState.chess.fen(),
+        newTurn: puzzleState.chess.turn(),
+        movableColor: newColor,
+        currentMoveIndex: puzzleState.currentMoveIndex
+      });
+
+      // Check if puzzle is complete
+      if (puzzleState.currentMoveIndex >= solutionLine.length) {
+        puzzleState.isComplete = true;
+        ground.set({ movable: { color: undefined } });  // Disable moves
+        this.showFullscreenFeedback(feedbackArea, 'complete', '🎉 Puzzle solved! Excellent!');
+        this.markFullscreenPuzzleComplete(puzzle.id);
+        return;
+      }
+
+      // Show success feedback
+      this.showFullscreenFeedback(feedbackArea, 'correct', `✓ Correct! ${move.san}`);
+
+      // Auto-play opponent's response after a delay
+      if (puzzleState.currentMoveIndex < solutionLine.length) {
+        setTimeout(() => {
+          this.playFullscreenOpponentMove(puzzle, puzzleState, ground, feedbackArea);
+        }, 800);
+      }
+    } else {
+      // Incorrect move - undo and reset board
+      puzzleState.chess.undo();
+      ground.set({ fen: puzzleState.chess.fen() });
+      this.showFullscreenFeedback(feedbackArea, 'incorrect', `✗ Wrong move! Expected: ${expectedMove}`);
+    }
+  }
+
+  /**
+   * Play opponent's move in fullscreen
+   */
+  playFullscreenOpponentMove(puzzle, puzzleState, ground, feedbackArea) {
+    const solutionLine = puzzle.solutionLine;
+    if (puzzleState.currentMoveIndex >= solutionLine.length) return;
+
+    const opponentMoveSAN = solutionLine[puzzleState.currentMoveIndex];
+
+    console.log('🤖 [Fullscreen] Playing opponent move:', {
+      puzzleId: puzzle.id,
+      opponentMove: opponentMoveSAN,
+      moveIndex: puzzleState.currentMoveIndex,
+      solutionLine: solutionLine
+    });
+
+    try {
+      const move = puzzleState.chess.move(opponentMoveSAN);
+      if (move) {
+        // Animate opponent's move with highlight
+        const newColor = puzzleState.chess.turn() === 'w' ? 'white' : 'black';
+        const newDests = this.getDestinationMap(puzzleState.chess);
+
+        console.log('🔧 [Fullscreen] About to update board after opponent move:', {
+          puzzleId: puzzle.id,
+          opponentMove: move.san,
+          newFen: puzzleState.chess.fen(),
+          newTurn: puzzleState.chess.turn(),
+          movableColor: newColor,
+          destMapSize: newDests.size,
+          destMapKeys: Array.from(newDests.keys()).join(', '),
+          destMapDetails: Array.from(newDests.entries()).map(([from, tos]) => `${from}→[${tos.join(',')}]`).join(', '),
+          currentMoveIndex: puzzleState.currentMoveIndex,
+          solutionLength: solutionLine.length
+        });
+
+        // Update move index first
+        puzzleState.currentMoveIndex++;
+
+        // Use requestAnimationFrame to ensure update happens after current animation frame
+        // This ensures Chessground's internal state is ready for the update
+        requestAnimationFrame(() => {
+          console.log('🔄 Updating board after opponent move');
+          ground.set({
+            fen: puzzleState.chess.fen(),
+            lastMove: [move.from, move.to],
+            check: puzzleState.chess.inCheck(),
+            turnColor: newColor,
+            movable: {
+              color: newColor,
+              dests: newDests,
+              showDests: true
+            }
+          });
+
+          console.log('✅ Board updated and ready for player move');
+        });
+
+        console.log('✅ [Fullscreen] Board updated after opponent move:', {
+          newMoveIndex: puzzleState.currentMoveIndex,
+          solutionLength: solutionLine.length,
+          nextExpectedMove: solutionLine[puzzleState.currentMoveIndex],
+          puzzleWillBeComplete: puzzleState.currentMoveIndex >= solutionLine.length
+        });
+
+        // Show opponent's move
+        this.showFullscreenFeedback(feedbackArea, 'opponent', `Opponent played: ${move.san}`);
+
+        // Check if puzzle is complete
+        if (puzzleState.currentMoveIndex >= solutionLine.length) {
+          puzzleState.isComplete = true;
+          setTimeout(() => {
+            this.showFullscreenFeedback(feedbackArea, 'complete', '🎉 Puzzle solved! Excellent!');
+            this.markFullscreenPuzzleComplete(puzzle.id);
+          }, 1000);
+        }
+      }
+    } catch (error) {
+      console.error('Error playing opponent move:', error);
+    }
+  }
+
+  /**
+   * Show feedback in fullscreen
+   */
+  showFullscreenFeedback(feedbackArea, type, message) {
+    feedbackArea.className = `move-feedback feedback-${type}`;
+    feedbackArea.textContent = message;
+
+    // Keep feedback visible permanently
+  }
+
+  /**
+   * Mark fullscreen puzzle as complete
+   */
+  markFullscreenPuzzleComplete(puzzleId) {
+    const overlay = document.querySelector('.fullscreen-overlay');
+    if (!overlay) return;
+
+    // Show the solution text
+    const solutionMove = overlay.querySelector('.fullscreen-solution-move');
+    if (solutionMove) {
+      solutionMove.style.filter = 'none';
+    }
+
+    // Hide solution button
+    const solutionBtn = overlay.querySelector('.fullscreen-show-solution-btn');
+    if (solutionBtn) {
+      solutionBtn.style.display = 'none';
+    }
+
+    // Add completion styling to content
+    const content = overlay.querySelector('.fullscreen-content');
+    if (content) {
+      content.style.border = '3px solid #28a745';
+    }
+  }
+
+  /**
+   * Show feedback message for a move
+   */
+  showFeedback(puzzleId, type, message) {
+    const card = document.querySelector(`[data-puzzle-id="${puzzleId}"]`)?.closest('.puzzle-card');
+    if (!card) return;
+
+    // Find or create feedback area
+    let feedbackArea = card.querySelector('.move-feedback');
+    if (!feedbackArea) {
+      feedbackArea = document.createElement('div');
+      feedbackArea.className = 'move-feedback';
+      const boardContainer = card.querySelector('.board-container');
+      if (boardContainer) {
+        boardContainer.appendChild(feedbackArea);
+      }
+    }
+
+    // Set feedback class based on type
+    feedbackArea.className = `move-feedback feedback-${type}`;
+    feedbackArea.textContent = message;
+
+    // Keep feedback visible permanently
+  }
+
+  /**
+   * Mark puzzle as complete
+   */
+  markPuzzleComplete(puzzleId) {
+    const card = document.querySelector(`[data-puzzle-id="${puzzleId}"]`)?.closest('.puzzle-card');
+    if (!card) return;
+
+    // Add completion styling
+    card.classList.add('puzzle-complete');
+
+    // Hide solution button (no longer needed)
+    const solutionBtn = card.querySelector('.show-solution-btn');
+    if (solutionBtn) {
+      solutionBtn.style.display = 'none';
+    }
+
+    // Show the solution text
+    const solutionArea = card.querySelector('.puzzle-solution');
+    if (solutionArea) {
+      solutionArea.style.display = 'block';
+      const solutionMove = solutionArea.querySelector('.solution-move');
+      if (solutionMove) {
+        solutionMove.style.filter = 'none';
+      }
+    }
   }
 
   /**
@@ -464,8 +1175,32 @@ class ChessQuizComposer {
     if (!boardInstance) return;
 
     try {
-      // Update board to position after opponent's move
-      boardInstance.board.position(puzzle.fenAfterOpponent);
+      // Update chess.js state with opponent's move
+      const opponentMoveSAN = puzzle.solutionLine[0]; // First move is opponent's
+      const move = boardInstance.state.chess.move(opponentMoveSAN);
+      boardInstance.state.currentMoveIndex = 1; // Move to next position in solution
+      boardInstance.state.opponentMoveShown = true;
+
+      // Update Chessground board to position after opponent's move
+      // Use requestAnimationFrame for proper synchronization
+      const newColor = boardInstance.state.chess.turn() === 'w' ? 'white' : 'black';
+      const newDests = this.getDestinationMap(boardInstance.state.chess);
+
+      requestAnimationFrame(() => {
+        console.log('🔄 [Button] Updating board after opponent move');
+        boardInstance.board.set({
+          fen: boardInstance.state.chess.fen(),
+          lastMove: move ? [move.from, move.to] : undefined,
+          check: boardInstance.state.chess.inCheck(),
+          turnColor: newColor,
+          movable: {
+            color: newColor,
+            dests: newDests,
+            showDests: true
+          }
+        });
+        console.log('✅ [Button] Board updated and ready for player move');
+      });
 
       // Update button to show it's been played
       const btn = document.querySelector(`[data-puzzle-id="${puzzleId}"].animate-opponent-btn`);
@@ -476,13 +1211,22 @@ class ChessQuizComposer {
       }
 
       // Show the solution area
-      const card = btn.closest('.puzzle-card');
+      const card = btn?.closest('.puzzle-card');
       if (card) {
         const solutionArea = card.querySelector('.puzzle-solution');
         if (solutionArea) {
           solutionArea.style.display = 'block';
         }
+
+        // Update instructions
+        const instructions = card.querySelector('.puzzle-instructions');
+        if (instructions) {
+          instructions.innerHTML = '<strong>💡 Instructions:</strong> Now drag your pieces to find the winning move!';
+        }
       }
+
+      // Show feedback
+      this.showFeedback(puzzleId, 'opponent', `Opponent played: ${puzzle.opponentMove}`);
     } catch (error) {
       console.error('Error animating opponent move:', error);
     }
@@ -548,7 +1292,7 @@ class ChessQuizComposer {
         </div>
 
         <div class="fullscreen-board-container">
-          <div id="fullscreen-board-${puzzle.id}" style="width: 600px"></div>
+          <div id="fullscreen-board-${puzzle.id}" style="width: 600px; height: 600px;"></div>
         </div>
 
         ${puzzle.opponentMove ? `
@@ -591,7 +1335,10 @@ class ChessQuizComposer {
             <strong>FEN:</strong>
             <div style="font-size: 0.9em; word-break: break-all; margin-top: 5px;">${puzzle.fen}</div>
           </div>
-          <button class="fullscreen-copy-fen" data-fen="${puzzle.fen}">Copy FEN</button>
+          <div class="fen-buttons">
+            <button class="fullscreen-copy-fen" data-fen="${puzzle.fen}">Copy FEN</button>
+            <button class="fullscreen-lichess-analyze" data-fen="${puzzle.fen}">📊 Analyze on Lichess</button>
+          </div>
         </div>
       </div>
     `;
@@ -603,22 +1350,73 @@ class ChessQuizComposer {
     let boardOrientation = 'white';
     let currentPosition = puzzle.fen;
 
+    // Initialize chess.js instance for fullscreen puzzle solving
+    const chess = new Chess(puzzle.fen);
+    const fullscreenPuzzleState = {
+      currentMoveIndex: 0,
+      chess: chess,
+      isComplete: false,
+      opponentMoveShown: false,
+      selectedSquare: null  // For click-to-move
+    };
+
+    // Create feedback area for fullscreen
+    const feedbackArea = document.createElement('div');
+    feedbackArea.className = 'move-feedback';
+    feedbackArea.id = `fullscreen-feedback-${puzzle.id}`;
+
+    // Define fullscreen move handler ONCE and reuse it (important for event persistence)
+    const fullscreenMoveHandler = (orig, dest) => {
+      console.log('🔥 [Fullscreen] Event handler FIRED!', { puzzleId: puzzle.id, orig, dest });
+      this.handleFullscreenMove(puzzle, fullscreenPuzzleState, orig, dest, boardInstance, feedbackArea);
+    };
+
     // Initialize board in fullscreen
     setTimeout(() => {
-      if (typeof Chessboard === 'function') {
-        boardInstance = Chessboard(`fullscreen-board-${puzzle.id}`, {
-          position: puzzle.fen,
-          draggable: false,
+      const boardElement = document.getElementById(`fullscreen-board-${puzzle.id}`);
+      if (boardElement) {
+        // Create Chessground instance
+        boardInstance = Chessground(boardElement, {
+          fen: puzzle.fen,
           orientation: boardOrientation,
-          pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
+          coordinates: true,  // Enable board coordinates (A-H, 1-8)
+          movable: {
+            free: false,
+            color: fullscreenPuzzleState.chess.turn() === 'w' ? 'white' : 'black',
+            dests: this.getDestinationMap(fullscreenPuzzleState.chess),
+            events: {
+              after: fullscreenMoveHandler
+            }
+          },
+          draggable: {
+            enabled: true,
+            showGhost: true
+          },
+          animation: {
+            enabled: true,
+            duration: 200
+          },
+          highlight: {
+            lastMove: true,
+            check: true
+          },
+          selectable: {
+            enabled: true  // Built-in click-to-move!
+          }
         });
+
+        // Insert feedback area after board
+        const boardContainer = overlay.querySelector('.fullscreen-board-container');
+        if (boardContainer) {
+          boardContainer.appendChild(feedbackArea);
+        }
 
         // Flip board functionality - attach AFTER board is created
         const flipBtn = overlay.querySelector('.flip-board-btn');
         if (flipBtn) {
           flipBtn.addEventListener('click', () => {
             boardOrientation = boardOrientation === 'white' ? 'black' : 'white';
-            boardInstance.orientation(boardOrientation);
+            boardInstance.set({ orientation: boardOrientation });
           });
         }
       }
@@ -642,11 +1440,30 @@ class ChessQuizComposer {
     if (animateBtn) {
       animateBtn.addEventListener('click', () => {
         if (boardInstance && puzzle.fenAfterOpponent) {
-          boardInstance.position(puzzle.fenAfterOpponent);
+          // Update chess.js state with opponent's move
+          const opponentMoveSAN = puzzle.solutionLine[0]; // First move is opponent's
+          const move = fullscreenPuzzleState.chess.move(opponentMoveSAN);
+          fullscreenPuzzleState.currentMoveIndex = 1; // Move to next position
+          fullscreenPuzzleState.opponentMoveShown = true;
+
+          // Update board with highlight
+          boardInstance.set({
+            fen: puzzle.fenAfterOpponent,
+            lastMove: move ? [move.from, move.to] : undefined,
+            movable: {
+              color: fullscreenPuzzleState.chess.turn() === 'w' ? 'white' : 'black',
+              dests: this.getDestinationMap(fullscreenPuzzleState.chess)
+            }
+          });
           currentPosition = puzzle.fenAfterOpponent;
+
+          // Update button
           animateBtn.disabled = true;
           animateBtn.textContent = `✓ Opponent played: ${puzzle.opponentMove}`;
           animateBtn.style.background = '#6c757d';
+
+          // Show feedback
+          this.showFullscreenFeedback(feedbackArea, 'opponent', `Opponent played: ${puzzle.opponentMove}`);
         }
       });
     }
@@ -682,6 +1499,15 @@ class ChessQuizComposer {
           copyFenBtn.textContent = originalText;
           copyFenBtn.style.background = '';
         }, 2000);
+      });
+    }
+
+    // Lichess analysis button
+    const lichessBtn = overlay.querySelector('.fullscreen-lichess-analyze');
+    if (lichessBtn) {
+      lichessBtn.addEventListener('click', () => {
+        const fenEncoded = encodeURIComponent(puzzle.fen);
+        window.open(`https://lichess.org/analysis/${fenEncoded}`, '_blank');
       });
     }
   }
