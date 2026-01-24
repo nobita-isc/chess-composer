@@ -556,7 +556,7 @@ class ChessQuizComposer {
     const lichessBtn = card.querySelector('.lichess-analyze');
     lichessBtn.addEventListener('click', () => {
       const fenEncoded = encodeURIComponent(puzzle.fen);
-      window.open(`https://lichess.org/analysis/${fenEncoded}`, '_blank');
+      window.open(`https://lichess.org/analysis/fromPosition/${fenEncoded}`, '_blank');
     });
 
     // Add animate opponent move functionality
@@ -1444,7 +1444,7 @@ class ChessQuizComposer {
     if (lichessBtn) {
       lichessBtn.addEventListener('click', () => {
         const fenEncoded = encodeURIComponent(puzzle.fen);
-        window.open(`https://lichess.org/analysis/${fenEncoded}`, '_blank');
+        window.open(`https://lichess.org/analysis/fromPosition/${fenEncoded}`, '_blank');
       });
     }
   }
