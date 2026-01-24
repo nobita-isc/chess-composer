@@ -23,7 +23,8 @@
       "Bash(npx vite build:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(node --check:*)"
+      "Bash(node --check:*)",
+      "Bash(git push:*)"
     ]
   }
 }
