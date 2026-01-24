@@ -2,11 +2,18 @@
  * SqliteDatabase.js
  * sql.js (SQLite WebAssembly) database wrapper for browser
  *
- * sql.js is loaded from CDN because it has compatibility issues with ESM bundlers.
+ * Features:
+ * - IndexedDB caching for database file (avoids re-downloading 400MB+ on refresh)
+ * - IndexedDB caching for theme index (avoids re-building index on refresh)
+ * - sql.js loaded from CDN
  */
 
 // Load sql.js from CDN
 const SQL_JS_CDN = 'https://sql.js.org/dist/sql-wasm.js';
+const CACHE_DB_NAME = 'chess-puzzle-cache';
+const CACHE_DB_VERSION = 1;
+const DB_STORE_NAME = 'database';
+const INDEX_STORE_NAME = 'themeIndex';
 
 async function loadSqlJs() {
   // Check if already loaded
@@ -29,6 +36,79 @@ async function loadSqlJs() {
     document.head.appendChild(script);
   });
 }
+
+/**
+ * IndexedDB helper for caching
+ */
+class CacheManager {
+  constructor() {
+    this.db = null;
+  }
+
+  async open() {
+    if (this.db) return this.db;
+
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(CACHE_DB_NAME, CACHE_DB_VERSION);
+
+      request.onerror = () => reject(request.error);
+
+      request.onsuccess = () => {
+        this.db = request.result;
+        resolve(this.db);
+      };
+
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+
+        // Store for database binary
+        if (!db.objectStoreNames.contains(DB_STORE_NAME)) {
+          db.createObjectStore(DB_STORE_NAME);
+        }
+
+        // Store for theme index
+        if (!db.objectStoreNames.contains(INDEX_STORE_NAME)) {
+          db.createObjectStore(INDEX_STORE_NAME);
+        }
+      };
+    });
+  }
+
+  async get(storeName, key) {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(storeName, 'readonly');
+      const store = transaction.objectStore(storeName);
+      const request = store.get(key);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+    });
+  }
+
+  async set(storeName, key, value) {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(storeName, 'readwrite');
+      const store = transaction.objectStore(storeName);
+      const request = store.put(value, key);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve();
+    });
+  }
+
+  async delete(storeName, key) {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(storeName, 'readwrite');
+      const store = transaction.objectStore(storeName);
+      const request = store.delete(key);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve();
+    });
+  }
+}
+
+const cacheManager = new CacheManager();
 
 export class SqliteDatabase {
   constructor() {
@@ -63,33 +143,124 @@ export class SqliteDatabase {
         locateFile: file => `https://sql.js.org/dist/${file}`
       });
 
-      updateProgress('Downloading puzzle database...');
+      // Try to load database from cache first
+      updateProgress('Checking cache...');
+      let buffer = await this.loadFromCache(dbPath);
 
-      // Fetch the pre-built database
-      const response = await fetch(dbPath);
+      if (buffer) {
+        updateProgress('Loading from cache...');
+      } else {
+        updateProgress('Downloading puzzle database...');
 
-      if (!response.ok) {
-        throw new Error(`Failed to load database: ${response.status} ${response.statusText}`);
+        // Fetch the pre-built database
+        const response = await fetch(dbPath);
+
+        if (!response.ok) {
+          throw new Error(`Failed to load database: ${response.status} ${response.statusText}`);
+        }
+
+        buffer = await response.arrayBuffer();
+        const size = (buffer.byteLength / 1024 / 1024).toFixed(2);
+        updateProgress(`Database downloaded (${size} MB). Caching...`);
+
+        // Cache for future use
+        await this.saveToCache(dbPath, buffer);
       }
-
-      const buffer = await response.arrayBuffer();
-      const size = (buffer.byteLength / 1024 / 1024).toFixed(2);
-      updateProgress(`Database downloaded (${size} MB). Initializing...`);
 
       // Create database from buffer
       this.db = new this.SQL.Database(new Uint8Array(buffer));
       this.initialized = true;
 
-      // Verify database
-      const puzzleCount = this.queryScalar('SELECT COUNT(*) FROM puzzles');
-      const themeCount = this.queryScalar('SELECT COUNT(*) FROM themes');
+      // Try to load theme index from cache
+      updateProgress('Loading search index...');
+      const cachedIndex = await this.loadIndexFromCache(dbPath);
 
-      // Build in-memory theme index for fast lookups
-      updateProgress('Building search index...');
-      await this.buildThemeIndex(onProgress);
+      if (cachedIndex) {
+        this.themeIndex = new Map(cachedIndex);
+        updateProgress('Search index loaded from cache.');
+      } else {
+        // Build in-memory theme index for fast lookups
+        updateProgress('Building search index (first time only)...');
+        await this.buildThemeIndex(onProgress);
+
+        // Cache the theme index
+        await this.saveIndexToCache(dbPath);
+      }
 
     } catch (error) {
       throw error;
+    }
+  }
+
+  /**
+   * Load database from IndexedDB cache
+   */
+  async loadFromCache(dbPath) {
+    try {
+      const cached = await cacheManager.get(DB_STORE_NAME, dbPath);
+      if (cached && cached.data) {
+        return cached.data;
+      }
+    } catch (e) {
+      // Cache miss or error, will download fresh
+    }
+    return null;
+  }
+
+  /**
+   * Save database to IndexedDB cache
+   */
+  async saveToCache(dbPath, buffer) {
+    try {
+      await cacheManager.set(DB_STORE_NAME, dbPath, {
+        data: buffer,
+        timestamp: Date.now()
+      });
+    } catch (e) {
+      // Caching failed, but we can continue
+    }
+  }
+
+  /**
+   * Load theme index from IndexedDB cache
+   */
+  async loadIndexFromCache(dbPath) {
+    try {
+      const cached = await cacheManager.get(INDEX_STORE_NAME, dbPath);
+      if (cached && cached.data) {
+        return cached.data;
+      }
+    } catch (e) {
+      // Cache miss or error
+    }
+    return null;
+  }
+
+  /**
+   * Save theme index to IndexedDB cache
+   */
+  async saveIndexToCache(dbPath) {
+    try {
+      // Convert Map to array for storage
+      const indexArray = Array.from(this.themeIndex.entries());
+      await cacheManager.set(INDEX_STORE_NAME, dbPath, {
+        data: indexArray,
+        timestamp: Date.now()
+      });
+    } catch (e) {
+      // Caching failed, but we can continue
+    }
+  }
+
+  /**
+   * Clear all cached data (useful for forcing refresh)
+   */
+  async clearCache(dbPath = '/database/puzzles.db') {
+    try {
+      await cacheManager.delete(DB_STORE_NAME, dbPath);
+      await cacheManager.delete(INDEX_STORE_NAME, dbPath);
+    } catch (e) {
+      // Ignore errors
     }
   }
 
