@@ -1373,20 +1373,26 @@ class ChessQuizComposer {
           fullscreenPuzzleState.currentMoveIndex = 1; // Move to next position
           fullscreenPuzzleState.opponentMoveShown = true;
 
-          // Update board with highlight - MUST include events to preserve move handler
+          const newColor = fullscreenPuzzleState.chess.turn() === 'w' ? 'white' : 'black';
+          const newDests = this.getDestinationMap(fullscreenPuzzleState.chess);
+          const chessJsFen = fullscreenPuzzleState.chess.fen();
+
+          // Update board with highlight - MUST include turnColor, showDests and events
           boardInstance.set({
-            fen: puzzle.fenAfterOpponent,
+            fen: chessJsFen,
             lastMove: move ? [move.from, move.to] : undefined,
+            turnColor: newColor,
             movable: {
               free: false,
-              color: fullscreenPuzzleState.chess.turn() === 'w' ? 'white' : 'black',
-              dests: this.getDestinationMap(fullscreenPuzzleState.chess),
+              color: newColor,
+              dests: newDests,
+              showDests: true,
               events: {
                 after: fullscreenMoveHandler
               }
             }
           });
-          currentPosition = puzzle.fenAfterOpponent;
+          currentPosition = chessJsFen;
 
           // Update button
           animateBtn.disabled = true;
