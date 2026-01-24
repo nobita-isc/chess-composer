@@ -11,7 +11,14 @@
       "Bash(pkill -f \"cp src/database\")",
       "Bash(curl:*)",
       "Bash(bash:*)",
-      "Bash(npm view:*)"
+      "Bash(npm view:*)",
+      "Bash(tree:*)",
+      "Bash(git -C /Users/nobita_isc/projects/chess_composer log --oneline -20)",
+      "Bash(wc:*)",
+      "Bash(node scripts/build-sqlite-db.js:*)",
+      "Bash(node scripts/build-sqlite-db-optimized.js:*)",
+      "Bash(pkill:*)",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }

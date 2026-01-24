@@ -9,6 +9,10 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    open: true,
+    open: true
   },
+  // sql.js uses WASM which needs special handling
+  optimizeDeps: {
+    exclude: ['sql.js']
+  }
 });

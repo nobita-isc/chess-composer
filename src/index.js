@@ -26,19 +26,22 @@ class ChessQuizComposer {
       console.log('Initializing Chess Quiz Composer...');
 
       // Show loading state
-      this.showLoading('Loading puzzle database...');
+      this.showLoading('Downloading puzzle database...');
 
-      // Try to load Lichess puzzle database
+      // Try to load SQLite puzzle database
       try {
-        const dbLoaded = await this.databaseGenerator.initialize('/database/lichess_puzzles.csv');
+        // Update loading message as progress happens
+        const updateLoading = (msg) => this.showLoading(msg);
+
+        const dbLoaded = await this.databaseGenerator.initialize('/database/puzzles.db', updateLoading);
         if (dbLoaded) {
           this.useDatabasePuzzles = true;
-          console.log('✅ Lichess puzzle database loaded');
+          console.log('SQLite puzzle database loaded');
 
           // Populate theme selector with all available themes
           this.populateThemeSelector();
 
-          this.showMessage('Loaded high-quality Lichess puzzle database!', 'success');
+          this.showMessage('Database ready! Puzzles load instantly now.', 'success');
         } else {
           throw new Error('Database failed to load');
         }
@@ -344,6 +347,9 @@ class ChessQuizComposer {
       const themeName = theme ? this.getThemeName(theme) : 'All Themes';
       const ratingText = ratingRange ? ` (${ratingRange} rating)` : '';
       this.showLoading(`Generating ${count} puzzles for ${themeName}${ratingText}...`);
+
+      // Use setTimeout to allow the loading indicator to render before blocking query
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       // Generate puzzles with rating filter
       await this.generatePuzzles(theme, count, { minRating, maxRating });

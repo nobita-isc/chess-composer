@@ -6,7 +6,10 @@
   "main": "src/index.js",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "npm run build:db && vite build",
+    "build:db": "node scripts/build-sqlite-db-optimized.js",
+    "build:db:test": "node scripts/build-sqlite-db-optimized.js --limit 1000",
+    "build:db:full": "node scripts/build-sqlite-db.js",
     "preview": "vite preview"
   },
   "keywords": [
@@ -21,10 +24,12 @@
   "dependencies": {
     "chess.js": "^1.0.0-beta.8",
     "chessground": "^9.2.1",
-    "papaparse": "^5.4.1",
+    "sql.js": "^1.10.3",
     "stockfish": "^17.1.0"
   },
   "devDependencies": {
+    "better-sqlite3": "^11.0.0",
+    "papaparse": "^5.4.1",
     "vite": "^5.4.11"
   }
 }

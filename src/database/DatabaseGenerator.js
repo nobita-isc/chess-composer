@@ -1,27 +1,30 @@
 /**
  * DatabaseGenerator.js
- * Generate puzzles from the Lichess database by theme
+ * Generate puzzles from the SQLite database by theme
+ *
+ * Updated to use SQL queries instead of in-memory theme indexing.
  */
 
 import { Chess } from 'chess.js';
 import { DatabaseLoader } from './DatabaseLoader.js';
+import { database } from './SqliteDatabase.js';
 
 export class DatabaseGenerator {
   constructor() {
     this.loader = new DatabaseLoader();
-    this.themeIndex = new Map();
     this.initialized = false;
   }
 
   /**
-   * Initialize the generator by loading the database
+   * Initialize the generator by loading the SQLite database
+   * @param {string} dbPath - Path to .db file (default: /database/puzzles.db)
+   * @param {function} onProgress - Optional callback for progress updates
    */
-  async initialize(csvPath = '/database/lichess_puzzles.csv') {
+  async initialize(dbPath = '/database/puzzles.db', onProgress = null) {
     try {
-      await this.loader.load(csvPath);
-      await this.buildThemeIndex();
+      await this.loader.load(dbPath, onProgress);
       this.initialized = true;
-      console.log('✅ DatabaseGenerator initialized successfully');
+      console.log('DatabaseGenerator initialized successfully (SQLite mode)');
       return true;
     } catch (error) {
       console.error('DatabaseGenerator initialization failed:', error);
@@ -30,28 +33,10 @@ export class DatabaseGenerator {
   }
 
   /**
-   * Build an index of puzzles by theme for fast lookup
-   */
-  async buildThemeIndex() {
-    const puzzles = this.loader.getPuzzles();
-
-    puzzles.forEach(puzzle => {
-      puzzle.themes.forEach(theme => {
-        const themeKey = theme.toLowerCase();
-        if (!this.themeIndex.has(themeKey)) {
-          this.themeIndex.set(themeKey, []);
-        }
-        this.themeIndex.get(themeKey).push(puzzle);
-      });
-    });
-
-    console.log(`📚 Theme index built: ${this.themeIndex.size} unique themes`);
-    console.log('Available themes:', Array.from(this.themeIndex.keys()).slice(0, 10).join(', '));
-  }
-
-  /**
    * Map theme names to Lichess theme tags
    * Maps our theme names to one or more Lichess database tags
+   * Note: With SQLite, themes are stored directly by their lichess_tag,
+   * so this mapping is mainly for backwards compatibility with theme selection UI.
    */
   toLichessTag(theme) {
     const themeMap = {
@@ -107,7 +92,7 @@ export class DatabaseGenerator {
       'endgame': ['endgame'],
 
       // Special
-      'oneMove': ['onemo ve', 'short'],
+      'oneMove': ['onemove', 'short'],
       'long': ['long', 'verylong'],
       'master': ['master', 'brilliant', 'superiorposition']
     };
@@ -123,6 +108,9 @@ export class DatabaseGenerator {
 
   /**
    * Generate puzzles for a specific theme (or all themes if theme is null/empty)
+   * @param {string} theme - Theme identifier
+   * @param {number} count - Number of puzzles to return
+   * @param {object} options - Filter options { minRating, maxRating, minPopularity }
    */
   async generatePuzzles(theme, count = 10, options = {}) {
     if (!this.initialized) {
@@ -136,48 +124,38 @@ export class DatabaseGenerator {
       minPopularity = 85
     } = options;
 
-    let candidates = [];
-
-    // If no theme specified, get all puzzles
-    if (!theme) {
-      candidates = this.loader.getPuzzles();
-      console.log(`🎲 Getting random puzzles from all themes`);
-    } else {
-      // Map theme to Lichess tags
+    // Map theme to Lichess tags
+    let themes = [];
+    if (theme) {
       const lichessTags = this.toLichessTag(theme);
-      const tags = Array.isArray(lichessTags) ? lichessTags : [lichessTags];
-
-      // Get candidate puzzles for all matching tags
-      tags.forEach(tag => {
-        const puzzles = this.themeIndex.get(tag) || [];
-        candidates.push(...puzzles);
-      });
-
-      // Remove duplicates
-      candidates = Array.from(new Map(candidates.map(p => [p.id, p])).values());
+      themes = Array.isArray(lichessTags) ? lichessTags : [lichessTags];
     }
 
-    // Filter by quality criteria
-    let filtered = candidates.filter(puzzle =>
-      puzzle.rating >= minRating &&
-      puzzle.rating <= maxRating &&
-      puzzle.popularity >= minPopularity
-    );
+    // Query puzzles directly from database
+    let candidates = this.loader.queryPuzzles({
+      themes,
+      minRating,
+      maxRating,
+      minPopularity,
+      limit: count * 2  // Get extras in case some are filtered
+    });
 
-    console.log(`🎯 Theme "${theme}": found ${candidates.length} puzzles, ${filtered.length} after filtering`);
+    console.log(`Theme "${theme}": found ${candidates.length} puzzles after initial query`);
 
     // If not enough puzzles, relax criteria
-    if (filtered.length < count) {
-      console.warn(`⚠️  Not enough puzzles for ${theme}, relaxing filters`);
-      filtered = candidates.filter(puzzle =>
-        puzzle.rating >= minRating - 200 &&
-        puzzle.rating <= maxRating + 200 &&
-        puzzle.popularity >= Math.max(70, minPopularity - 15)
-      );
+    if (candidates.length < count) {
+      console.warn(`Not enough puzzles for ${theme}, relaxing filters`);
+      candidates = this.loader.queryPuzzles({
+        themes,
+        minRating: minRating - 200,
+        maxRating: maxRating + 200,
+        minPopularity: Math.max(70, minPopularity - 15),
+        limit: count * 2
+      });
     }
 
-    // Random sample
-    const selected = this.loader.getRandomSample(filtered, count);
+    // Select random sample (already randomized by SQL, just take first N)
+    const selected = this.loader.getRandomSample(candidates, count);
 
     return selected.map(puzzle => {
       const fenAfterOpponent = this.getFenAfterMove(puzzle.fen, puzzle.opponentMove);
@@ -193,7 +171,7 @@ export class DatabaseGenerator {
         opponentMoveSAN: this.convertUCIToSAN(puzzle.opponentMove, puzzle.fen),
         solution: puzzle.solution,
         solutionSAN: this.convertUCIToSAN(puzzle.solution, fenAfterOpponent),
-        solutionLine: solutionLine,  // Full solution line in SAN
+        solutionLine: solutionLine,
         moves: puzzle.moves,
         rating: puzzle.rating,
         popularity: puzzle.popularity,
@@ -225,7 +203,6 @@ export class DatabaseGenerator {
       });
 
       if (move) {
-        // Return the SAN notation (like "Ra8#" or "Nf7#")
         return move.san;
       }
     } catch (error) {
@@ -260,7 +237,6 @@ export class DatabaseGenerator {
 
   /**
    * Convert full solution line to SAN notation
-   * Returns array of moves: [opponentMove, yourMove1, opponentMove2, yourMove2, ...]
    */
   convertSolutionToSAN(fen, moves) {
     if (!moves || moves.length === 0) return [];
@@ -293,10 +269,7 @@ export class DatabaseGenerator {
    */
   detectMateIn(themes, moves = []) {
     // First try to calculate from actual moves
-    // Lichess format: [opponentMove, yourMove1, opponentMove2, yourMove2, ...]
-    // Mate-in-N = number of YOUR moves needed
     if (moves && moves.length > 1) {
-      // Count moves after the first opponent move
       const yourMoves = Math.ceil((moves.length - 1) / 2);
       return yourMoves;
     }
@@ -315,23 +288,74 @@ export class DatabaseGenerator {
   }
 
   /**
-   * Get available themes
+   * Get available themes from the database
+   * @returns {array} - Array of theme tags sorted by puzzle count
    */
   getAvailableThemes() {
-    return Array.from(this.themeIndex.keys());
+    if (!this.initialized || !database.isReady()) {
+      return [];
+    }
+
+    const rows = database.query(`
+      SELECT lichess_tag
+      FROM themes
+      WHERE puzzle_count > 0
+      ORDER BY puzzle_count DESC
+    `);
+
+    return rows.map(row => row.lichess_tag);
   }
 
   /**
-   * Get statistics
+   * Get themes grouped by category for UI display
+   * @returns {object} - { categories: [...], themes: [...] }
+   */
+  getThemesWithCategories() {
+    if (!this.initialized || !database.isReady()) {
+      return { categories: [], themes: [] };
+    }
+
+    const categories = database.query(`
+      SELECT id, name, display_name, icon, display_order
+      FROM categories
+      ORDER BY display_order
+    `);
+
+    const themes = database.query(`
+      SELECT t.id, t.lichess_tag, t.display_name, t.description,
+             t.display_order, t.puzzle_count, t.category_id,
+             c.name as category_name
+      FROM themes t
+      JOIN categories c ON t.category_id = c.id
+      WHERE t.puzzle_count > 0
+      ORDER BY c.display_order, t.display_order
+    `);
+
+    return { categories, themes };
+  }
+
+  /**
+   * Get statistics about the database
+   * @returns {object} - { totalPuzzles, totalThemes, themes: [...] }
    */
   getStats() {
+    if (!this.initialized || !database.isReady()) {
+      return { totalPuzzles: 0, totalThemes: 0, themes: [] };
+    }
+
+    const totalPuzzles = database.queryScalar('SELECT COUNT(*) FROM puzzles') || 0;
+
+    const themeStats = database.query(`
+      SELECT lichess_tag as theme, puzzle_count as count
+      FROM themes
+      WHERE puzzle_count > 0
+      ORDER BY puzzle_count DESC
+    `);
+
     return {
-      totalPuzzles: this.loader.getPuzzles().length,
-      totalThemes: this.themeIndex.size,
-      themes: Array.from(this.themeIndex.entries()).map(([theme, puzzles]) => ({
-        theme,
-        count: puzzles.length
-      }))
+      totalPuzzles,
+      totalThemes: themeStats.length,
+      themes: themeStats
     };
   }
 }
