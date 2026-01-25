@@ -379,6 +379,41 @@ export class SqliteDatabase {
   }
 
   /**
+   * Execute a SQL statement (INSERT, UPDATE, DELETE, CREATE)
+   * @param {string} sql - SQL statement
+   * @param {array} params - Bound parameters
+   * @returns {number} - Number of rows affected
+   */
+  run(sql, params = []) {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      this.db.run(sql, params);
+      return this.db.getRowsModified();
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Execute multiple SQL statements
+   * @param {string} sql - SQL statements (can be multiple separated by ;)
+   */
+  exec(sql) {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      this.db.exec(sql);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
    * Check if database is ready
    */
   isReady() {

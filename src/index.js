@@ -7,6 +7,9 @@ import { Chessground } from 'chessground';
 import { ChessEngine } from './core/ChessEngine.js';
 import { getRandomPuzzles } from './data/samplePuzzles.js';
 import { DatabaseGenerator } from './database/DatabaseGenerator.js';
+import { PuzzleReportManager } from './reports/PuzzleReportManager.js';
+import { showReportDialog } from './reports/ReportDialog.js';
+import { showAdminPanel } from './reports/AdminPanel.js';
 
 class ChessQuizComposer {
   constructor() {
@@ -15,6 +18,7 @@ class ChessQuizComposer {
     this.puzzles = [];
     this.boardInstances = [];
     this.useDatabasePuzzles = true; // Flag to use database vs sample puzzles
+    this.reportManager = null; // Report manager for puzzle reporting
     this.initializeUI();
   }
 
@@ -37,6 +41,17 @@ class ChessQuizComposer {
 
           // Populate theme selector with all available themes
           this.populateThemeSelector();
+
+          // Initialize report manager
+          try {
+            updateLoading('Initializing report system...');
+            this.reportManager = new PuzzleReportManager();
+            await this.reportManager.initialize(this.databaseGenerator.loader.db);
+            // Connect report manager to database loader for filtering blocked puzzles
+            this.databaseGenerator.loader.setReportManager(this.reportManager);
+          } catch (reportError) {
+            // Report system failure is not critical
+          }
 
           this.showMessage('Database ready! Puzzles load instantly now.', 'success');
         } else {
@@ -75,6 +90,12 @@ class ChessQuizComposer {
     const exportBtn = document.getElementById('export-btn');
     if (exportBtn) {
       exportBtn.addEventListener('click', () => this.handleExport());
+    }
+
+    // Admin button
+    const adminBtn = document.getElementById('admin-btn');
+    if (adminBtn) {
+      adminBtn.addEventListener('click', () => this.handleAdmin());
     }
   }
 
@@ -289,6 +310,11 @@ class ChessQuizComposer {
       'crushingMove': 'Crushing Move'
     };
 
+    // Handle null/undefined themeId
+    if (!themeId) {
+      return 'Mixed Themes';
+    }
+
     const lower = themeId.toLowerCase();
     if (specialCases[lower]) {
       return specialCases[lower];
@@ -416,12 +442,15 @@ class ChessQuizComposer {
 
         const sideInPosition = chess.turn();
 
+        // Use puzzle's own themes when "All Themes" is selected (theme is null)
+        const puzzleTheme = theme || (puzzleInfo.themes && puzzleInfo.themes[0]) || null;
+
         this.puzzles.push({
           id: puzzleInfo.id || `puzzle_${Date.now()}_${i}`,
           fen: fen,  // Original FEN
           fenAfterOpponent: puzzleInfo.fenAfterOpponent || fen,
-          theme: theme,
-          themeName: this.getThemeName(theme),
+          theme: puzzleTheme,
+          themeName: this.getThemeName(puzzleTheme),
           opponentMove: puzzleInfo.opponentMoveSAN,
           solution: puzzleInfo.solutionSAN || puzzleInfo.solution,  // First solution move
           solutionLine: puzzleInfo.solutionLine || [],  // Full solution line
@@ -487,7 +516,10 @@ class ChessQuizComposer {
         <span class="puzzle-number">Puzzle #${number}</span>
         <span class="puzzle-theme">${puzzle.themeName}</span>
         ${puzzle.rating ? `<span class="puzzle-difficulty" title="Rating: ${rating}">${difficultyStars} ${difficultyLabel}</span>` : ''}
-        <button class="fullscreen-btn" data-puzzle-id="${puzzle.id}" title="View full screen">⛶</button>
+        <div class="puzzle-header-actions">
+          <button class="report-btn" data-puzzle-id="${puzzle.id}" data-puzzle-theme="${puzzle.themeName}" title="Report issue">⚠️</button>
+          <button class="fullscreen-btn" data-puzzle-id="${puzzle.id}" title="View full screen">⛶</button>
+        </div>
       </div>
 
       <div class="board-container">
@@ -577,6 +609,14 @@ class ChessQuizComposer {
       fullscreenBtn.addEventListener('click', () => this.showFullscreen(puzzle.id));
     }
 
+    // Add report functionality
+    const reportBtn = card.querySelector('.report-btn');
+    if (reportBtn) {
+      reportBtn.addEventListener('click', () => {
+        this.handleReport(puzzle.id, puzzle.themeName);
+      });
+    }
+
     return card;
   }
 
@@ -607,14 +647,22 @@ class ChessQuizComposer {
             this.handleMove(puzzle.id, puzzleState, orig, dest, ground);
           };
 
+          // Determine solver's color for board orientation
+          // If opponentMove exists: solver responds after opponent (opposite of FEN's turn)
+          // If no opponentMove: solver moves directly (same as FEN's turn)
+          const fenTurn = chess.turn();
+          const solverColor = puzzle.opponentMove
+            ? (fenTurn === 'w' ? 'black' : 'white')
+            : (fenTurn === 'w' ? 'white' : 'black');
+
           // Create Chessground instance
           const ground = Chessground(boardElement, {
             fen: puzzle.fen,
-            orientation: chess.turn() === 'w' ? 'white' : 'black',
+            orientation: solverColor,
             coordinates: true,  // Enable board coordinates (A-H, 1-8)
             movable: {
               free: false,
-              color: chess.turn() === 'w' ? 'white' : 'black',
+              color: fenTurn === 'w' ? 'white' : 'black',
               dests: this.getDestinationMap(chess),
               events: {
                 after: moveHandler
@@ -1259,11 +1307,18 @@ class ChessQuizComposer {
 
     // Store board instance and current orientation
     let boardInstance = null;
-    let boardOrientation = 'white';
     let currentPosition = puzzle.fen;
 
     // Initialize chess.js instance for fullscreen puzzle solving
     const chess = new Chess(puzzle.fen);
+
+    // Determine solver's color for board orientation
+    // If opponentMove exists: solver responds after opponent (opposite of FEN's turn)
+    // If no opponentMove: solver moves directly (same as FEN's turn)
+    const fenTurn = chess.turn();
+    let boardOrientation = puzzle.opponentMove
+      ? (fenTurn === 'w' ? 'black' : 'white')
+      : (fenTurn === 'w' ? 'white' : 'black');
     const fullscreenPuzzleState = {
       currentMoveIndex: 0,
       chess: chess,
@@ -1554,6 +1609,37 @@ class ChessQuizComposer {
         }
       }, 300);
     }, 4000);
+  }
+
+  /**
+   * Handle report button click
+   */
+  handleReport(puzzleId, puzzleTheme) {
+    if (!this.reportManager) {
+      this.showError('Report system not available');
+      return;
+    }
+
+    showReportDialog(puzzleId, puzzleTheme, async (id, reason, notes) => {
+      const result = await this.reportManager.reportPuzzle(id, reason, notes);
+      if (result.success) {
+        this.showMessage('Report submitted successfully', 'success');
+      } else {
+        throw new Error(result.error || 'Failed to submit report');
+      }
+    });
+  }
+
+  /**
+   * Handle admin button click
+   */
+  handleAdmin() {
+    if (!this.reportManager) {
+      this.showError('Report system not available');
+      return;
+    }
+
+    showAdminPanel(this.reportManager);
   }
 }
 
