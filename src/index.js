@@ -784,11 +784,16 @@ class ChessQuizComposer {
       // Incorrect move - undo and reset board, allow retry
       puzzleState.chess.undo();
       const currentColor = puzzleState.chess.turn() === 'w' ? 'white' : 'black';
+      const boardInstance = this.boardInstances.find(b => b.puzzleId === puzzleId);
       ground.set({
         fen: puzzleState.chess.fen(),
         movable: {
           color: currentColor,
-          dests: this.getDestinationMap(puzzleState.chess)
+          dests: this.getDestinationMap(puzzleState.chess),
+          showDests: true,
+          events: {
+            after: boardInstance?.moveHandler
+          }
         }
       });
       this.showFeedback(puzzleId, 'incorrect', '✗ Not quite! Keep trying.');
@@ -919,7 +924,11 @@ class ChessQuizComposer {
         fen: puzzleState.chess.fen(),
         movable: {
           color: currentColor,
-          dests: this.getDestinationMap(puzzleState.chess)
+          dests: this.getDestinationMap(puzzleState.chess),
+          showDests: true,
+          events: {
+            after: moveHandler
+          }
         }
       });
       this.showFullscreenFeedback(feedbackArea, 'incorrect', '✗ Not quite! Keep trying.');
