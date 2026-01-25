@@ -781,10 +781,10 @@ class ChessQuizComposer {
         }, 800);
       }
     } else {
-      // Incorrect move - undo and reset board
+      // Incorrect move - undo and reset board, allow retry
       puzzleState.chess.undo();
       ground.set({ fen: puzzleState.chess.fen() });
-      this.showFeedback(puzzleId, 'incorrect', `✗ Wrong move! Expected: ${expectedMove}`);
+      this.showFeedback(puzzleId, 'incorrect', '✗ Not quite! Keep trying.');
     }
   }
 
@@ -905,10 +905,10 @@ class ChessQuizComposer {
         }, 800);
       }
     } else {
-      // Incorrect move - undo and reset board
+      // Incorrect move - undo and reset board, allow retry
       puzzleState.chess.undo();
       ground.set({ fen: puzzleState.chess.fen() });
-      this.showFullscreenFeedback(feedbackArea, 'incorrect', `✗ Wrong move! Expected: ${expectedMove}`);
+      this.showFullscreenFeedback(feedbackArea, 'incorrect', '✗ Not quite! Keep trying.');
     }
   }
 
