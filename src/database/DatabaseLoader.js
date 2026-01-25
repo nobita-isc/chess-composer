@@ -11,6 +11,15 @@ export class DatabaseLoader {
   constructor() {
     this.db = database;
     this.loaded = false;
+    this.reportManager = null;
+  }
+
+  /**
+   * Set the report manager for filtering blocked puzzles
+   * @param {PuzzleReportManager} reportManager - Report manager instance
+   */
+  setReportManager(reportManager) {
+    this.reportManager = reportManager;
   }
 
   /**
@@ -45,7 +54,8 @@ export class DatabaseLoader {
     minRating = 0,
     maxRating = 5000,
     minPopularity = 0,
-    limit = 100
+    limit = 100,
+    excludeBlocked = true
   } = {}) {
     if (!this.isLoaded()) {
       throw new Error('Database not loaded');
@@ -75,6 +85,19 @@ export class DatabaseLoader {
           AND popularity >= ?
       `, [minRating, maxRating, minPopularity]);
       puzzleIds = rows.map(r => r.id);
+    }
+
+    // Filter out blocked puzzles
+    if (excludeBlocked && this.reportManager) {
+      try {
+        const blockedIds = new Set(this.reportManager.getBlockedPuzzleIds());
+        if (blockedIds.size > 0) {
+          puzzleIds = puzzleIds.filter(id => !blockedIds.has(id));
+        }
+      } catch (error) {
+        console.warn('Failed to get blocked puzzle IDs:', error);
+        // Continue without filtering
+      }
     }
 
     if (puzzleIds.length === 0) {
