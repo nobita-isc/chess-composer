@@ -783,7 +783,14 @@ class ChessQuizComposer {
     } else {
       // Incorrect move - undo and reset board, allow retry
       puzzleState.chess.undo();
-      ground.set({ fen: puzzleState.chess.fen() });
+      const currentColor = puzzleState.chess.turn() === 'w' ? 'white' : 'black';
+      ground.set({
+        fen: puzzleState.chess.fen(),
+        movable: {
+          color: currentColor,
+          dests: this.getDestinationMap(puzzleState.chess)
+        }
+      });
       this.showFeedback(puzzleId, 'incorrect', '✗ Not quite! Keep trying.');
     }
   }
@@ -907,7 +914,14 @@ class ChessQuizComposer {
     } else {
       // Incorrect move - undo and reset board, allow retry
       puzzleState.chess.undo();
-      ground.set({ fen: puzzleState.chess.fen() });
+      const currentColor = puzzleState.chess.turn() === 'w' ? 'white' : 'black';
+      ground.set({
+        fen: puzzleState.chess.fen(),
+        movable: {
+          color: currentColor,
+          dests: this.getDestinationMap(puzzleState.chess)
+        }
+      });
       this.showFullscreenFeedback(feedbackArea, 'incorrect', '✗ Not quite! Keep trying.');
     }
   }
