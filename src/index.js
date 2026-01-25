@@ -784,17 +784,25 @@ class ChessQuizComposer {
       // Incorrect move - undo and reset board, allow retry
       puzzleState.chess.undo();
       const currentColor = puzzleState.chess.turn() === 'w' ? 'white' : 'black';
+      const currentDests = this.getDestinationMap(puzzleState.chess);
       const boardInstance = this.boardInstances.find(b => b.puzzleId === puzzleId);
-      ground.set({
-        fen: puzzleState.chess.fen(),
-        movable: {
-          color: currentColor,
-          dests: this.getDestinationMap(puzzleState.chess),
-          showDests: true,
-          events: {
-            after: boardInstance?.moveHandler
+
+      // Use requestAnimationFrame to ensure update happens correctly
+      requestAnimationFrame(() => {
+        ground.set({
+          fen: puzzleState.chess.fen(),
+          turnColor: currentColor,
+          check: puzzleState.chess.inCheck(),
+          movable: {
+            free: false,
+            color: currentColor,
+            dests: currentDests,
+            showDests: true,
+            events: {
+              after: boardInstance?.moveHandler
+            }
           }
-        }
+        });
       });
       this.showFeedback(puzzleId, 'incorrect', '✗ Not quite! Keep trying.');
     }
@@ -920,16 +928,24 @@ class ChessQuizComposer {
       // Incorrect move - undo and reset board, allow retry
       puzzleState.chess.undo();
       const currentColor = puzzleState.chess.turn() === 'w' ? 'white' : 'black';
-      ground.set({
-        fen: puzzleState.chess.fen(),
-        movable: {
-          color: currentColor,
-          dests: this.getDestinationMap(puzzleState.chess),
-          showDests: true,
-          events: {
-            after: moveHandler
+      const currentDests = this.getDestinationMap(puzzleState.chess);
+
+      // Use requestAnimationFrame to ensure update happens correctly
+      requestAnimationFrame(() => {
+        ground.set({
+          fen: puzzleState.chess.fen(),
+          turnColor: currentColor,
+          check: puzzleState.chess.inCheck(),
+          movable: {
+            free: false,
+            color: currentColor,
+            dests: currentDests,
+            showDests: true,
+            events: {
+              after: moveHandler
+            }
           }
-        }
+        });
       });
       this.showFullscreenFeedback(feedbackArea, 'incorrect', '✗ Not quite! Keep trying.');
     }
