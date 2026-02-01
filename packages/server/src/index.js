@@ -12,11 +12,16 @@ import { databaseGenerator } from './database/DatabaseGenerator.js';
 import { database } from './database/SqliteDatabase.js';
 import { reportManager } from './reports/PuzzleReportManager.js';
 import { migrate as migrateSources } from './database/migrations/001_add_source_field.js';
+import { migrate as migrateExercises } from './database/migrations/002_add_exercise_tables.js';
+import { migrate as migratePuzzleResults } from './database/migrations/003_add_puzzle_results.js';
 
 import puzzles from './routes/puzzles.js';
 import themes from './routes/themes.js';
 import reports from './routes/reports.js';
 import lichess from './routes/lichess.js';
+import students from './routes/students.js';
+import exercises from './routes/exercises.js';
+import studentExercises from './routes/student-exercises.js';
 
 const app = new Hono();
 
@@ -43,6 +48,8 @@ function initializeServices() {
   console.log('Running database migrations...');
   try {
     migrateSources(database.db);
+    migrateExercises(database.db);
+    migratePuzzleResults(database.db);
     console.log('Migrations completed');
   } catch (error) {
     console.error('Migration error:', error.message);
@@ -68,6 +75,9 @@ app.route('/api/puzzles', puzzles);
 app.route('/api/themes', themes);
 app.route('/api/reports', reports);
 app.route('/api/lichess', lichess);
+app.route('/api/students', students);
+app.route('/api/exercises', exercises);
+app.route('/api/student-exercises', studentExercises);
 
 // Health check
 app.get('/health', (c) => {

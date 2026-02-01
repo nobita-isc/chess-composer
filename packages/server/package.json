@@ -11,6 +11,7 @@
     "@hono/node-server": "^1.13.7",
     "better-sqlite3": "^11.0.0",
     "chess.js": "^1.0.0-beta.8",
-    "hono": "^4.6.18"
+    "hono": "^4.6.18",
+    "pdfkit": "^0.15.0"
   }
 }

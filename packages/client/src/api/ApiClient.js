@@ -247,6 +247,193 @@ export class ApiClient {
     const response = await this.delete(`/reports/${reportId}`);
     return response;
   }
+
+  // ==================== Student API ====================
+
+  /**
+   * Get all students
+   */
+  async getStudents() {
+    const response = await this.get('/students');
+    return response.data;
+  }
+
+  /**
+   * Get a student by ID
+   * @param {string} id - Student ID
+   */
+  async getStudent(id) {
+    const response = await this.get(`/students/${id}`);
+    return response.data;
+  }
+
+  /**
+   * Create a new student
+   * @param {object} data - { name, email?, skill_level?, notes? }
+   */
+  async createStudent(data) {
+    const response = await this.post('/students', data);
+    return response.data;
+  }
+
+  /**
+   * Update a student
+   * @param {string} id - Student ID
+   * @param {object} data - Updated fields
+   */
+  async updateStudent(id, data) {
+    const response = await this.put(`/students/${id}`, data);
+    return response.data;
+  }
+
+  /**
+   * Delete a student
+   * @param {string} id - Student ID
+   */
+  async deleteStudent(id) {
+    const response = await this.delete(`/students/${id}`);
+    return response;
+  }
+
+  /**
+   * Get a student's exercise assignments
+   * @param {string} id - Student ID
+   */
+  async getStudentExercises(id) {
+    const response = await this.get(`/students/${id}/exercises`);
+    return response.data;
+  }
+
+  /**
+   * Get a student's performance summary
+   * @param {string} id - Student ID
+   */
+  async getStudentPerformance(id) {
+    const response = await this.get(`/students/${id}/performance`);
+    return response.data;
+  }
+
+  // ==================== Exercise API ====================
+
+  /**
+   * Get all weekly exercises
+   */
+  async getExercises() {
+    const response = await this.get('/exercises');
+    return response.data;
+  }
+
+  /**
+   * Get current week info
+   */
+  async getCurrentWeek() {
+    const response = await this.get('/exercises/current-week');
+    return response.data;
+  }
+
+  /**
+   * Get an exercise with puzzles
+   * @param {string} id - Exercise ID
+   */
+  async getExercise(id) {
+    const response = await this.get(`/exercises/${id}`);
+    return response.data;
+  }
+
+  /**
+   * Create a new weekly exercise
+   * @param {object} data - { puzzleIds, filters?, name?, weekStart? }
+   */
+  async createExercise(data) {
+    const response = await this.post('/exercises', data);
+    return response.data;
+  }
+
+  /**
+   * Delete an exercise
+   * @param {string} id - Exercise ID
+   */
+  async deleteExercise(id) {
+    const response = await this.delete(`/exercises/${id}`);
+    return response;
+  }
+
+  /**
+   * Assign exercise to students
+   * @param {string} exerciseId - Exercise ID
+   * @param {string[]} studentIds - Array of student IDs
+   */
+  async assignExercise(exerciseId, studentIds) {
+    const response = await this.post(`/exercises/${exerciseId}/assign`, { studentIds });
+    return response.data;
+  }
+
+  /**
+   * Get exercise PDF download URL
+   * @param {string} id - Exercise ID
+   */
+  getExercisePdfUrl(id) {
+    return `${this.baseUrl}/exercises/${id}/pdf`;
+  }
+
+  /**
+   * Get assignments for an exercise
+   * @param {string} exerciseId - Exercise ID
+   */
+  async getExerciseAssignments(exerciseId) {
+    const response = await this.get(`/exercises/${exerciseId}/assignments`);
+    return response.data;
+  }
+
+  // ==================== Student Exercise API ====================
+
+  /**
+   * Grade a student's exercise
+   * @param {string} studentExerciseId - Student exercise ID
+   * @param {number} score - Score
+   * @param {string} notes - Optional notes
+   * @param {string} puzzleResults - Optional comma-separated results (1=correct, 0=wrong)
+   */
+  async gradeExercise(studentExerciseId, score, notes, puzzleResults = null) {
+    const body = { score, notes };
+    if (puzzleResults !== null) {
+      body.puzzleResults = puzzleResults;
+    }
+    const response = await this.put(`/student-exercises/${studentExerciseId}/grade`, body);
+    return response.data;
+  }
+
+  /**
+   * Upload answer PDF for a student exercise
+   * @param {string} studentExerciseId - Student exercise ID
+   * @param {File} file - PDF file
+   */
+  async uploadAnswerPdf(studentExerciseId, file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const url = `${this.baseUrl}/student-exercises/${studentExerciseId}/upload`;
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new ApiError(data.error || 'Upload failed', response.status, data);
+    }
+
+    return data.data;
+  }
+
+  /**
+   * Get answer PDF download URL
+   * @param {string} studentExerciseId - Student exercise ID
+   */
+  getAnswerPdfUrl(studentExerciseId) {
+    return `${this.baseUrl}/student-exercises/${studentExerciseId}/download`;
+  }
 }
 
 // Singleton instance
