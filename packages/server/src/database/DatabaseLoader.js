@@ -1,8 +1,8 @@
 /**
- * DatabaseLoader.js
- * Load and query puzzles from SQLite database (sql.js)
+ * DatabaseLoader.js (Server Version)
+ * Load and query puzzles from SQLite database
  *
- * Replaces the previous CSV-based loader with SQLite for faster startup.
+ * Port of the client-side version to work with better-sqlite3.
  */
 
 import { database } from './SqliteDatabase.js';
@@ -11,30 +11,25 @@ export class DatabaseLoader {
   constructor() {
     this.db = database;
     this.loaded = false;
-    this.reportManager = null;
+    this.blockedIds = new Set();
   }
 
   /**
-   * Set the report manager for filtering blocked puzzles
-   * @param {PuzzleReportManager} reportManager - Report manager instance
+   * Set blocked puzzle IDs for filtering
+   * @param {Set|Array} blockedIds - Set or array of blocked puzzle IDs
    */
-  setReportManager(reportManager) {
-    this.reportManager = reportManager;
+  setBlockedIds(blockedIds) {
+    this.blockedIds = new Set(blockedIds);
   }
 
   /**
    * Load the SQLite database
-   * @param {string} dbPath - Path to the .db file (default: /database/puzzles.db)
-   * @param {function} onProgress - Optional callback for progress updates
+   * @param {string} dbPath - Path to the .db file
    */
-  async load(dbPath = '/database/puzzles.db', onProgress = null) {
-    try {
-      await this.db.initialize(dbPath, onProgress);
-      this.loaded = true;
-      return this;
-    } catch (error) {
-      throw error;
-    }
+  load(dbPath = null) {
+    this.db.initialize(dbPath);
+    this.loaded = true;
+    return this;
   }
 
   /**
@@ -88,16 +83,8 @@ export class DatabaseLoader {
     }
 
     // Filter out blocked puzzles
-    if (excludeBlocked && this.reportManager) {
-      try {
-        const blockedIds = new Set(this.reportManager.getBlockedPuzzleIds());
-        if (blockedIds.size > 0) {
-          puzzleIds = puzzleIds.filter(id => !blockedIds.has(id));
-        }
-      } catch (error) {
-        console.warn('Failed to get blocked puzzle IDs:', error);
-        // Continue without filtering
-      }
+    if (excludeBlocked && this.blockedIds.size > 0) {
+      puzzleIds = puzzleIds.filter(id => !this.blockedIds.has(id));
     }
 
     if (puzzleIds.length === 0) {
@@ -150,13 +137,11 @@ export class DatabaseLoader {
 
   /**
    * Parse a puzzle row from SQLite to match the expected format
-   * Themes are stored as comma-separated text in the optimized schema.
    * @param {object} row - Database row
    * @returns {object} - Puzzle object
    */
   parsePuzzle(row) {
     const moves = row.moves ? row.moves.split(' ') : [];
-    // Themes are stored as comma-separated string
     const themes = row.themes ? row.themes.split(',').filter(t => t) : [];
 
     return {
@@ -185,49 +170,39 @@ export class DatabaseLoader {
   }
 
   /**
-   * Get random sample from an array
-   * Note: SQLite handles randomization via ORDER BY RANDOM()
-   * This is kept for compatibility
-   * @param {array} puzzles
-   * @param {number} count
-   * @returns {array}
+   * Get available themes from the theme index
+   * @returns {array} - Array of theme names
    */
-  getRandomSample(puzzles, count) {
-    // Already randomized by SQL query, just take first N
-    return puzzles.slice(0, count);
+  getAvailableThemes() {
+    if (!this.db.themeIndex) return [];
+    return Array.from(this.db.themeIndex.keys());
   }
 
   /**
-   * Legacy method - returns empty array since we use SQL queries now
-   * @deprecated Use queryPuzzles() instead
+   * Get statistics about themes
+   * @returns {object} - Stats object
    */
-  getPuzzles() {
-    return [];
-  }
+  getStats() {
+    const totalPuzzles = this.getTotalCount();
+    const themes = [];
 
-  /**
-   * Legacy method - use queryPuzzles({ themes: [themeName] }) instead
-   * @deprecated
-   */
-  filterByTheme(themeName) {
-    return this.queryPuzzles({ themes: [themeName.toLowerCase()], limit: 1000 });
-  }
+    if (this.db.themeIndex) {
+      for (const [theme, puzzles] of this.db.themeIndex.entries()) {
+        themes.push({
+          theme,
+          count: puzzles.length
+        });
+      }
+      themes.sort((a, b) => b.count - a.count);
+    }
 
-  /**
-   * Legacy method - use queryPuzzles() instead
-   * @deprecated
-   */
-  filterByRating(minRating, maxRating) {
-    return this.queryPuzzles({ minRating, maxRating, limit: 1000 });
-  }
-
-  /**
-   * Legacy method - use queryPuzzles() instead
-   * @deprecated
-   */
-  filterByPopularity(minPopularity) {
-    return this.queryPuzzles({ minPopularity, limit: 1000 });
+    return {
+      totalPuzzles,
+      themes
+    };
   }
 }
+
+export const databaseLoader = new DatabaseLoader();
 
 export default DatabaseLoader;

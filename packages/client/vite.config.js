@@ -9,10 +9,12 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    open: true
-  },
-  // sql.js uses WASM which needs special handling
-  optimizeDeps: {
-    exclude: ['sql.js']
+    open: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true
+      }
+    }
   }
 });

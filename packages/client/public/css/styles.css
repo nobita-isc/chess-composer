@@ -1867,3 +1867,287 @@ label {
         flex-direction: column;
     }
 }
+
+/* ==================== Create Puzzle Dialog ==================== */
+
+.create-puzzle-dialog {
+    max-width: 800px;
+    width: 95%;
+}
+
+.create-puzzle-tabs {
+    display: flex;
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+    border-bottom: 1px solid var(--color-gray-200);
+    padding-bottom: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.tab-btn {
+    padding: var(--space-2) var(--space-4);
+    background: transparent;
+    border: none;
+    color: var(--color-gray-600);
+    cursor: pointer;
+    font-weight: 500;
+    border-radius: var(--radius-md);
+    transition: all 0.2s ease;
+}
+
+.tab-btn:hover {
+    background: var(--color-gray-100);
+    color: var(--color-gray-900);
+}
+
+.tab-btn.active {
+    background: var(--color-brand-500);
+    color: white;
+}
+
+.tab-panel {
+    display: none;
+    padding: var(--space-4);
+}
+
+.tab-panel.active {
+    display: block;
+}
+
+.tab-content {
+    background: var(--color-gray-50);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--space-4);
+}
+
+/* Form Styles */
+.form-row {
+    display: flex;
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
+.form-group {
+    margin-bottom: var(--space-3);
+}
+
+.form-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: var(--space-1);
+    color: var(--color-gray-700);
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--color-gray-300);
+    border-radius: var(--radius-md);
+    font-size: var(--text-base);
+    font-family: inherit;
+    background: white;
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--color-brand-500);
+    box-shadow: 0 0 0 2px var(--color-brand-100);
+}
+
+.form-group small {
+    display: block;
+    margin-top: var(--space-1);
+    color: var(--color-gray-500);
+    font-size: var(--text-xs);
+}
+
+/* Validation Messages */
+.validation-msg {
+    margin-top: var(--space-1);
+    font-size: var(--text-sm);
+    min-height: 20px;
+}
+
+.validation-msg .valid {
+    color: var(--color-success-600);
+}
+
+.validation-msg .invalid {
+    color: var(--color-error-600);
+}
+
+.validation-msg .loading {
+    color: var(--color-gray-500);
+}
+
+/* Input with Button */
+.input-with-button {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.input-with-button input {
+    flex: 1;
+}
+
+.btn-secondary {
+    padding: var(--space-2) var(--space-4);
+    background: var(--color-gray-200);
+    border: none;
+    border-radius: var(--radius-md);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-secondary:hover {
+    background: var(--color-gray-300);
+}
+
+.btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Puzzle Preview */
+.puzzle-preview {
+    background: white;
+    border: 1px solid var(--color-gray-200);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    margin-top: var(--space-4);
+}
+
+.puzzle-preview h4 {
+    margin-top: 0;
+    margin-bottom: var(--space-3);
+    color: var(--color-gray-800);
+}
+
+.preview-grid {
+    display: flex;
+    gap: var(--space-4);
+    align-items: flex-start;
+}
+
+.preview-board {
+    width: 200px;
+    height: 200px;
+    flex-shrink: 0;
+}
+
+.preview-info {
+    flex: 1;
+}
+
+.preview-info p {
+    margin: var(--space-2) 0;
+    color: var(--color-gray-700);
+}
+
+/* Interactive Board */
+.interactive-controls {
+    display: flex;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+}
+
+.interactive-board-container {
+    display: flex;
+    gap: var(--space-4);
+    align-items: flex-start;
+}
+
+.interactive-info {
+    flex: 1;
+    background: white;
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-gray-200);
+}
+
+.interactive-info p {
+    margin: var(--space-2) 0;
+}
+
+.moves-list {
+    margin-top: var(--space-2);
+    font-family: monospace;
+    font-size: var(--text-sm);
+    background: var(--color-gray-100);
+    padding: var(--space-2);
+    border-radius: var(--radius-md);
+    min-height: 60px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.move-item {
+    display: inline-block;
+    margin-right: var(--space-2);
+    margin-bottom: var(--space-1);
+}
+
+/* Dialog Actions */
+.create-puzzle-dialog .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    border-top: 1px solid var(--color-gray-200);
+    margin-top: 0;
+}
+
+.cancel-btn {
+    padding: var(--space-2) var(--space-6);
+    background: transparent;
+    border: 1px solid var(--color-gray-300);
+    border-radius: var(--radius-md);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.cancel-btn:hover {
+    background: var(--color-gray-100);
+}
+
+.save-btn {
+    padding: var(--space-2) var(--space-6);
+    background: var(--color-brand-500);
+    border: none;
+    border-radius: var(--radius-md);
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.save-btn:hover:not(:disabled) {
+    background: var(--color-brand-600);
+}
+
+.save-btn:disabled {
+    background: var(--color-gray-400);
+    cursor: not-allowed;
+}
+
+/* Admin Controls Layout */
+.admin-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-4);
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}

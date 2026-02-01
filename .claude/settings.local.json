@@ -24,7 +24,12 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(node --check:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(git checkout:*)",
+      "Bash(git pull:*)",
+      "Bash(xargs kill:*)",
+      "Bash(lsof:*)",
+      "Bash(python3:*)"
     ]
   }
 }

@@ -45,4 +45,8 @@ coverage/
 data_sources/
 *.csv
 *.zst
-public/database/*.db
+
+# Database files
+*.db
+*.db-shm
+*.db-wal

@@ -3,7 +3,7 @@
  * Modal dialog for submitting puzzle reports
  */
 
-import { REPORT_REASONS, REPORT_REASON_LABELS } from './PuzzleReportManager.js';
+import { REPORT_REASONS, REPORT_REASON_LABELS } from './constants.js';
 
 /**
  * Escape HTML to prevent XSS

@@ -1,28 +1,27 @@
 /**
- * DatabaseGenerator.js
+ * DatabaseGenerator.js (Server Version)
  * Generate puzzles from the SQLite database by theme
  *
- * Updated to use SQL queries instead of in-memory theme indexing.
+ * Port of client-side version to work with better-sqlite3.
  */
 
 import { Chess } from 'chess.js';
-import { DatabaseLoader } from './DatabaseLoader.js';
+import { databaseLoader } from './DatabaseLoader.js';
 import { database } from './SqliteDatabase.js';
 
 export class DatabaseGenerator {
   constructor() {
-    this.loader = new DatabaseLoader();
+    this.loader = databaseLoader;
     this.initialized = false;
   }
 
   /**
    * Initialize the generator by loading the SQLite database
-   * @param {string} dbPath - Path to .db file (default: /database/puzzles.db)
-   * @param {function} onProgress - Optional callback for progress updates
+   * @param {string} dbPath - Path to .db file
    */
-  async initialize(dbPath = '/database/puzzles.db', onProgress = null) {
+  initialize(dbPath = null) {
     try {
-      await this.loader.load(dbPath, onProgress);
+      this.loader.load(dbPath);
       this.initialized = true;
       return true;
     } catch (error) {
@@ -31,10 +30,15 @@ export class DatabaseGenerator {
   }
 
   /**
+   * Set blocked puzzle IDs for filtering
+   * @param {Set|Array} blockedIds
+   */
+  setBlockedIds(blockedIds) {
+    this.loader.setBlockedIds(blockedIds);
+  }
+
+  /**
    * Map theme names to Lichess theme tags
-   * Maps our theme names to one or more Lichess database tags
-   * Note: With SQLite, themes are stored directly by their lichess_tag,
-   * so this mapping is mainly for backwards compatibility with theme selection UI.
    */
   toLichessTag(theme) {
     const themeMap = {
@@ -73,11 +77,9 @@ export class DatabaseGenerator {
       'intermezzo': ['intermezzo', 'zwischenzug'],
       'crushingMove': ['master', 'brilliant'],
 
-      // Advanced pawn structures
+      // Endgames
       'advancedPawn': ['advancedpawn'],
       'pawnEndgame': ['pawnendgame', 'endgame'],
-
-      // Piece-specific
       'knightEndgame': ['knightendgame', 'endgame'],
       'bishopEndgame': ['bishopendgame', 'endgame'],
       'rookEndgame': ['rookendgame', 'endgame'],
@@ -95,22 +97,20 @@ export class DatabaseGenerator {
       'master': ['master', 'brilliant', 'superiorposition']
     };
 
-    // If theme is in our map, return the mapped tags
     if (themeMap[theme]) {
       return themeMap[theme];
     }
 
-    // Otherwise, return the theme as-is (for direct Lichess tags)
     return [theme.toLowerCase()];
   }
 
   /**
-   * Generate puzzles for a specific theme (or all themes if theme is null/empty)
+   * Generate puzzles for a specific theme
    * @param {string} theme - Theme identifier
-   * @param {number} count - Number of puzzles to return
-   * @param {object} options - Filter options { minRating, maxRating, minPopularity }
+   * @param {number} count - Number of puzzles
+   * @param {object} options - Filter options
    */
-  async generatePuzzles(theme, count = 10, options = {}) {
+  generatePuzzles(theme, count = 10, options = {}) {
     if (!this.initialized) {
       return [];
     }
@@ -128,16 +128,16 @@ export class DatabaseGenerator {
       themes = Array.isArray(lichessTags) ? lichessTags : [lichessTags];
     }
 
-    // Query puzzles directly from database
+    // Query puzzles
     let candidates = this.loader.queryPuzzles({
       themes,
       minRating,
       maxRating,
       minPopularity,
-      limit: count * 2  // Get extras in case some are filtered
+      limit: count * 2
     });
 
-    // If not enough puzzles, relax criteria
+    // Relax criteria if not enough puzzles
     if (candidates.length < count) {
       candidates = this.loader.queryPuzzles({
         themes,
@@ -148,13 +148,11 @@ export class DatabaseGenerator {
       });
     }
 
-    // Select random sample (already randomized by SQL, just take first N)
-    const selected = this.loader.getRandomSample(candidates, count);
+    // Take first N (already randomized)
+    const selected = candidates.slice(0, count);
 
     return selected.map(puzzle => {
       const fenAfterOpponent = this.getFenAfterMove(puzzle.fen, puzzle.opponentMove);
-
-      // Convert full solution line to SAN
       const solutionLine = this.convertSolutionToSAN(puzzle.fen, puzzle.moves);
 
       return {
@@ -177,40 +175,28 @@ export class DatabaseGenerator {
   }
 
   /**
-   * Convert UCI move to SAN notation using chess.js
+   * Convert UCI move to SAN notation
    */
   convertUCIToSAN(uciMove, fen) {
     if (!uciMove) return null;
 
     try {
       const chess = new Chess(fen);
-
       const from = uciMove.substring(0, 2);
       const to = uciMove.substring(2, 4);
       const promotion = uciMove.length > 4 ? uciMove[4] : undefined;
 
-      // Make the move
-      const move = chess.move({
-        from: from,
-        to: to,
-        promotion: promotion
-      });
-
-      if (move) {
-        return move.san;
-      }
+      const move = chess.move({ from, to, promotion });
+      if (move) return move.san;
     } catch (error) {
-      // Fall through to return fallback
+      // Fallback
     }
 
-    // Fallback to UCI notation if conversion fails
-    const from = uciMove.substring(0, 2);
-    const to = uciMove.substring(2, 4);
-    return `${from}-${to}`;
+    return `${uciMove.substring(0, 2)}-${uciMove.substring(2, 4)}`;
   }
 
   /**
-   * Get FEN position after playing a move
+   * Get FEN after playing a move
    */
   getFenAfterMove(fen, uciMove) {
     if (!uciMove) return fen;
@@ -237,8 +223,7 @@ export class DatabaseGenerator {
     const sanMoves = [];
     const chess = new Chess(fen);
 
-    for (let i = 0; i < moves.length; i++) {
-      const uciMove = moves[i];
+    for (const uciMove of moves) {
       const from = uciMove.substring(0, 2);
       const to = uciMove.substring(2, 4);
       const promotion = uciMove.length > 4 ? uciMove[4] : undefined;
@@ -257,16 +242,13 @@ export class DatabaseGenerator {
   }
 
   /**
-   * Detect mate-in-N from themes and move sequence
+   * Detect mate-in-N from themes and moves
    */
   detectMateIn(themes, moves = []) {
-    // First try to calculate from actual moves
     if (moves && moves.length > 1) {
-      const yourMoves = Math.ceil((moves.length - 1) / 2);
-      return yourMoves;
+      return Math.ceil((moves.length - 1) / 2);
     }
 
-    // Fallback to theme tags
     for (const theme of themes) {
       const match = theme.match(/matein(\d+)/i);
       if (match) {
@@ -280,8 +262,7 @@ export class DatabaseGenerator {
   }
 
   /**
-   * Get available themes from the database
-   * @returns {array} - Array of theme tags sorted by puzzle count
+   * Get available themes
    */
   getAvailableThemes() {
     if (!this.initialized || !database.isReady()) {
@@ -299,8 +280,7 @@ export class DatabaseGenerator {
   }
 
   /**
-   * Get themes grouped by category for UI display
-   * @returns {object} - { categories: [...], themes: [...] }
+   * Get themes grouped by category
    */
   getThemesWithCategories() {
     if (!this.initialized || !database.isReady()) {
@@ -327,8 +307,7 @@ export class DatabaseGenerator {
   }
 
   /**
-   * Get statistics about the database
-   * @returns {object} - { totalPuzzles, totalThemes, themes: [...] }
+   * Get database statistics
    */
   getStats() {
     if (!this.initialized || !database.isReady()) {
@@ -351,5 +330,7 @@ export class DatabaseGenerator {
     };
   }
 }
+
+export const databaseGenerator = new DatabaseGenerator();
 
 export default DatabaseGenerator;
