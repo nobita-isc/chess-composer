@@ -1092,7 +1092,8 @@ label {
    ============================================ */
 
 /* Admin Button in Header */
-.admin-btn {
+.admin-btn,
+.exercises-btn {
     background: var(--color-gray-700);
     color: white;
     border: none;
@@ -1107,8 +1108,18 @@ label {
     gap: var(--space-2);
 }
 
+.exercises-btn {
+    background: var(--color-brand-600);
+}
+
 .admin-btn:hover {
     background: var(--color-gray-800);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+.exercises-btn:hover {
+    background: var(--color-brand-700);
     transform: translateY(-1px);
     box-shadow: var(--shadow-sm);
 }
@@ -2150,4 +2161,492 @@ label {
     margin-bottom: var(--space-4);
     flex-wrap: wrap;
     gap: var(--space-2);
+}
+/**
+ * Exercise Panel Styles
+ */
+
+/* Exercise Panel Specific */
+.exercise-panel {
+  max-width: 900px;
+}
+
+.panel-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s;
+}
+
+.tab-btn:hover {
+  color: #333;
+  background: #f5f5f5;
+}
+
+.tab-btn.active {
+  color: #2196f3;
+  border-bottom-color: #2196f3;
+}
+
+/* Exercise Cards */
+.exercises-header,
+.students-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.current-week-info {
+  font-size: 14px;
+  color: #666;
+}
+
+.exercises-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.exercise-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
+.exercise-header {
+  flex: 1;
+  min-width: 200px;
+}
+
+.exercise-header h4 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+}
+
+.week-label {
+  font-size: 12px;
+  color: #888;
+}
+
+.exercise-meta {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: #666;
+}
+
+.exercise-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Students Table */
+.students-table,
+.assignments-table,
+.performance-table,
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.students-table th,
+.students-table td,
+.assignments-table th,
+.assignments-table td,
+.performance-table th,
+.performance-table td,
+.history-table th,
+.history-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.students-table th,
+.assignments-table th,
+.performance-table th,
+.history-table th {
+  background: #f5f5f5;
+  font-weight: 600;
+}
+
+/* Dialogs */
+.student-dialog,
+.create-exercise-dialog,
+.grade-dialog,
+.assign-dialog,
+.exercise-details-dialog,
+.performance-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 15000;
+}
+
+.dialog-content {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+}
+
+.dialog-content.large-dialog {
+  max-width: 700px;
+}
+
+.dialog-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #999;
+  padding: 4px 8px;
+}
+
+.dialog-close:hover {
+  color: #333;
+}
+
+.dialog-content h3 {
+  margin: 0 0 20px 0;
+  font-size: 20px;
+}
+
+.dialog-content h4 {
+  margin: 20px 0 12px 0;
+  font-size: 16px;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #e0e0e0;
+}
+
+/* Forms */
+.student-form,
+.exercise-form,
+.grade-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-weight: 600;
+  font-size: 13px;
+  color: #333;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #2196f3;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
+.form-error {
+  color: #dc3545;
+  font-size: 13px;
+  min-height: 20px;
+}
+
+/* Buttons */
+.primary-btn {
+  background: #2196f3;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.primary-btn:hover {
+  background: #1976d2;
+}
+
+.primary-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.cancel-btn {
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.cancel-btn:hover {
+  background: #e0e0e0;
+}
+
+.upload-btn {
+  background: #ff9800;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.upload-btn:hover {
+  background: #f57c00;
+}
+
+/* Badges */
+.badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badge-success {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.badge-warning {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-assigned {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.status-submitted {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.status-graded {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+/* Assignment Info */
+.assignment-info {
+  background: #f5f5f5;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.assignment-info p {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+/* Student Select List */
+.student-select-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.student-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f9f9f9;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.student-checkbox:hover {
+  background: #f0f0f0;
+}
+
+.student-checkbox input {
+  width: 18px;
+  height: 18px;
+}
+
+/* Performance Summary */
+.performance-summary {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  flex: 1;
+  background: #f5f5f5;
+  padding: 16px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.stat-card .stat-value {
+  display: block;
+  font-size: 24px;
+  font-weight: 700;
+  color: #2196f3;
+}
+
+.stat-card .stat-label {
+  font-size: 12px;
+  color: #666;
+}
+
+/* Score Bar */
+.score-bar {
+  display: inline-block;
+  background: linear-gradient(to right, #4caf50, #8bc34a);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 40px;
+  text-align: center;
+}
+
+/* Puzzles Preview */
+.puzzles-summary {
+  background: #f5f5f5;
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.puzzles-summary h4 {
+  margin: 0 0 12px 0;
+}
+
+.puzzles-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.puzzle-preview-item {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+  color: #666;
+}
+
+.puzzle-num {
+  font-weight: 600;
+  color: #333;
+}
+
+.more-puzzles {
+  color: #888;
+  font-style: italic;
+}
+
+/* Warning Banner */
+.warning-banner {
+  background: #fff3e0;
+  border: 1px solid #ffcc02;
+  color: #e65100;
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+/* Existing File */
+.existing-file {
+  font-size: 12px;
+  color: #666;
+  margin-top: 6px;
+}
+
+.existing-file a {
+  color: #2196f3;
+  margin-left: 8px;
+}
+
+/* Empty State */
+.empty-message {
+  text-align: center;
+  padding: 40px 20px;
+  color: #888;
+  font-style: italic;
+}
+
+/* Exercise Info */
+.exercise-info {
+  background: #f5f5f5;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.exercise-info p {
+  margin: 4px 0;
+  font-size: 14px;
 }

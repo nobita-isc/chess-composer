@@ -10,6 +10,7 @@ import { apiClient, ApiError } from './api/ApiClient.js';
 import { getRandomPuzzles } from './data/samplePuzzles.js';
 import { showReportDialog } from './reports/ReportDialog.js';
 import { showAdminPanel } from './reports/AdminPanel.js';
+import { showExercisePanel } from './exercises/ExercisePanel.js';
 
 class ChessQuizComposer {
   constructor() {
@@ -64,6 +65,11 @@ class ChessQuizComposer {
     const adminBtn = document.getElementById('admin-btn');
     if (adminBtn) {
       adminBtn.addEventListener('click', () => this.handleAdmin());
+    }
+
+    const exercisesBtn = document.getElementById('exercises-btn');
+    if (exercisesBtn) {
+      exercisesBtn.addEventListener('click', () => this.handleExercises());
     }
   }
 
@@ -1232,6 +1238,13 @@ class ChessQuizComposer {
    */
   handleAdmin() {
     showAdminPanel(this.apiClient);
+  }
+
+  /**
+   * Handle exercises button click
+   */
+  handleExercises() {
+    showExercisePanel(this.apiClient, () => this.puzzles);
   }
 
   // ==================== UI Helpers ====================
