@@ -227,6 +227,74 @@ export class ExerciseService {
   }
 
   /**
+   * Save a student's puzzle attempt (temporary score, not final grade)
+   * Only saves if the exercise hasn't been graded by teacher yet.
+   * @param {string} studentExerciseId - Student exercise ID
+   * @param {number} score - Number of correct answers
+   * @param {string} puzzleResults - Comma-separated puzzle results (1=correct, 0=wrong)
+   * @returns {{ success: boolean, data?: object, error?: string }}
+   */
+  saveStudentAttempt(studentExerciseId, score, puzzleResults = null, puzzleHints = null) {
+    const assignment = exerciseRepository.findStudentExerciseById(studentExerciseId);
+
+    if (!assignment) {
+      return { success: false, error: 'Assignment not found' };
+    }
+
+    if (assignment.is_final) {
+      return {
+        success: false,
+        error: 'This exercise has been marked as final and can no longer be modified'
+      };
+    }
+
+    if (score < 0 || score > assignment.total_puzzles) {
+      return {
+        success: false,
+        error: `Score must be between 0 and ${assignment.total_puzzles}`
+      };
+    }
+
+    const updateData = { score };
+
+    if (puzzleResults !== null) {
+      updateData.puzzle_results = puzzleResults;
+    }
+
+    if (puzzleHints !== null) {
+      updateData.puzzle_hints = puzzleHints;
+    }
+
+    return exerciseRepository.updateStudentExercise(studentExerciseId, updateData);
+  }
+
+  /**
+   * Mark a student's exercise as final (no further solving allowed)
+   * @param {string} studentExerciseId - Student exercise ID
+   * @returns {{ success: boolean, data?: object, error?: string }}
+   */
+  markExerciseAsFinal(studentExerciseId) {
+    const assignment = exerciseRepository.findStudentExerciseById(studentExerciseId);
+
+    if (!assignment) {
+      return { success: false, error: 'Assignment not found' };
+    }
+
+    return exerciseRepository.updateStudentExercise(studentExerciseId, { is_final: 1 });
+  }
+
+  /**
+   * Reset a student's exercise score to 0
+   * Clears score, puzzle_results, puzzle_hints, and is_final
+   * Does NOT change status
+   * @param {string} studentExerciseId - Student exercise ID
+   * @returns {{ success: boolean, data?: object, error?: string }}
+   */
+  resetExerciseScore(studentExerciseId) {
+    return exerciseRepository.resetStudentExerciseScore(studentExerciseId);
+  }
+
+  /**
    * Upload answer PDF path
    * @param {string} studentExerciseId - Student exercise ID
    * @param {string} pdfPath - Path to uploaded PDF

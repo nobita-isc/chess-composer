@@ -14,7 +14,13 @@ import { reportManager } from './reports/PuzzleReportManager.js';
 import { migrate as migrateSources } from './database/migrations/001_add_source_field.js';
 import { migrate as migrateExercises } from './database/migrations/002_add_exercise_tables.js';
 import { migrate as migratePuzzleResults } from './database/migrations/003_add_puzzle_results.js';
+import { migrate as migrateAuth } from './database/migrations/004_add_users_auth.js';
+import { migrate as migratePuzzleHints } from './database/migrations/005_add_puzzle_hints.js';
+import { migrate as migrateIsFinal } from './database/migrations/006_add_is_final_flag.js';
 
+import { authRequired } from './middleware/authMiddleware.js';
+import auth from './routes/auth.js';
+import usersRoute from './routes/users.js';
 import puzzles from './routes/puzzles.js';
 import themes from './routes/themes.js';
 import reports from './routes/reports.js';
@@ -50,6 +56,9 @@ function initializeServices() {
     migrateSources(database.db);
     migrateExercises(database.db);
     migratePuzzleResults(database.db);
+    migrateAuth(database.db);
+    migratePuzzleHints(database.db);
+    migrateIsFinal(database.db);
     console.log('Migrations completed');
   } catch (error) {
     console.error('Migration error:', error.message);
@@ -70,7 +79,12 @@ function initializeServices() {
 // Initialize on startup
 initializeServices();
 
-// Routes
+// Auth routes (public - no middleware)
+app.route('/api/auth', auth);
+
+// Protected routes (require authentication)
+app.use('/api/*', authRequired());
+app.route('/api/users', usersRoute);
 app.route('/api/puzzles', puzzles);
 app.route('/api/themes', themes);
 app.route('/api/reports', reports);

@@ -17,17 +17,30 @@ export class ApiError extends Error {
 export class ApiClient {
   constructor(baseUrl = '/api') {
     this.baseUrl = baseUrl;
+    this._authManager = null;
+  }
+
+  setAuthManager(authManager) {
+    this._authManager = authManager;
+  }
+
+  _getAuthHeaders() {
+    if (!this._authManager) return {};
+    const token = this._authManager.getAccessToken();
+    if (!token) return {};
+    return { 'Authorization': `Bearer ${token}` };
   }
 
   /**
    * Make an HTTP request
    */
-  async request(endpoint, options = {}) {
+  async request(endpoint, options = {}, _isRetry = false) {
     const url = `${this.baseUrl}${endpoint}`;
 
     const config = {
       headers: {
         'Content-Type': 'application/json',
+        ...this._getAuthHeaders(),
         ...options.headers
       },
       ...options
@@ -38,6 +51,18 @@ export class ApiClient {
       const data = await response.json();
 
       if (!response.ok) {
+        if (response.status === 401 && !_isRetry && this._authManager) {
+          try {
+            const refreshed = await this._authManager.refreshAccessToken();
+            if (refreshed) {
+              return this.request(endpoint, options, true);
+            }
+          } catch {
+            // Refresh failed, fall through to logout
+          }
+          this._authManager.logout();
+        }
+
         throw new ApiError(
           data.error || 'Request failed',
           response.status,
@@ -373,7 +398,8 @@ export class ApiClient {
    * @param {string} id - Exercise ID
    */
   getExercisePdfUrl(id) {
-    return `${this.baseUrl}/exercises/${id}/pdf`;
+    const token = this._authManager?.getAccessToken() || '';
+    return `${this.baseUrl}/exercises/${id}/pdf?token=${encodeURIComponent(token)}`;
   }
 
   /**
@@ -404,6 +430,42 @@ export class ApiClient {
   }
 
   /**
+   * Mark a student exercise as final (no further solving allowed)
+   * @param {string} studentExerciseId - Student exercise ID
+   */
+  async markStudentExerciseAsFinal(studentExerciseId) {
+    const response = await this.put(`/student-exercises/${studentExerciseId}/mark-final`);
+    return response.data;
+  }
+
+  /**
+   * Reset a student exercise score back to 0
+   * @param {string} studentExerciseId - Student exercise ID
+   */
+  async resetStudentExerciseScore(studentExerciseId) {
+    const response = await this.put(`/student-exercises/${studentExerciseId}/reset-score`);
+    return response.data;
+  }
+
+  /**
+   * Save a student's puzzle attempt (temporary score, not final grade)
+   * @param {string} studentExerciseId - Student exercise ID
+   * @param {number} score - Number of correct answers
+   * @param {string} puzzleResults - Comma-separated results (1=correct, 0=wrong)
+   */
+  async saveStudentAttempt(studentExerciseId, score, puzzleResults = null, puzzleHints = null) {
+    const body = { score };
+    if (puzzleResults !== null) {
+      body.puzzleResults = puzzleResults;
+    }
+    if (puzzleHints !== null) {
+      body.puzzleHints = puzzleHints;
+    }
+    const response = await this.put(`/student-exercises/${studentExerciseId}/attempt`, body);
+    return response.data;
+  }
+
+  /**
    * Upload answer PDF for a student exercise
    * @param {string} studentExerciseId - Student exercise ID
    * @param {File} file - PDF file
@@ -415,6 +477,7 @@ export class ApiClient {
     const url = `${this.baseUrl}/student-exercises/${studentExerciseId}/upload`;
     const response = await fetch(url, {
       method: 'POST',
+      headers: this._getAuthHeaders(),
       body: formData
     });
 
@@ -432,7 +495,35 @@ export class ApiClient {
    * @param {string} studentExerciseId - Student exercise ID
    */
   getAnswerPdfUrl(studentExerciseId) {
-    return `${this.baseUrl}/student-exercises/${studentExerciseId}/download`;
+    const token = this._authManager?.getAccessToken() || '';
+    return `${this.baseUrl}/student-exercises/${studentExerciseId}/download?token=${encodeURIComponent(token)}`;
+  }
+
+  // ==================== User Management API (Admin) ====================
+
+  async getUsers() {
+    const response = await this.get('/users');
+    return response.data;
+  }
+
+  async getUser(id) {
+    const response = await this.get(`/users/${id}`);
+    return response.data;
+  }
+
+  async createUser(data) {
+    const response = await this.post('/users', data);
+    return response.data;
+  }
+
+  async updateUser(id, data) {
+    const response = await this.put(`/users/${id}`, data);
+    return response.data;
+  }
+
+  async deleteUser(id) {
+    const response = await this.delete(`/users/${id}`);
+    return response;
   }
 }
 

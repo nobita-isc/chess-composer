@@ -53,7 +53,19 @@ export function openPuzzlePlayer(exercise, options = {}) {
     return;
   }
 
-  const { gradingMode = false, assignment = null, assignments = null, apiClient = null, onGraded = null } = options;
+  const {
+    gradingMode = false,
+    studentMode = false,
+    reviewMode = false,
+    studentExerciseId = null,
+    existingResults = null,
+    existingHints = null,
+    assignment = null,
+    assignments = null,
+    apiClient = null,
+    onGraded = null,
+    onComplete = null
+  } = options;
 
   // Build students list from assignments or single assignment
   const students = assignments || (assignment ? [assignment] : []);
@@ -63,6 +75,7 @@ export function openPuzzlePlayer(exercise, options = {}) {
   let currentStudentIndex = 0;
   let boardInstance = null;
   let puzzleState = null;
+  let savePending = false;
 
   // For grading mode: track results per student
   // studentResults[studentIndex][puzzleIndex] = true/false/null
@@ -80,18 +93,51 @@ export function openPuzzlePlayer(exercise, options = {}) {
     return new Array(puzzles.length).fill(null);
   });
 
+  // For student solving mode: track per-puzzle results
+  // solveResults[puzzleIndex] = true/false/null
+  const solveResults = (() => {
+    if (!studentMode && !reviewMode) return null;
+    if (existingResults) {
+      const parts = existingResults.split(',');
+      return puzzles.map((_, i) => {
+        if (i < parts.length && parts[i] !== '') {
+          return parts[i] === '1';
+        }
+        return null;
+      });
+    }
+    return new Array(puzzles.length).fill(null);
+  })();
+
+  // For student mode: track hint usage per puzzle
+  // hintUsed[puzzleIndex] = true/false
+  const hintUsed = (() => {
+    if (!studentMode) return null;
+    if (existingHints) {
+      const parts = existingHints.split(',');
+      return puzzles.map((_, i) => {
+        if (i < parts.length && parts[i] === '1') return true;
+        return false;
+      });
+    }
+    return new Array(puzzles.length).fill(false);
+  })();
+
+  const modeClass = gradingMode ? 'grading-mode' : studentMode ? 'student-mode' : reviewMode ? 'review-mode' : '';
+
   // Create overlay
   const overlay = document.createElement('div');
   overlay.className = 'puzzle-player-overlay';
   overlay.innerHTML = `
-    <div class="puzzle-player-content ${gradingMode ? 'grading-mode' : ''}">
+    <div class="puzzle-player-content ${modeClass}">
       <button class="puzzle-player-close">&times;</button>
 
       <div class="puzzle-player-header">
-        <h2>${escapeHtml(exercise.name || exercise.week_label)}</h2>
+        <h2>${escapeHtml(exercise.name || exercise.week_label)}${reviewMode ? ' <span class="review-badge">Review</span>' : ''}</h2>
         <div class="puzzle-progress">
           <span id="puzzle-current">1</span> / <span id="puzzle-total">${puzzles.length}</span>
           ${gradingMode ? `<span id="grading-score" class="grading-score">Score: 0/${puzzles.length}</span>` : ''}
+          ${studentMode || reviewMode ? `<span id="student-solve-score" class="grading-score">0/${puzzles.length}</span>` : ''}
         </div>
       </div>
 
@@ -106,7 +152,7 @@ export function openPuzzlePlayer(exercise, options = {}) {
         </div>
       ` : ''}
 
-      ${gradingMode ? `
+      ${gradingMode || studentMode || reviewMode ? `
         <div class="grading-overview" id="grading-overview">
           ${puzzles.map((_, i) => `
             <button class="grading-dot" data-index="${i}" title="Puzzle ${i + 1}">
@@ -139,11 +185,15 @@ export function openPuzzlePlayer(exercise, options = {}) {
             <div id="puzzle-grade-status" class="puzzle-grade-status"></div>
           ` : ''}
 
+          ${studentMode ? `
+            <div id="student-puzzle-status" class="puzzle-grade-status"></div>
+          ` : ''}
+
           <div class="puzzle-controls">
             <button id="btn-prev" class="puzzle-nav-btn" disabled>&larr; Previous</button>
             <button id="btn-reset" class="puzzle-action-btn">Reset</button>
-            <button id="btn-hint" class="puzzle-action-btn">Hint</button>
-            <button id="btn-solution" class="puzzle-action-btn">Solution</button>
+            ${!reviewMode ? '<button id="btn-hint" class="puzzle-action-btn">Hint</button>' : ''}
+            ${!studentMode ? `<button id="btn-solution" class="puzzle-action-btn">${reviewMode ? 'Show Solution' : 'Solution'}</button>` : ''}
             <button id="btn-next" class="puzzle-nav-btn">Next &rarr;</button>
           </div>
 
@@ -153,6 +203,13 @@ export function openPuzzlePlayer(exercise, options = {}) {
             <div class="grading-actions">
               <div class="auto-save-note">Grades are saved automatically</div>
               <button id="btn-save-grade" class="puzzle-save-btn">Done</button>
+            </div>
+          ` : ''}
+
+          ${studentMode ? `
+            <div class="grading-actions">
+              <div class="auto-save-note">Your progress is saved automatically</div>
+              <button id="btn-finish-solving" class="puzzle-save-btn">Done</button>
             </div>
           ` : ''}
         </div>
@@ -572,6 +629,17 @@ export function openPuzzlePlayer(exercise, options = {}) {
       font-weight: 600;
     }
 
+    .puzzle-grade-status.hint-used {
+      color: #ff9800;
+      font-weight: 600;
+    }
+
+    .grading-dot.correct.hint-used {
+      border-color: #ff9800;
+      background: #ff9800;
+      color: white;
+    }
+
     .grading-actions {
       margin-top: 16px;
       padding-top: 16px;
@@ -616,6 +684,14 @@ export function openPuzzlePlayer(exercise, options = {}) {
    * Initialize puzzle at given index
    */
   function initPuzzle(index) {
+    // Student mode: mark previous puzzle as wrong if navigating away without solving
+    if (studentMode && solveResults && puzzleState && currentIndex !== index) {
+      if (solveResults[currentIndex] === null && !puzzleState.isComplete) {
+        solveResults[currentIndex] = false;
+        saveStudentSolveResults();
+      }
+    }
+
     currentIndex = index;
     const puzzle = puzzles[index];
 
@@ -676,6 +752,11 @@ export function openPuzzlePlayer(exercise, options = {}) {
       updateGradingUI();
     }
 
+    // Update student/review mode UI
+    if (studentMode || reviewMode) {
+      updateStudentSolveUI();
+    }
+
     // Initialize or update board
     const boardEl = overlay.querySelector('#puzzle-board');
 
@@ -711,6 +792,14 @@ export function openPuzzlePlayer(exercise, options = {}) {
         enabled: false
       }
     });
+
+    // Review mode: disable board interaction
+    if (reviewMode) {
+      boardInstance.set({
+        movable: { free: false, color: undefined, dests: new Map() },
+        draggable: { enabled: false }
+      });
+    }
   }
 
   /**
@@ -760,6 +849,13 @@ export function openPuzzlePlayer(exercise, options = {}) {
         boardInstance.set({
           movable: { dests: new Map() }
         });
+
+        // Student mode: auto-mark as correct (allows re-solving previously wrong puzzles)
+        if (studentMode && solveResults && solveResults[currentIndex] !== true) {
+          solveResults[currentIndex] = true;
+          updateStudentSolveUI();
+          saveStudentSolveResults();
+        }
       } else {
         // Play opponent's next move after delay
         setTimeout(() => playOpponentMove(), 500);
@@ -768,6 +864,11 @@ export function openPuzzlePlayer(exercise, options = {}) {
       // Incorrect move - undo and allow retry
       chess.undo();
       showFeedback('Try again', 'incorrect');
+
+      // Student mode: track wrong attempt
+      if (studentMode && solveResults) {
+        puzzleState.wrongAttempts = (puzzleState.wrongAttempts || 0) + 1;
+      }
 
       boardInstance.set({
         fen: chess.fen(),
@@ -814,6 +915,14 @@ export function openPuzzlePlayer(exercise, options = {}) {
     if (puzzleState.currentMoveIndex >= moves.length) {
       puzzleState.isComplete = true;
       showFeedback('Puzzle Complete!', 'complete');
+
+      // Student mode: auto-mark as correct (allows re-solving previously wrong puzzles)
+      if (studentMode && solveResults && solveResults[currentIndex] !== true) {
+        solveResults[currentIndex] = true;
+        updateStudentSolveUI();
+        saveStudentSolveResults();
+      }
+
       boardInstance.set({
         movable: { dests: new Map() }
       });
@@ -851,6 +960,11 @@ export function openPuzzlePlayer(exercise, options = {}) {
     const { moves, currentMoveIndex, isComplete } = puzzleState;
 
     if (isComplete || currentMoveIndex >= moves.length) return;
+
+    // Student mode: record hint usage for this puzzle
+    if (studentMode && hintUsed) {
+      hintUsed[currentIndex] = true;
+    }
 
     const expectedMove = parseUciMove(moves[currentMoveIndex]);
     if (!expectedMove) return;
@@ -1119,6 +1233,139 @@ export function openPuzzlePlayer(exercise, options = {}) {
     close(); // close() handles the onGraded callback
   }
 
+  // ==================== Student Solve Functions ====================
+
+  /**
+   * Update student/review mode UI: progress dots, score, status, finish button
+   */
+  function updateStudentSolveUI() {
+    if (!solveResults) return;
+
+    // Update progress dots
+    const dots = overlay.querySelectorAll('.grading-dot');
+    dots.forEach((dot, i) => {
+      dot.classList.remove('active', 'correct', 'wrong', 'hint-used');
+      if (i === currentIndex) dot.classList.add('active');
+      if (solveResults[i] === true) {
+        dot.classList.add('correct');
+        if (hintUsed && hintUsed[i]) dot.classList.add('hint-used');
+      } else if (solveResults[i] === false) {
+        dot.classList.add('wrong');
+      }
+    });
+
+    // Update score
+    const correctCount = solveResults.filter(r => r === true).length;
+    const scoreEl = overlay.querySelector('#student-solve-score');
+    if (scoreEl) {
+      scoreEl.textContent = `${correctCount}/${puzzles.length}`;
+    }
+
+    // Update puzzle status text (student mode only)
+    if (studentMode) {
+      const statusEl = overlay.querySelector('#student-puzzle-status');
+      if (statusEl) {
+        const result = solveResults[currentIndex];
+        const usedHint = hintUsed && hintUsed[currentIndex];
+        if (result === true && usedHint) {
+          statusEl.textContent = 'Solved with hint!';
+          statusEl.className = 'puzzle-grade-status hint-used';
+        } else if (result === true) {
+          statusEl.textContent = 'Solved correctly!';
+          statusEl.className = 'puzzle-grade-status saved';
+        } else if (result === false) {
+          statusEl.textContent = 'Not solved';
+          statusEl.className = 'puzzle-grade-status error';
+        } else {
+          statusEl.textContent = '';
+          statusEl.className = 'puzzle-grade-status';
+        }
+      }
+    }
+
+    // Update finish button (student mode only)
+    if (studentMode) {
+      const finishBtn = overlay.querySelector('#btn-finish-solving');
+      if (finishBtn) {
+        const solvedCount = solveResults.filter(r => r !== null).length;
+        if (solvedCount === puzzles.length) {
+          finishBtn.textContent = `Done (${correctCount}/${puzzles.length})`;
+          finishBtn.classList.add('all-done');
+        } else {
+          const remaining = puzzles.length - solvedCount;
+          finishBtn.textContent = `${remaining} puzzle${remaining !== 1 ? 's' : ''} remaining`;
+          finishBtn.classList.remove('all-done');
+        }
+      }
+    }
+  }
+
+  /**
+   * Save student solve results to server via gradeExercise API
+   */
+  async function saveStudentSolveResults() {
+    if (!studentMode || !apiClient || !studentExerciseId || !solveResults) return;
+    if (savePending) return;
+    savePending = true;
+
+    const correctCount = solveResults.filter(r => r === true).length;
+    const puzzleResultsStr = solveResults.map(r => {
+      if (r === true) return '1';
+      if (r === false) return '0';
+      return '';
+    }).join(',');
+
+    const statusEl = overlay.querySelector('#student-puzzle-status');
+
+    try {
+      if (statusEl) {
+        statusEl.textContent = 'Saving...';
+        statusEl.className = 'puzzle-grade-status saving';
+      }
+
+      const puzzleHintsStr = hintUsed
+        ? hintUsed.map(h => h ? '1' : '0').join(',')
+        : null;
+
+      await apiClient.saveStudentAttempt(studentExerciseId, correctCount, puzzleResultsStr, puzzleHintsStr);
+
+      if (statusEl) {
+        statusEl.textContent = 'Saved!';
+        statusEl.className = 'puzzle-grade-status saved';
+        setTimeout(() => {
+          if (statusEl) {
+            statusEl.className = 'puzzle-grade-status';
+            updateStudentSolveUI();
+          }
+        }, 1500);
+      }
+    } catch (error) {
+      if (statusEl) {
+        statusEl.textContent = 'Save failed!';
+        statusEl.className = 'puzzle-grade-status error';
+        setTimeout(() => {
+          if (statusEl) statusEl.className = 'puzzle-grade-status';
+        }, 2000);
+      }
+    } finally {
+      savePending = false;
+    }
+  }
+
+  /**
+   * Finish solving: mark current puzzle as wrong if unsolved, then close
+   */
+  async function finishSolving() {
+    if (studentMode && solveResults) {
+      // Mark current puzzle as wrong if unsolved
+      if (solveResults[currentIndex] === null && puzzleState && !puzzleState.isComplete) {
+        solveResults[currentIndex] = false;
+        await saveStudentSolveResults();
+      }
+    }
+    close();
+  }
+
   // ==================== Event Listeners ====================
 
   overlay.querySelector('.puzzle-player-close').addEventListener('click', close);
@@ -1139,8 +1386,22 @@ export function openPuzzlePlayer(exercise, options = {}) {
   });
 
   overlay.querySelector('#btn-reset').addEventListener('click', resetPuzzle);
-  overlay.querySelector('#btn-hint').addEventListener('click', showHint);
-  overlay.querySelector('#btn-solution').addEventListener('click', showSolution);
+  overlay.querySelector('#btn-hint')?.addEventListener('click', showHint);
+  overlay.querySelector('#btn-solution')?.addEventListener('click', showSolution);
+
+  // Student/review mode event listeners
+  if (studentMode || reviewMode) {
+    // Dot click handlers
+    overlay.querySelectorAll('.grading-dot').forEach(dot => {
+      dot.addEventListener('click', () => {
+        const index = parseInt(dot.dataset.index, 10);
+        initPuzzle(index);
+      });
+    });
+
+    // Finish button (student mode only)
+    overlay.querySelector('#btn-finish-solving')?.addEventListener('click', finishSolving);
+  }
 
   // Grading mode event listeners
   if (gradingMode) {
@@ -1204,6 +1465,11 @@ export function openPuzzlePlayer(exercise, options = {}) {
         total: puzzles.length
       }));
       onGraded(results);
+    }
+
+    // Call onComplete callback for student mode
+    if ((studentMode || reviewMode) && onComplete) {
+      onComplete();
     }
   }
 
