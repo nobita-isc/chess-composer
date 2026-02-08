@@ -9,8 +9,13 @@ import { Chessground } from 'chessground';
 import { apiClient, ApiError } from './api/ApiClient.js';
 import { getRandomPuzzles } from './data/samplePuzzles.js';
 import { showReportDialog } from './reports/ReportDialog.js';
-import { showAdminPanel } from './reports/AdminPanel.js';
-import { showExercisePanel } from './exercises/ExercisePanel.js';
+import { showAdminPanel, renderAdminPage } from './reports/AdminPanel.js';
+import { showExercisePanel, renderExercisePage } from './exercises/ExercisePanel.js';
+import { authManager } from './auth/AuthManager.js';
+import { renderLoginView } from './auth/LoginView.js';
+import { renderStudentDashboard } from './auth/StudentDashboard.js';
+import { ViewRouter } from './core/ViewRouter.js';
+import { renderUsersPage } from './auth/UserManagementPanel.js';
 
 class ChessQuizComposer {
   constructor() {
@@ -60,16 +65,6 @@ class ChessQuizComposer {
     const exportBtn = document.getElementById('export-btn');
     if (exportBtn) {
       exportBtn.addEventListener('click', () => this.handleExport());
-    }
-
-    const adminBtn = document.getElementById('admin-btn');
-    if (adminBtn) {
-      adminBtn.addEventListener('click', () => this.handleAdmin());
-    }
-
-    const exercisesBtn = document.getElementById('exercises-btn');
-    if (exercisesBtn) {
-      exercisesBtn.addEventListener('click', () => this.handleExercises());
     }
   }
 
@@ -1233,20 +1228,6 @@ class ChessQuizComposer {
     });
   }
 
-  /**
-   * Handle admin button click
-   */
-  handleAdmin() {
-    showAdminPanel(this.apiClient);
-  }
-
-  /**
-   * Handle exercises button click
-   */
-  handleExercises() {
-    showExercisePanel(this.apiClient, () => this.puzzles);
-  }
-
   // ==================== UI Helpers ====================
 
   showLoading(message = 'Loading...') {
@@ -1302,9 +1283,128 @@ class ChessQuizComposer {
   }
 }
 
-// Initialize application
+// Initialize application with auth routing
 document.addEventListener('DOMContentLoaded', async () => {
+  apiClient.setAuthManager(authManager);
+
+  if (!authManager.isAuthenticated()) {
+    const appLayout = document.querySelector('.app-layout');
+    if (appLayout) {
+      appLayout.innerHTML = '<div class="container"></div>';
+      appLayout.style.display = 'block';
+    }
+    const container = document.querySelector('.container');
+    renderLoginView(container, () => {
+      window.location.reload();
+    });
+    return;
+  }
+
+  const user = authManager.getCurrentUser();
+
+  if (user.role === 'student') {
+    const appLayout = document.querySelector('.app-layout');
+    if (appLayout) {
+      appLayout.innerHTML = '<div class="container"></div>';
+      appLayout.style.display = 'block';
+    }
+    const container = document.querySelector('.container');
+    renderStudentDashboard(container, apiClient);
+    return;
+  }
+
+  // Admin user: populate sidebar footer with user info
+  const sidebarFooter = document.getElementById('sidebar-footer');
+  if (sidebarFooter) {
+    const initial = (user.username || 'A').charAt(0).toUpperCase();
+    sidebarFooter.innerHTML = `
+      <div class="sidebar-user">
+        <div class="sidebar-avatar">${escapeHtmlAttr(initial)}</div>
+        <div>
+          <div class="sidebar-username">${escapeHtmlAttr(user.username)}</div>
+          <div class="sidebar-role">Admin</div>
+        </div>
+      </div>
+      <button id="logout-btn" class="sidebar-logout-btn" title="Logout">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span class="sidebar-label">Logout</span>
+      </button>
+    `;
+
+    document.getElementById('logout-btn').addEventListener('click', () => {
+      authManager.logout();
+    });
+  }
+
+  // Add Users nav item to sidebar
+  const dynamicNav = document.getElementById('sidebar-dynamic-nav');
+  if (dynamicNav) {
+    const usersBtn = document.createElement('button');
+    usersBtn.id = 'users-btn';
+    usersBtn.className = 'sidebar-nav-item';
+    usersBtn.title = 'User Management';
+    usersBtn.innerHTML = `
+      <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      <span class="sidebar-label">Users</span>
+    `;
+    dynamicNav.appendChild(usersBtn);
+  }
+
   const app = new ChessQuizComposer();
   await app.initialize();
   window.chessApp = app;
+
+  // Set up ViewRouter
+  const generateView = document.getElementById('view-generate');
+  const viewContainer = document.getElementById('view-container');
+
+  if (generateView && viewContainer) {
+    const viewRouter = new ViewRouter({
+      generateView,
+      viewContainer,
+      getBoards: () => app.boardInstances
+    });
+
+    app.viewRouter = viewRouter;
+
+    // Wire sidebar nav buttons
+    const navGenerate = document.getElementById('nav-generate');
+    if (navGenerate) {
+      navGenerate.addEventListener('click', () => {
+        viewRouter.navigate('generate');
+      });
+    }
+
+    const exercisesBtn = document.getElementById('exercises-btn');
+    if (exercisesBtn) {
+      exercisesBtn.addEventListener('click', () => {
+        viewRouter.navigate('exercises', (container) => {
+          return renderExercisePage(container, apiClient, () => app.puzzles);
+        });
+      });
+    }
+
+    const adminBtn = document.getElementById('admin-btn');
+    if (adminBtn) {
+      adminBtn.addEventListener('click', () => {
+        viewRouter.navigate('admin', (container) => {
+          return renderAdminPage(container, apiClient);
+        });
+      });
+    }
+
+    const usersBtnEl = document.getElementById('users-btn');
+    if (usersBtnEl) {
+      usersBtnEl.addEventListener('click', () => {
+        viewRouter.navigate('users', (container) => {
+          return renderUsersPage(container, apiClient);
+        });
+      });
+    }
+  }
 });
+
+function escapeHtmlAttr(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}

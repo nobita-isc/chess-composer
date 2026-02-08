@@ -253,6 +253,16 @@ export class ExerciseRepository {
         params.push(data.puzzle_results);
       }
 
+      if (data.puzzle_hints !== undefined) {
+        updates.push('puzzle_hints = ?');
+        params.push(data.puzzle_hints);
+      }
+
+      if (data.is_final !== undefined) {
+        updates.push('is_final = ?');
+        params.push(data.is_final);
+      }
+
       if (data.status === 'graded') {
         updates.push('graded_at = ?');
         params.push(new Date().toISOString());
@@ -318,6 +328,35 @@ export class ExerciseRepository {
         percentage: e.total_puzzles > 0 ? Math.round((e.score / e.total_puzzles) * 100) : 0
       }))
     };
+  }
+
+  /**
+   * Reset a student exercise score back to 0
+   * Clears score, puzzle_results, puzzle_hints, and is_final. Preserves status.
+   * @param {string} id - Student exercise ID
+   * @returns {{ success: boolean, data?: object, error?: string }}
+   */
+  resetStudentExerciseScore(id) {
+    try {
+      const existing = this.findStudentExerciseById(id);
+      if (!existing) {
+        return { success: false, error: 'Assignment not found' };
+      }
+
+      database.run(
+        `UPDATE student_exercises
+         SET score = 0, puzzle_results = NULL, puzzle_hints = NULL, is_final = 0
+         WHERE id = ?`,
+        [id]
+      );
+
+      return {
+        success: true,
+        data: this.findStudentExerciseById(id)
+      };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
   }
 
   /**

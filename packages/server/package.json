@@ -9,9 +9,11 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
+    "bcrypt": "^6.0.0",
     "better-sqlite3": "^11.0.0",
     "chess.js": "^1.0.0-beta.8",
     "hono": "^4.6.18",
+    "jsonwebtoken": "^9.0.3",
     "pdfkit": "^0.15.0"
   }
 }

@@ -5,6 +5,7 @@
 import { Hono } from 'hono';
 import { exerciseService } from '../exercises/ExerciseService.js';
 import { exerciseRepository } from '../exercises/ExerciseRepository.js';
+import { requireRole } from '../middleware/roleMiddleware.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -66,6 +67,49 @@ studentExercises.put('/:id/grade', async (c) => {
     }
 
     const result = exerciseService.gradeExercise(id, score, notes, puzzleResults || null);
+
+    if (!result.success) {
+      return c.json({ success: false, error: result.error }, 400);
+    }
+
+    return c.json({ success: true, data: result.data });
+  } catch (error) {
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+/**
+ * PUT /api/student-exercises/:id/attempt
+ * Save a student's puzzle attempt (temporary score, not final grade).
+ * Only works if exercise has NOT been graded by teacher yet.
+ */
+studentExercises.put('/:id/attempt', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    const { score, puzzleResults, puzzleHints } = body;
+
+    if (score === undefined || score === null) {
+      return c.json({ success: false, error: 'Score is required' }, 400);
+    }
+
+    if (typeof score !== 'number' || score < 0) {
+      return c.json({ success: false, error: 'Score must be a non-negative number' }, 400);
+    }
+
+    if (puzzleResults !== undefined && puzzleResults !== null) {
+      if (typeof puzzleResults !== 'string' || !/^[01,]*$/.test(puzzleResults)) {
+        return c.json({ success: false, error: 'Invalid puzzleResults format' }, 400);
+      }
+    }
+
+    if (puzzleHints !== undefined && puzzleHints !== null) {
+      if (typeof puzzleHints !== 'string' || !/^[01,]*$/.test(puzzleHints)) {
+        return c.json({ success: false, error: 'Invalid puzzleHints format' }, 400);
+      }
+    }
+
+    const result = exerciseService.saveStudentAttempt(id, score, puzzleResults || null, puzzleHints || null);
 
     if (!result.success) {
       return c.json({ success: false, error: result.error }, 400);
@@ -214,6 +258,44 @@ studentExercises.put('/:id/notes', async (c) => {
     const { notes } = body;
 
     const result = exerciseRepository.updateStudentExercise(id, { notes });
+
+    if (!result.success) {
+      return c.json({ success: false, error: result.error }, 400);
+    }
+
+    return c.json({ success: true, data: result.data });
+  } catch (error) {
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+/**
+ * PUT /api/student-exercises/:id/mark-final
+ * Mark a student exercise as final (no further solving allowed)
+ */
+studentExercises.put('/:id/mark-final', requireRole('admin'), async (c) => {
+  try {
+    const id = c.req.param('id');
+    const result = exerciseService.markExerciseAsFinal(id);
+
+    if (!result.success) {
+      return c.json({ success: false, error: result.error }, 400);
+    }
+
+    return c.json({ success: true, data: result.data });
+  } catch (error) {
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+/**
+ * PUT /api/student-exercises/:id/reset-score
+ * Reset a student exercise score back to 0
+ */
+studentExercises.put('/:id/reset-score', requireRole('admin'), async (c) => {
+  try {
+    const id = c.req.param('id');
+    const result = exerciseService.resetExerciseScore(id);
 
     if (!result.success) {
       return c.json({ success: false, error: result.error }, 400);
