@@ -6,7 +6,7 @@
 import { showStudentDialog } from './StudentDialog.js';
 import { showCreateExerciseDialog } from './CreateExerciseDialog.js';
 import { showGradeDialog } from './GradeDialog.js';
-import { openPrintPreview } from './PrintPreview.js';
+import { openPrintPreview, openPrintSolutions } from './PrintPreview.js';
 import { openPuzzlePlayer } from './PuzzlePlayer.js';
 
 const SKILL_LEVEL_LABELS = {
@@ -152,6 +152,7 @@ export function showExercisePanel(apiClient, getCurrentPuzzles, onPuzzlesUpdated
                   <button class="action-btn" data-action="play" title="Play Puzzles">▶️</button>
                   <button class="action-btn" data-action="view" title="View">👁️</button>
                   <button class="action-btn" data-action="print" title="Print Preview">🖨️</button>
+                  <button class="action-btn" data-action="print-solutions" title="Print Solutions">📋</button>
                   <button class="action-btn" data-action="assign" title="Assign">📝</button>
                   <button class="action-btn" data-action="delete" title="Delete">🗑️</button>
                 </div>
@@ -190,6 +191,10 @@ export function showExercisePanel(apiClient, getCurrentPuzzles, onPuzzlesUpdated
               case 'print':
                 const exerciseData = await apiClient.getExercise(exerciseId);
                 openPrintPreview(exerciseData);
+                break;
+              case 'print-solutions':
+                const solutionsData = await apiClient.getExercise(exerciseId);
+                openPrintSolutions(solutionsData);
                 break;
               case 'assign':
                 await showAssignDialog(exerciseId);
@@ -839,6 +844,7 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
                   <button class="action-btn" data-action="play" title="Play Puzzles">▶️</button>
                   <button class="action-btn" data-action="view" title="View">👁️</button>
                   <button class="action-btn" data-action="print" title="Print Preview">🖨️</button>
+                  <button class="action-btn" data-action="print-solutions" title="Print Solutions">📋</button>
                   <button class="action-btn" data-action="assign" title="Assign">📝</button>
                   <button class="action-btn" data-action="delete" title="Delete">🗑️</button>
                 </div>
@@ -875,6 +881,10 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
               case 'print':
                 const exerciseData = await apiClient.getExercise(exerciseId);
                 openPrintPreview(exerciseData);
+                break;
+              case 'print-solutions':
+                const solutionsData = await apiClient.getExercise(exerciseId);
+                openPrintSolutions(solutionsData);
                 break;
               case 'assign':
                 await showAssignDialog(exerciseId);
