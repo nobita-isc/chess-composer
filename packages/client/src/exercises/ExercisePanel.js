@@ -26,7 +26,7 @@ const STATUS_LABELS = {
  * @param {ApiClient} apiClient - API client instance
  * @param {Function} getCurrentPuzzles - Function to get current generated puzzles
  */
-export function showExercisePanel(apiClient, getCurrentPuzzles) {
+export function showExercisePanel(apiClient, getCurrentPuzzles, onPuzzlesUpdated = () => {}) {
   let activeTab = 'exercises';
 
   const overlay = document.createElement('div');
@@ -163,12 +163,7 @@ export function showExercisePanel(apiClient, getCurrentPuzzles) {
       // Create exercise button
       content.querySelector('#create-exercise-btn').addEventListener('click', async () => {
         const puzzles = getCurrentPuzzles();
-        if (!puzzles || puzzles.length === 0) {
-          showToast('Generate puzzles first before creating an exercise', 'error');
-          return;
-        }
-
-        const result = await showCreateExerciseDialog(apiClient, puzzles);
+        const result = await showCreateExerciseDialog(apiClient, puzzles || [], onPuzzlesUpdated);
         if (result) {
           showToast('Exercise created successfully');
           renderExercisesTab();
@@ -734,7 +729,7 @@ function escapeHtml(str) {
  * @param {Function} getCurrentPuzzles - Function to get current generated puzzles
  * @returns {Function} cleanup function to call when navigating away
  */
-export function renderExercisePage(container, apiClient, getCurrentPuzzles) {
+export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPuzzlesUpdated = () => {}) {
   let activeTab = 'exercises';
   const openDialogs = [];
 
@@ -854,12 +849,7 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles) {
 
       content.querySelector('#create-exercise-btn').addEventListener('click', async () => {
         const puzzles = getCurrentPuzzles();
-        if (!puzzles || puzzles.length === 0) {
-          showToast('Generate puzzles first before creating an exercise', 'error');
-          return;
-        }
-
-        const result = await showCreateExerciseDialog(apiClient, puzzles);
+        const result = await showCreateExerciseDialog(apiClient, puzzles || [], onPuzzlesUpdated);
         if (result) {
           showToast('Exercise created successfully');
           renderExercisesTab();

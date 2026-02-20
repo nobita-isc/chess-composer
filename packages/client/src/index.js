@@ -16,6 +16,12 @@ import { renderLoginView } from './auth/LoginView.js';
 import { renderStudentDashboard } from './auth/StudentDashboard.js';
 import { ViewRouter } from './core/ViewRouter.js';
 import { renderUsersPage } from './auth/UserManagementPanel.js';
+import {
+  formatThemeName as formatThemeNameUtil,
+  processPuzzles as processPuzzlesUtil,
+  populateThemeSelect,
+  buildGenerateParams
+} from './puzzles/puzzleGeneration.js';
 
 class ChessQuizComposer {
   constructor() {
@@ -75,178 +81,14 @@ class ChessQuizComposer {
     const themeSelect = document.getElementById('theme-select');
     if (!themeSelect) return;
 
-    try {
-      const stats = await this.apiClient.getStats();
-      const themeCounts = new Map(stats.themes.map(t => [t.theme, t.count]));
-
-      // Theme categories
-      const themeCategories = {
-        'Checkmate Patterns': [
-          'backrankmate', 'smotheredmate', 'arabianmate', 'anastasiasmate',
-          'doublebishopmate', 'dovetailmate', 'hookmate', 'operamate',
-          'pillsburysmate', 'bodenmate', 'matein1', 'matein2', 'matein3'
-        ],
-        'Tactical Motifs': [
-          'fork', 'pin', 'skewer', 'discoveredattack', 'deflection',
-          'attraction', 'sacrifice', 'hangingpiece', 'capturingdefender',
-          'trappedpiece', 'xrayattack', 'intermezzo', 'zwischenzug'
-        ],
-        'Advanced Tactics': [
-          'zugzwang', 'perpetualcheck', 'clearance', 'interference',
-          'doublecheck', 'discoveredcheck', 'quietmove', 'defensivemove',
-          'exposedking', 'kingsideattack', 'queensideattack', 'promotion',
-          'underpromotion', 'enpassant', 'master', 'brilliant'
-        ],
-        'Endgames': [
-          'endgame', 'queenendgame', 'rookendgame', 'bishopendgame',
-          'knightendgame', 'queenrookendgame', 'pawnendgame', 'advancedpawn'
-        ],
-        'Game Phases': [
-          'opening', 'middlegame', 'short', 'long', 'verylong'
-        ]
-      };
-
-      themeSelect.innerHTML = '';
-
-      // All Themes option
-      const allOption = document.createElement('option');
-      allOption.value = '';
-      allOption.textContent = `All Themes (${stats.totalPuzzles.toLocaleString()} puzzles)`;
-      themeSelect.appendChild(allOption);
-
-      // Available themes from server
-      const availableThemes = stats.themes.map(t => t.theme);
-
-      Object.entries(themeCategories).forEach(([category, themeIds]) => {
-        const availableInCategory = themeIds.filter(id => availableThemes.includes(id));
-
-        if (availableInCategory.length > 0) {
-          const optgroup = document.createElement('optgroup');
-          optgroup.label = category;
-
-          const sortedThemes = availableInCategory.sort((a, b) => {
-            const countA = themeCounts.get(a) || 0;
-            const countB = themeCounts.get(b) || 0;
-            return countB - countA;
-          });
-
-          sortedThemes.forEach(theme => {
-            const option = document.createElement('option');
-            option.value = theme;
-            const count = themeCounts.get(theme) || 0;
-            option.textContent = `${this.formatThemeName(theme)} (${count.toLocaleString()})`;
-            optgroup.appendChild(option);
-          });
-
-          themeSelect.appendChild(optgroup);
-        }
-      });
-
-      // Other themes
-      const categorizedThemes = new Set(Object.values(themeCategories).flat());
-      const otherThemes = availableThemes.filter(t => !categorizedThemes.has(t));
-
-      if (otherThemes.length > 0) {
-        const optgroup = document.createElement('optgroup');
-        optgroup.label = 'Other Themes';
-
-        otherThemes.sort((a, b) => {
-          const countA = themeCounts.get(a) || 0;
-          const countB = themeCounts.get(b) || 0;
-          return countB - countA;
-        }).forEach(theme => {
-          const option = document.createElement('option');
-          option.value = theme;
-          const count = themeCounts.get(theme) || 0;
-          option.textContent = `${this.formatThemeName(theme)} (${count.toLocaleString()})`;
-          optgroup.appendChild(option);
-        });
-
-        themeSelect.appendChild(optgroup);
-      }
-    } catch (error) {
-      console.error('Failed to populate themes:', error);
-    }
+    await populateThemeSelect(themeSelect, this.apiClient);
   }
 
   /**
    * Format theme name for display
    */
   formatThemeName(themeId) {
-    const specialCases = {
-      'matein1': 'Mate in 1',
-      'matein2': 'Mate in 2',
-      'matein3': 'Mate in 3',
-      'matein4': 'Mate in 4',
-      'matein5': 'Mate in 5',
-      'backrankmate': 'Back Rank Mate',
-      'smotheredmate': 'Smothered Mate',
-      'anastasiasmate': "Anastasia's Mate",
-      'arabianmate': 'Arabian Mate',
-      'doublebishopmate': 'Double Bishop Mate',
-      'dovetailmate': 'Dovetail Mate',
-      'hookmate': 'Hook Mate',
-      'operamate': 'Opera Mate',
-      'pillsburysmate': "Pillsbury's Mate",
-      'bodenmate': "Boden's Mate",
-      'fork': 'Fork',
-      'knightfork': 'Knight Fork',
-      'royalfork': 'Royal Fork',
-      'pin': 'Pin',
-      'skewer': 'Skewer',
-      'discoveredattack': 'Discovered Attack',
-      'discoveredcheck': 'Discovered Check',
-      'doublecheck': 'Double Check',
-      'deflection': 'Deflection',
-      'attraction': 'Attraction',
-      'trappedpiece': 'Trapped Piece',
-      'sacrifice': 'Sacrifice',
-      'queensacrifice': 'Queen Sacrifice',
-      'rooksacrifice': 'Rook Sacrifice',
-      'defensivemove': 'Defensive Move',
-      'clearance': 'Clearance',
-      'interference': 'Interference',
-      'zugzwang': 'Zugzwang',
-      'perpetualcheck': 'Perpetual Check',
-      'hangingpiece': 'Hanging Piece',
-      'capturingdefender': 'Capturing Defender',
-      'exposedking': 'Exposed King',
-      'kingsideattack': 'Kingside Attack',
-      'queensideattack': 'Queenside Attack',
-      'promotion': 'Promotion',
-      'underpromotion': 'Underpromotion',
-      'enpassant': 'En Passant',
-      'xrayattack': 'X-Ray Attack',
-      'quietmove': 'Quiet Move',
-      'intermezzo': 'Intermezzo',
-      'zwischenzug': 'Zwischenzug',
-      'queenendgame': 'Queen Endgame',
-      'rookendgame': 'Rook Endgame',
-      'bishopendgame': 'Bishop Endgame',
-      'knightendgame': 'Knight Endgame',
-      'queenrookendgame': 'Queen & Rook Endgame',
-      'pawnendgame': 'Pawn Endgame',
-      'advancedpawn': 'Advanced Pawn',
-      'middlegame': 'Middlegame',
-      'endgame': 'Endgame',
-      'opening': 'Opening',
-      'short': 'Short Puzzle',
-      'long': 'Long Puzzle',
-      'verylong': 'Very Long Puzzle',
-      'master': 'Master-level',
-      'brilliant': 'Brilliant Move',
-      'crushing': 'Crushing Move'
-    };
-
-    if (!themeId) return 'Mixed Themes';
-
-    const lower = themeId.toLowerCase();
-    if (specialCases[lower]) return specialCases[lower];
-
-    return themeId
-      .replace(/([A-Z])/g, ' $1')
-      .replace(/^./, str => str.toUpperCase())
-      .trim();
+    return formatThemeNameUtil(themeId);
   }
 
   /**
@@ -266,27 +108,14 @@ class ChessQuizComposer {
       return;
     }
 
-    let minRating = 1000;
-    let maxRating = 3000;
-    if (ratingRange) {
-      const [min, max] = ratingRange.split('-').map(Number);
-      minRating = min;
-      maxRating = max || 3000;
-    }
-
     try {
       const themeName = theme ? this.formatThemeName(theme) : 'All Themes';
       const ratingText = ratingRange ? ` (${ratingRange} rating)` : '';
       this.showLoading(`Generating ${count} puzzles for ${themeName}${ratingText}...`);
 
       // Generate puzzles via API
-      const puzzleData = await this.apiClient.generatePuzzles({
-        theme,
-        count,
-        minRating,
-        maxRating,
-        minPopularity: 80
-      });
+      const params = buildGenerateParams(theme, ratingRange, count);
+      const puzzleData = await this.apiClient.generatePuzzles(params);
 
       this.puzzles = this.processPuzzles(puzzleData, theme);
 
@@ -311,32 +140,7 @@ class ChessQuizComposer {
    * Process puzzles from API response
    */
   processPuzzles(puzzleData, selectedTheme) {
-    return puzzleData.map((puzzle, i) => {
-      const chess = new Chess(puzzle.fen);
-      const sideInPosition = chess.turn();
-      const puzzleTheme = selectedTheme || (puzzle.themes && puzzle.themes[0]) || null;
-
-      return {
-        id: puzzle.id || `puzzle_${Date.now()}_${i}`,
-        fen: puzzle.fen,
-        fenAfterOpponent: puzzle.fenAfterOpponent || puzzle.fen,
-        theme: puzzleTheme,
-        themeName: this.formatThemeName(puzzleTheme),
-        opponentMove: puzzle.opponentMoveSAN,
-        solution: puzzle.solutionSAN || puzzle.solution,
-        solutionLine: puzzle.solutionLine || [],
-        evaluation: {
-          isMate: true,
-          mateIn: puzzle.mateIn,
-          bestMove: puzzle.solution
-        },
-        sideToMove: sideInPosition === 'w' ? 'White' : 'Black',
-        sideToFind: sideInPosition === 'w' ? 'Black' : 'White',
-        mateIn: puzzle.mateIn,
-        rating: puzzle.rating,
-        popularity: puzzle.popularity
-      };
-    });
+    return processPuzzlesUtil(puzzleData, selectedTheme);
   }
 
   /**
@@ -1379,7 +1183,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (exercisesBtn) {
       exercisesBtn.addEventListener('click', () => {
         viewRouter.navigate('exercises', (container) => {
-          return renderExercisePage(container, apiClient, () => app.puzzles);
+          return renderExercisePage(
+            container,
+            apiClient,
+            () => app.puzzles,
+            (newPuzzles) => { app.puzzles = newPuzzles; }
+          );
         });
       });
     }
