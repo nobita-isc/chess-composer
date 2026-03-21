@@ -8,6 +8,7 @@ import { showCreateExerciseDialog } from './CreateExerciseDialog.js';
 import { showGradeDialog } from './GradeDialog.js';
 import { openPrintPreview, openPrintSolutions } from './PrintPreview.js';
 import { openPuzzlePlayer } from './PuzzlePlayer.js';
+import { openExercisePuzzleViewer } from './ExercisePuzzleViewer.js';
 
 const SKILL_LEVEL_LABELS = {
   'beginner': 'Beginner',
@@ -739,18 +740,19 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
   const openDialogs = [];
 
   container.innerHTML = `
-    <div class="page-panel admin-content exercise-panel">
-      <header class="admin-header">
-        <h2 id="exercise-panel-title">Student Exercises</h2>
-        <div class="admin-stats" id="panel-stats">
-          Loading...
+    <div class="page-panel exercise-panel">
+      <div class="main-header main-header-row">
+        <div>
+          <h1 class="page-title">Exercise Management</h1>
+          <p class="page-subtitle">Create and manage weekly chess exercises</p>
         </div>
-      </header>
+        <button id="page-create-btn" class="generate-btn">+ Create Exercise</button>
+      </div>
 
-      <div class="panel-tabs">
-        <button class="tab-btn active" data-tab="exercises">Weekly Exercises</button>
-        <button class="tab-btn" data-tab="students">Students</button>
-        <button class="tab-btn" data-tab="performance">Performance</button>
+      <div class="ep-tabs" id="ep-tabs">
+        <button class="ep-tab ep-tab-active" data-tab="exercises">Weekly Exercises</button>
+        <button class="ep-tab" data-tab="students">Students</button>
+        <button class="ep-tab" data-tab="performance">Performance</button>
       </div>
 
       <div class="tab-content" id="tab-content">
@@ -813,94 +815,80 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
         apiClient.getCurrentWeek()
       ]);
 
+      const gradedFraction = (ex) => ex.total_assigned > 0 ? `${ex.total_graded}/${ex.total_assigned}` : '—';
+
       content.innerHTML = `
-        <div class="exercises-header">
-          <div class="current-week-info">
-            <strong>Current Week:</strong> ${escapeHtml(currentWeek.week_label)}
-            ${currentWeek.has_exercise ?
-              '<span class="badge badge-success">Has Exercise</span>' :
-              '<span class="badge badge-warning">No Exercise</span>'}
-          </div>
-          <button id="create-exercise-btn" class="action-btn primary-btn">
-            + Create Exercise
-          </button>
+        <div class="ep-week-banner">
+          <span>Current Week: ${escapeHtml(currentWeek.week_label)}</span>
+          <span class="badge ${currentWeek.has_exercise ? 'badge-beginner' : 'badge-intermediate'}">${currentWeek.has_exercise ? 'Has Exercise' : 'No Exercise'}</span>
         </div>
 
-        <div class="exercises-list">
-          ${exercises.length === 0 ?
-            '<div class="empty-message">No exercises created yet</div>' :
-            exercises.map(ex => `
-              <div class="exercise-card" data-id="${escapeHtml(ex.id)}">
-                <div class="exercise-header">
-                  <h4>${escapeHtml(ex.name || ex.week_label)}</h4>
-                  <span class="week-label">${escapeHtml(ex.week_label)}</span>
-                </div>
-                <div class="exercise-meta">
-                  <span>${ex.puzzle_count} puzzles</span>
-                  <span>${ex.total_assigned} assigned</span>
-                  <span>${ex.total_graded} graded</span>
-                </div>
-                <div class="exercise-actions">
-                  <button class="action-btn" data-action="play" title="Play Puzzles">▶️</button>
-                  <button class="action-btn" data-action="view" title="View">👁️</button>
-                  <button class="action-btn" data-action="print" title="Print Preview">🖨️</button>
-                  <button class="action-btn" data-action="print-solutions" title="Print Solutions">📋</button>
-                  <button class="action-btn" data-action="assign" title="Assign">📝</button>
-                  <button class="action-btn" data-action="delete" title="Delete">🗑️</button>
-                </div>
-              </div>
-            `).join('')}
-        </div>
+        ${exercises.length === 0 ?
+          '<div class="empty-message">No exercises created yet</div>' :
+          `<div class="ep-table-wrap">
+            <table class="ep-table">
+              <thead>
+                <tr>
+                  <th class="ep-th-grow">Exercise</th>
+                  <th style="width:140px">Week</th>
+                  <th style="width:80px">Puzzles</th>
+                  <th style="width:80px">Assigned</th>
+                  <th style="width:80px">Graded</th>
+                  <th style="width:200px">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${exercises.map(ex => `
+                  <tr data-id="${escapeHtml(ex.id)}">
+                    <td class="ep-cell-name">${escapeHtml(ex.name || ex.week_label)}</td>
+                    <td class="ep-cell-muted">${escapeHtml(ex.week_label)}</td>
+                    <td>${ex.puzzle_count}</td>
+                    <td>${ex.total_assigned}</td>
+                    <td class="ep-cell-graded">${gradedFraction(ex)}</td>
+                    <td>
+                      <div class="ep-actions">
+                        <button class="btn-outline btn-sm" data-action="play">Play</button>
+                        <button class="btn-outline btn-sm" data-action="grade">Grade</button>
+                        <button class="btn-outline btn-sm" data-action="print">Print</button>
+                      </div>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>`
+        }
       `;
 
-      content.querySelector('#create-exercise-btn').addEventListener('click', async () => {
-        const puzzles = getCurrentPuzzles();
-        const result = await showCreateExerciseDialog(apiClient, puzzles || [], onPuzzlesUpdated);
-        if (result) {
-          showToast('Exercise created successfully');
-          renderExercisesTab();
-          renderStats();
-        }
-      });
+      // Exercise row actions
+      content.querySelectorAll('.ep-table tbody tr').forEach(row => {
+        row.querySelectorAll('[data-action]').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const exerciseId = row.dataset.id;
+            const action = btn.dataset.action;
 
-      content.querySelectorAll('.exercise-card .action-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const card = e.target.closest('.exercise-card');
-          const exerciseId = card.dataset.id;
-          const action = e.target.dataset.action;
-
-          try {
-            switch (action) {
-              case 'play':
-                const playData = await apiClient.getExercise(exerciseId);
-                openPuzzlePlayer(playData);
-                break;
-              case 'view':
-                await showExerciseDetails(exerciseId);
-                break;
-              case 'print':
-                const exerciseData = await apiClient.getExercise(exerciseId);
-                openPrintPreview(exerciseData);
-                break;
-              case 'print-solutions':
-                const solutionsData = await apiClient.getExercise(exerciseId);
-                openPrintSolutions(solutionsData);
-                break;
-              case 'assign':
-                await showAssignDialog(exerciseId);
-                break;
-              case 'delete':
-                if (confirm('Delete this exercise?')) {
-                  await apiClient.deleteExercise(exerciseId);
-                  showToast('Exercise deleted');
-                  renderExercisesTab();
-                  renderStats();
+            try {
+              switch (action) {
+                case 'play': {
+                  const data = await apiClient.getExercise(exerciseId);
+                  openExercisePuzzleViewer(data);
+                  break;
                 }
-                break;
+                case 'grade': {
+                  await showExerciseDetails(exerciseId);
+                  break;
+                }
+                case 'print': {
+                  const data = await apiClient.getExercise(exerciseId);
+                  openPrintPreview(data);
+                  break;
+                }
+              }
+            } catch (error) {
+              showToast(`Error: ${error.message}`, 'error');
             }
-          } catch (error) {
-            showToast(`Error: ${error.message}`, 'error');
-          }
+          });
         });
       });
     } catch (error) {
@@ -1394,16 +1382,25 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
 
   // ==================== Initialize ====================
 
-  container.querySelectorAll('.tab-btn').forEach(btn => {
+  container.querySelectorAll('.ep-tab').forEach(btn => {
     btn.addEventListener('click', () => {
-      container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
+      container.querySelectorAll('.ep-tab').forEach(b => b.classList.remove('ep-tab-active'));
+      btn.classList.add('ep-tab-active');
       activeTab = btn.dataset.tab;
       renderTab();
     });
   });
 
-  renderStats();
+  // Top-level create button
+  container.querySelector('#page-create-btn').addEventListener('click', async () => {
+    const puzzles = getCurrentPuzzles();
+    const result = await showCreateExerciseDialog(apiClient, puzzles || [], onPuzzlesUpdated);
+    if (result) {
+      showToast('Exercise created successfully');
+      renderTab();
+    }
+  });
+
   renderTab();
 
   // Return cleanup function
