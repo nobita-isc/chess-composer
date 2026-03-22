@@ -897,21 +897,20 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
   };
 
   const showExerciseDetails = async (exerciseId) => {
-    const dialog = document.createElement('div');
-    dialog.className = 'exercise-details-dialog';
-    dialog.innerHTML = `
-      <div class="dialog-content large-dialog">
-        <button class="dialog-close">&times;</button>
-        <div class="dialog-body">Loading...</div>
-      </div>
-    `;
+    const overlay = document.createElement('div');
+    overlay.className = 'pv-overlay';
+    document.body.style.overflow = 'hidden';
 
-    document.body.appendChild(dialog);
-    openDialogs.push(dialog);
-    dialog.querySelector('.dialog-close').addEventListener('click', () => removeDialog(dialog));
-    dialog.addEventListener('click', (e) => {
-      if (e.target === dialog) removeDialog(dialog);
-    });
+    overlay.innerHTML = '<div class="gd-dialog"><div class="gd-loading">Loading...</div></div>';
+    document.body.appendChild(overlay);
+    openDialogs.push(overlay);
+
+    const closeDialog = () => {
+      document.body.style.overflow = '';
+      removeDialog(overlay);
+    };
+
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeDialog(); });
 
     try {
       const [exercise, assignments] = await Promise.all([
@@ -919,157 +918,215 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
         apiClient.getExerciseAssignments(exerciseId)
       ]);
 
-      dialog.querySelector('.dialog-body').innerHTML = `
-        <h3>${escapeHtml(exercise.name || exercise.week_label)}</h3>
-        <div class="exercise-info">
-          <p><strong>Week:</strong> ${escapeHtml(exercise.week_label)}</p>
-          <p><strong>Puzzles:</strong> ${exercise.puzzles?.length || 0}</p>
-        </div>
+      const totalStudents = assignments.length;
+      const gradedCount = assignments.filter(a => a.status === 'graded').length;
+      const submittedCount = assignments.filter(a => a.status === 'submitted').length;
+      const avgScore = gradedCount > 0
+        ? Math.round(assignments.filter(a => a.score != null).reduce((sum, a) => sum + (a.score / a.total_puzzles) * 100, 0) / gradedCount)
+        : 0;
 
-        <div class="assignments-header">
-          <h4>Student Assignments</h4>
-          ${assignments.length > 1 ? `
-            <button id="grade-all-btn" class="action-btn primary-btn" title="Grade all students at once">
-              ▶️ Grade All Students
-            </button>
-          ` : ''}
+      const skillBadge = (level) => {
+        const cls = level === 'advanced' ? 'badge-advanced' : level === 'intermediate' ? 'badge-intermediate' : 'badge-beginner';
+        return `<span class="badge ${cls}">${SKILL_LEVEL_LABELS[level] || level}</span>`;
+      };
+
+      const statusBadge = (status) => {
+        const cls = status === 'graded' ? 'badge-beginner' : status === 'submitted' ? 'badge-intermediate' : 'badge-theme';
+        return `<span class="badge ${cls}">${STATUS_LABELS[status] || status}</span>`;
+      };
+
+      const renderRow = (a) => {
+        const isGraded = a.status === 'graded';
+        const isSubmitted = a.status === 'submitted';
+        const borderStyle = isGraded ? 'border-color: var(--color-success-500);' : '';
+
+        const primaryBtn = isGraded
+          ? `<button class="btn-outline btn-sm" data-action="edit" data-id="${escapeHtml(a.id)}">Edit</button>`
+          : isSubmitted
+            ? `<button class="generate-btn btn-sm" data-action="grade-puzzles" data-id="${escapeHtml(a.id)}">Grade</button>`
+            : `<button class="btn-outline btn-sm" data-action="quick-grade" data-id="${escapeHtml(a.id)}">Quick Grade</button>`;
+
+        const metaInfo = isGraded
+          ? `${statusBadge(a.status)} <span style="font-size:13px;font-weight:600;color:var(--color-success-600)">${a.score}/${a.total_puzzles}</span>`
+          : isSubmitted
+            ? `${statusBadge(a.status)} <span style="font-size:12px;color:var(--color-gray-400);font-style:italic">Awaiting grade</span>`
+            : `${statusBadge(a.status)} <span style="font-size:12px;color:var(--color-gray-400);font-style:italic">Not submitted</span>`;
+
+        return `
+          <div class="gd-row" style="${borderStyle}" data-student-id="${escapeHtml(a.id)}">
+            <div class="gd-row-left">
+              <div class="gd-row-top">${escapeHtml(a.student_name)} ${skillBadge(a.skill_level)}</div>
+              <div class="gd-row-meta">${metaInfo}</div>
+            </div>
+            <div class="gd-row-actions">
+              ${primaryBtn}
+              <button class="gd-more-btn btn-outline btn-sm" data-id="${escapeHtml(a.id)}" style="padding:6px 8px !important;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+              </button>
+            </div>
+          </div>
+        `;
+      };
+
+      overlay.querySelector('.gd-dialog').innerHTML = `
+        <div class="gd-header">
+          <span class="gd-title">Grade: ${escapeHtml(exercise.name || exercise.week_label)}</span>
+          <button class="pv-close-btn" data-action="close">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
         </div>
-        ${assignments.length === 0 ?
-          '<p class="empty-message">No students assigned yet</p>' :
-          `<table class="assignments-table">
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Skill</th>
-                <th>Status</th>
-                <th>Score</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${assignments.map(a => `
-                <tr data-id="${escapeHtml(a.id)}">
-                  <td>${escapeHtml(a.student_name)}</td>
-                  <td>${SKILL_LEVEL_LABELS[a.skill_level] || a.skill_level}</td>
-                  <td>
-                    <span class="status-badge status-${a.status}">${STATUS_LABELS[a.status]}</span>
-                    ${a.is_final ? '<span class="status-badge status-final">Final</span>' : ''}
-                  </td>
-                  <td>${a.score != null ? `${a.score}/${a.total_puzzles}` : '-'}</td>
-                  <td>
-                    <button class="action-btn grade-puzzles-btn" data-id="${escapeHtml(a.id)}" title="Grade with Puzzles">▶️</button>
-                    <button class="action-btn grade-btn" data-id="${escapeHtml(a.id)}" title="Quick Grade">📝</button>
-                    ${a.answer_pdf_path ?
-                      `<button class="action-btn download-btn" data-id="${escapeHtml(a.id)}" title="Download Answer">📥</button>` :
-                      ''}
-                    <button class="action-btn mark-final-btn ${a.is_final ? 'btn-disabled' : ''}" data-id="${escapeHtml(a.id)}" title="${a.is_final ? 'Already Final' : 'Mark as Final'}" ${a.is_final ? 'disabled' : ''}>🔒</button>
-                    <button class="action-btn reset-score-btn" data-id="${escapeHtml(a.id)}" title="Reset Score">🔄</button>
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>`
-        }
+        <div class="gd-body">
+          <div class="gd-stats">
+            <div class="gd-stat"><span class="gd-stat-label">Students</span><span class="gd-stat-value">${totalStudents}</span></div>
+            <div class="gd-stat"><span class="gd-stat-label">Graded</span><span class="gd-stat-value" style="color:var(--color-success-600)">${gradedCount}/${totalStudents}</span></div>
+            <div class="gd-stat"><span class="gd-stat-label">Avg Score</span><span class="gd-stat-value" style="color:var(--color-brand-600)">${avgScore}%</span></div>
+          </div>
+          <div class="gd-list">
+            ${assignments.length === 0 ? '<p style="text-align:center;color:var(--color-gray-400)">No students assigned yet</p>' : assignments.map(renderRow).join('')}
+          </div>
+        </div>
+        <div class="gd-footer">
+          <button class="btn-outline" data-action="close">Close</button>
+          ${submittedCount > 0 ? `<button class="generate-btn" data-action="grade-all">Grade All Submitted</button>` : ''}
+        </div>
       `;
 
-      const gradeAllBtn = dialog.querySelector('#grade-all-btn');
+      // Close
+      overlay.querySelectorAll('[data-action="close"]').forEach(btn => {
+        btn.addEventListener('click', closeDialog);
+      });
+
+      // Grade with puzzles
+      overlay.querySelectorAll('[data-action="grade-puzzles"]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const a = assignments.find(x => x.id === btn.dataset.id);
+          openPuzzlePlayer(exercise, {
+            gradingMode: true, assignments: [a], apiClient,
+            onGraded: () => { showToast('Graded successfully'); closeDialog(); showExerciseDetails(exerciseId); }
+          });
+        });
+      });
+
+      // Edit / Quick grade
+      overlay.querySelectorAll('[data-action="edit"], [data-action="quick-grade"]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const a = assignments.find(x => x.id === btn.dataset.id);
+          const result = await showGradeDialog(apiClient, a);
+          if (result) { showToast('Saved'); closeDialog(); showExerciseDetails(exerciseId); }
+        });
+      });
+
+      // Grade all submitted
+      const gradeAllBtn = overlay.querySelector('[data-action="grade-all"]');
       if (gradeAllBtn) {
         gradeAllBtn.addEventListener('click', () => {
+          const submitted = assignments.filter(a => a.status === 'submitted');
           openPuzzlePlayer(exercise, {
-            gradingMode: true,
-            assignments,
-            apiClient,
-            onGraded: () => {
-              showToast('All grades saved successfully');
-              removeDialog(dialog);
-              showExerciseDetails(exerciseId);
-            }
+            gradingMode: true, assignments: submitted, apiClient,
+            onGraded: () => { showToast('All grades saved'); closeDialog(); showExerciseDetails(exerciseId); }
           });
         });
       }
 
-      dialog.querySelectorAll('.grade-puzzles-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const studentExerciseId = btn.dataset.id;
-          const assignment = assignments.find(a => a.id === studentExerciseId);
+      // "..." dropdown menus
+      overlay.querySelectorAll('.gd-more-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          // Remove any existing dropdown
+          overlay.querySelectorAll('.gd-dropdown').forEach(d => d.remove());
 
-          openPuzzlePlayer(exercise, {
-            gradingMode: true,
-            assignments: [assignment],
-            apiClient,
-            onGraded: () => {
-              showToast('Graded successfully');
-              removeDialog(dialog);
-              showExerciseDetails(exerciseId);
-            }
+          const a = assignments.find(x => x.id === btn.dataset.id);
+          const dropdown = document.createElement('div');
+          dropdown.className = 'gd-dropdown';
+          dropdown.innerHTML = `
+            <button class="gd-dd-item" data-dd="view"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>View Puzzles</button>
+            <button class="gd-dd-item" data-dd="quick-grade"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5z"/></svg>Quick Grade</button>
+            <div class="gd-dd-sep"></div>
+            ${!a.is_final ? `<button class="gd-dd-item" data-dd="mark-final"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>Mark as Final</button>` : ''}
+            <button class="gd-dd-item gd-dd-danger" data-dd="reset"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>Reset Score</button>
+          `;
+
+          btn.parentElement.style.position = 'relative';
+          btn.parentElement.appendChild(dropdown);
+
+          // Close dropdown on outside click
+          const closeDropdown = () => { dropdown.remove(); document.removeEventListener('click', closeDropdown); };
+          setTimeout(() => document.addEventListener('click', closeDropdown), 0);
+
+          dropdown.querySelectorAll('.gd-dd-item').forEach(item => {
+            item.addEventListener('click', async (ev) => {
+              ev.stopPropagation();
+              dropdown.remove();
+              const action = item.dataset.dd;
+
+              if (action === 'view') {
+                openExercisePuzzleViewer(exercise);
+              } else if (action === 'quick-grade') {
+                const result = await showGradeDialog(apiClient, a);
+                if (result) { showToast('Saved'); closeDialog(); showExerciseDetails(exerciseId); }
+              } else if (action === 'mark-final') {
+                showConfirmDialog({
+                  icon: 'lock', iconColor: 'var(--color-warning-500)', iconBg: 'var(--color-warning-50)',
+                  title: 'Mark as Final?',
+                  message: `${a.student_name} will no longer be able to solve or modify this exercise. This action cannot be undone.`,
+                  confirmLabel: 'Mark Final', confirmColor: 'var(--color-warning-500)',
+                  onConfirm: async () => {
+                    await apiClient.markStudentExerciseAsFinal(a.id);
+                    showToast('Marked as final'); closeDialog(); showExerciseDetails(exerciseId);
+                  }
+                });
+              } else if (action === 'reset') {
+                showConfirmDialog({
+                  icon: 'rotate-ccw', iconColor: 'var(--color-error-500)', iconBg: 'var(--color-error-50)',
+                  title: 'Reset Score?',
+                  message: `This will clear ${a.student_name}'s score, puzzle results, and hint usage. The exercise will return to assigned status.`,
+                  confirmLabel: 'Reset Score', confirmColor: 'var(--color-error-500)',
+                  onConfirm: async () => {
+                    await apiClient.resetStudentExerciseScore(a.id);
+                    showToast('Score reset'); closeDialog(); showExerciseDetails(exerciseId);
+                  }
+                });
+              }
+            });
           });
         });
       });
-
-      dialog.querySelectorAll('.grade-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const studentExerciseId = btn.dataset.id;
-          const assignment = assignments.find(a => a.id === studentExerciseId);
-          const result = await showGradeDialog(apiClient, assignment);
-          if (result) {
-            showToast('Graded successfully');
-            removeDialog(dialog);
-            await showExerciseDetails(exerciseId);
-          }
-        });
-      });
-
-      dialog.querySelectorAll('.download-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const studentExerciseId = btn.dataset.id;
-          window.open(apiClient.getAnswerPdfUrl(studentExerciseId), '_blank');
-        });
-      });
-
-      // Mark final button handlers
-      dialog.querySelectorAll('.mark-final-btn:not([disabled])').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const studentExerciseId = btn.dataset.id;
-          const assignment = assignments.find(a => a.id === studentExerciseId);
-
-          if (!confirm(`Mark ${assignment.student_name}'s exercise as final? They will no longer be able to solve or modify it.`)) {
-            return;
-          }
-
-          try {
-            await apiClient.markStudentExerciseAsFinal(studentExerciseId);
-            showToast('Marked as final');
-            removeDialog(dialog);
-            await showExerciseDetails(exerciseId);
-          } catch (error) {
-            showToast(`Error: ${error.message}`, 'error');
-          }
-        });
-      });
-
-      // Reset score button handlers
-      dialog.querySelectorAll('.reset-score-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const studentExerciseId = btn.dataset.id;
-          const assignment = assignments.find(a => a.id === studentExerciseId);
-
-          if (!confirm(`Reset ${assignment.student_name}'s score to 0? This will clear all puzzle results and hints.`)) {
-            return;
-          }
-
-          try {
-            await apiClient.resetStudentExerciseScore(studentExerciseId);
-            showToast('Score reset to 0');
-            removeDialog(dialog);
-            await showExerciseDetails(exerciseId);
-          } catch (error) {
-            showToast(`Error: ${error.message}`, 'error');
-          }
-        });
-      });
     } catch (error) {
-      dialog.querySelector('.dialog-body').innerHTML = `<div class="error">${escapeHtml(error.message)}</div>`;
+      overlay.querySelector('.gd-dialog').innerHTML = `<div style="padding:40px;text-align:center;color:var(--color-error-500)">${escapeHtml(error.message)}</div>`;
     }
+  };
+
+  const showConfirmDialog = ({ icon, iconColor, iconBg, title, message, confirmLabel, confirmColor, onConfirm }) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'pv-overlay';
+    overlay.style.zIndex = '60000';
+    overlay.innerHTML = `
+      <div class="gd-confirm">
+        <div class="gd-confirm-icon" style="background:${iconBg}">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            ${icon === 'lock' ? '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>' : '<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>'}
+          </svg>
+        </div>
+        <h3 class="gd-confirm-title">${escapeHtml(title)}</h3>
+        <p class="gd-confirm-msg">${escapeHtml(message)}</p>
+        <div class="gd-confirm-btns">
+          <button class="btn-outline" data-action="cancel" style="flex:1;padding:12px">Cancel</button>
+          <button class="generate-btn" data-action="confirm" style="flex:1;padding:12px;background:${confirmColor}">${escapeHtml(confirmLabel)}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('[data-action="cancel"]').addEventListener('click', () => overlay.remove());
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    overlay.querySelector('[data-action="confirm"]').addEventListener('click', async () => {
+      try {
+        await onConfirm();
+      } catch (error) {
+        showToast(`Error: ${error.message}`, 'error');
+      }
+      overlay.remove();
+    });
   };
 
   const showAssignDialog = async (exerciseId) => {
