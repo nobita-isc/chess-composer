@@ -3542,7 +3542,7 @@ label {
 
 /* Exercise Panel Specific */
 .exercise-panel {
-  max-width: 900px;
+  max-width: none;
 }
 
 .panel-tabs {
@@ -5180,7 +5180,7 @@ label {
 }
 
 .page-panel.exercise-panel {
-    max-width: 900px;
+    max-width: none;
 }
 
 #view-container .page-panel {
