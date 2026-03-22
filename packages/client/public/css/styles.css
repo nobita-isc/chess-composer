@@ -5064,3 +5064,272 @@ label {
         padding: var(--space-5);
     }
 }
+
+/* ============================================
+   MOBILE OVERRIDES — MUST BE LAST IN FILE
+   These override all styles defined above.
+   ============================================ */
+
+@media (max-width: 768px) {
+    /* Admin sidebar: hide completely */
+    .sidebar {
+        display: none !important;
+    }
+
+    .main-content {
+        margin-left: 0 !important;
+        padding: 16px !important;
+    }
+
+    /* Student layout: column, no sidebar */
+    .student-layout {
+        flex-direction: column !important;
+    }
+
+    .student-sidebar {
+        display: none !important;
+    }
+
+    .student-main {
+        margin-left: 0 !important;
+        padding: 16px !important;
+        padding-bottom: 110px !important;
+        min-height: 100vh;
+    }
+
+    .student-container {
+        width: 100% !important;
+    }
+
+    /* Login: single column */
+    .login-page {
+        flex-direction: column !important;
+        height: auto !important;
+        min-height: 100vh;
+    }
+
+    .login-brand-panel {
+        display: none !important;
+    }
+
+    .login-form-panel {
+        min-height: 100vh;
+        padding: 40px 24px !important;
+    }
+
+    /* Page headers */
+    .main-header-row {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px;
+    }
+
+    .page-title {
+        font-size: 22px !important;
+    }
+
+    /* Controls */
+    .controls {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+
+    .control-group-grow {
+        min-width: 0 !important;
+    }
+
+    .theme-select,
+    .rating-select,
+    .puzzle-count {
+        width: 100% !important;
+    }
+
+    /* Puzzle cards grid */
+    .results {
+        grid-template-columns: 1fr !important;
+    }
+
+    .card-board {
+        width: 200px !important;
+        height: 200px !important;
+    }
+
+    .card-footer {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+    }
+
+    .card-footer-right {
+        width: 100% !important;
+        justify-content: flex-end !important;
+    }
+
+    .card-meta-text {
+        display: none !important;
+    }
+
+    /* Puzzle Viewer Modal */
+    .pv-dialog {
+        width: 100% !important;
+        max-width: 100vw !important;
+        max-height: 100vh !important;
+        height: 100vh !important;
+        border-radius: 0 !important;
+    }
+
+    .pv-body {
+        flex-direction: column !important;
+        padding: 12px !important;
+        gap: 12px !important;
+        overflow-y: auto !important;
+    }
+
+    .pv-board-area {
+        width: 100% !important;
+        flex-shrink: 0;
+    }
+
+    .pv-board-wrap {
+        width: 100% !important;
+    }
+
+    .pv-board {
+        width: 100% !important;
+        height: 0 !important;
+        padding-bottom: 100% !important;
+        position: relative !important;
+    }
+
+    .pv-board .cg-wrap {
+        width: 100% !important;
+        height: 100% !important;
+        position: absolute !important;
+        top: 0;
+        left: 0;
+    }
+
+    .pv-panel {
+        gap: 12px !important;
+    }
+
+    .pv-header {
+        padding: 0 12px !important;
+    }
+
+    .pv-header-left .badge {
+        display: none !important;
+    }
+
+    .pv-title {
+        font-size: 14px !important;
+    }
+
+    /* Exercise panel tables */
+    .ep-table-wrap {
+        overflow-x: auto !important;
+    }
+
+    .ep-table {
+        min-width: 600px !important;
+    }
+
+    /* Student exercise cards */
+    .sd-card {
+        padding: 16px !important;
+    }
+
+    .sd-card-name {
+        font-size: 14px !important;
+    }
+
+    .sd-score-row {
+        flex-wrap: wrap !important;
+    }
+
+    /* Student stats */
+    .sd-stats-row {
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+
+    .sd-stat-card {
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+    }
+
+    .sd-stat-value {
+        font-size: 20px !important;
+    }
+
+    /* History */
+    .sd-history-row {
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+    }
+
+    .sd-history-week {
+        min-width: 100% !important;
+        font-weight: 500;
+    }
+
+    .sd-history-bar-wrap {
+        width: 100% !important;
+    }
+
+    /* Bottom tab bar visible */
+    .mobile-tab-bar {
+        display: flex !important;
+    }
+
+    /* Exercise list gap */
+    .exercise-list {
+        gap: 12px !important;
+    }
+
+    /* Dashboard old styles override */
+    .dashboard-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px;
+    }
+
+    .dashboard-tabs {
+        overflow-x: auto !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .main-content {
+        padding: 12px !important;
+    }
+
+    .student-main {
+        padding: 12px !important;
+        padding-bottom: 110px !important;
+    }
+
+    .card-board {
+        width: 160px !important;
+        height: 160px !important;
+    }
+
+    .pv-header {
+        height: 48px !important;
+    }
+
+    .pv-nav-text {
+        display: none !important;
+    }
+
+    .sd-card {
+        padding: 14px !important;
+        gap: 10px !important;
+    }
+
+    .badge {
+        font-size: 10px !important;
+        padding: 2px 8px !important;
+    }
+}
