@@ -171,38 +171,47 @@ export function renderStudentDashboard(container, apiClient, { initialTab = 'exe
   function renderExerciseCard(exercise) {
     const status = exercise.status || 'assigned';
     const statusLabel = STATUS_LABELS[status] || status;
-    const statusColor = STATUS_COLORS[status] || '#6b7280';
+    const badgeCls = status === 'graded' ? 'badge-beginner' : status === 'submitted' ? 'badge-theme' : 'badge-intermediate';
     const weekLabel = exercise.week_label || `${exercise.week_start || 'Unknown'} - ${exercise.week_end || ''}`;
     const pastDeadline = isPastDeadline(exercise.week_end);
     const isFinal = exercise.is_final === 1;
-
+    const isLocked = isFinal || pastDeadline;
     const hasScore = exercise.score != null;
+    const totalPuzzles = exercise.total_puzzles || 0;
 
-    const scoreHtml = hasScore
-      ? `<div class="exercise-score">
-           <span class="score-value">${exercise.score}/${exercise.total_puzzles ?? 0}</span>
-           <span class="score-label">Score</span>
+    const hasPuzzleResults = exercise.puzzle_results && exercise.puzzle_results.length > 0;
+    const correctCount = hasPuzzleResults
+      ? exercise.puzzle_results.split(',').filter(r => r === '1').length
+      : 0;
+
+    // Progress bar for assigned (unsolved) exercises
+    const progressHtml = !hasScore && totalPuzzles > 0
+      ? `<div class="sd-progress">
+           <div class="sd-progress-bar"><div class="sd-progress-fill" style="width: ${Math.round((correctCount / totalPuzzles) * 100)}%"></div></div>
+           <span class="sd-progress-text">${correctCount}/${totalPuzzles} completed</span>
          </div>`
       : '';
 
-    const hasPuzzleResults = exercise.puzzle_results && exercise.puzzle_results.length > 0;
-    const puzzleResultsHtml = hasPuzzleResults
-      ? `<div class="puzzle-dots">
-           ${exercise.puzzle_results.split(',').map(r =>
+    // Score + dots for graded exercises
+    const scoreHtml = hasScore
+      ? `<div class="sd-score-row">
+           <span class="sd-score-value">Score: ${exercise.score}/${totalPuzzles}</span>
+           ${hasPuzzleResults ? `<div class="puzzle-dots">${exercise.puzzle_results.split(',').map(r =>
              `<span class="dot ${r === '1' ? 'dot-correct' : r === '0' ? 'dot-wrong' : 'dot-unknown'}"></span>`
-           ).join('')}
+           ).join('')}</div>` : ''}
          </div>`
       : '';
 
     const notesHtml = exercise.notes
-      ? `<div class="exercise-notes"><strong>Feedback:</strong> ${escapeHtml(exercise.notes)}</div>`
+      ? `<div class="sd-notes"><strong>Feedback:</strong> ${escapeHtml(exercise.notes)}</div>`
       : '';
 
-    const isLocked = isFinal || pastDeadline;
-    const actionLabel = isFinal ? 'Review (Final)' : (pastDeadline ? 'Review' : 'Solve Puzzles');
+    const btnLabel = isFinal ? 'Review (Final)' : isLocked ? 'Review' : hasScore ? 'Review' : 'Start Solving';
+    const btnCls = hasScore || isLocked ? 'sd-btn-outline' : 'sd-btn-primary';
+    const cardBorder = status === 'graded' ? 'border-color: var(--color-success-500);' : '';
 
     return `
-      <div class="exercise-card exercise-card-clickable"
+      <div class="sd-card exercise-card-clickable" style="${cardBorder}"
            data-exercise-id="${exercise.exercise_id}"
            data-student-exercise-id="${exercise.id}"
            data-status="${status}"
@@ -210,23 +219,15 @@ export function renderStudentDashboard(container, apiClient, { initialTab = 'exe
            data-is-final="${exercise.is_final || 0}"
            data-puzzle-results="${escapeHtml(exercise.puzzle_results || '')}"
            data-puzzle-hints="${escapeHtml(exercise.puzzle_hints || '')}">
-        <div class="exercise-card-header">
-          <div class="exercise-week">${escapeHtml(exercise.name || weekLabel)}</div>
-          <div class="exercise-card-badges">
-            <span class="status-badge" style="background: ${statusColor}">${statusLabel}</span>
-            ${isFinal ? '<span class="status-badge status-final">Final</span>' : ''}
-          </div>
+        <div class="sd-card-top">
+          <span class="sd-card-name">${escapeHtml(exercise.name || weekLabel)}</span>
+          <span class="badge ${badgeCls}">${statusLabel}</span>
         </div>
-        <div class="exercise-card-meta">
-          <span>${exercise.total_puzzles || 0} puzzles</span>
-          <span>${weekLabel}</span>
-        </div>
+        <div class="sd-card-meta">${weekLabel} &middot; ${totalPuzzles} puzzles</div>
+        ${progressHtml}
         ${scoreHtml}
-        ${puzzleResultsHtml}
         ${notesHtml}
-        <div class="exercise-card-action">
-          <span class="exercise-card-action-label">${actionLabel} &rarr;</span>
-        </div>
+        <button class="sd-card-btn ${btnCls}">${btnLabel}</button>
       </div>
     `;
   }
@@ -278,48 +279,42 @@ export function renderStudentDashboard(container, apiClient, { initialTab = 'exe
       : 'N/A';
 
     contentEl.innerHTML = `
-      <div class="performance-overview">
-        <div class="perf-stat">
-          <span class="perf-value">${performance.total_exercises || 0}</span>
-          <span class="perf-label">Exercises Completed</span>
+      <div class="sd-stats-row">
+        <div class="sd-stat-card">
+          <span class="sd-stat-label">Completed</span>
+          <span class="sd-stat-value">${performance.total_exercises || 0}</span>
         </div>
-        <div class="perf-stat">
-          <span class="perf-value">${avgScore}</span>
-          <span class="perf-label">Average Score</span>
+        <div class="sd-stat-card">
+          <span class="sd-stat-label">Avg Score</span>
+          <span class="sd-stat-value sd-stat-primary">${avgScore}</span>
         </div>
-        <div class="perf-stat">
-          <span class="perf-value">${performance.total_correct || 0}/${performance.total_puzzles || 0}</span>
-          <span class="perf-label">Total Correct</span>
+        <div class="sd-stat-card">
+          <span class="sd-stat-label">Solved</span>
+          <span class="sd-stat-value">${performance.total_correct || 0}/${performance.total_puzzles || 0}</span>
         </div>
       </div>
 
-      <h3 class="section-title">History</h3>
-      <table class="performance-table">
-        <thead>
-          <tr>
-            <th>Week</th>
-            <th>Score</th>
-            <th>Progress</th>
-          </tr>
-        </thead>
-        <tbody>
+      <div class="sd-history-card">
+        <h3 class="sd-history-title">Score History</h3>
+        <div class="sd-history-table">
           ${performance.history.map(h => {
             const pct = h.total_puzzles > 0 ? Math.round((h.score / h.total_puzzles) * 100) : 0;
+            const barColor = pct >= 80 ? 'var(--color-success-500)' : pct >= 50 ? 'var(--color-warning-500)' : 'var(--color-error-500)';
             return `
-              <tr>
-                <td>${escapeHtml(h.week_label || h.week_start || '')}</td>
-                <td>${h.score}/${h.total_puzzles}</td>
-                <td>
-                  <div class="progress-bar">
-                    <div class="progress-fill" style="width: ${pct}%"></div>
+              <div class="sd-history-row">
+                <span class="sd-history-week">${escapeHtml(h.week_label || h.week_start || '')}</span>
+                <span class="sd-history-score">${h.score}/${h.total_puzzles}</span>
+                <div class="sd-history-bar-wrap">
+                  <div class="sd-history-bar">
+                    <div class="sd-history-fill" style="width: ${pct}%; background: ${barColor}"></div>
                   </div>
-                  <span class="progress-pct">${pct}%</span>
-                </td>
-              </tr>
+                  <span class="sd-history-pct">${pct}%</span>
+                </div>
+              </div>
             `;
           }).join('')}
-        </tbody>
-      </table>
+        </div>
+      </div>
     `;
   }
 
