@@ -31,6 +31,11 @@ export function renderLoginView(container, onLoginSuccess) {
       </div>
       <div class="login-form-panel">
         <div class="login-form-content">
+          <div class="login-mobile-brand">
+            <div class="login-mobile-icon">&#9819;</div>
+            <h1 class="login-mobile-title">Chess Quiz</h1>
+            <p class="login-mobile-desc">Create, manage, and assign chess puzzles</p>
+          </div>
           <h2 class="login-form-title">Welcome back</h2>
           <p class="login-form-subtitle">Sign in to your account to continue</p>
 

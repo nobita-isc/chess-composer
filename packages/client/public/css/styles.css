@@ -4070,6 +4070,33 @@ label {
   max-width: 400px;
 }
 
+/* Mobile brand - hidden on desktop, shown on mobile */
+.login-mobile-brand {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.login-mobile-icon {
+  font-size: 48px;
+  color: var(--color-brand-600);
+}
+
+.login-mobile-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-gray-900);
+  letter-spacing: -0.5px;
+}
+
+.login-mobile-desc {
+  font-size: 13px;
+  color: var(--color-gray-400);
+  text-align: center;
+}
+
 .login-form-title {
   font-size: 1.75rem;
   font-weight: var(--font-weight-bold);
@@ -5115,6 +5142,19 @@ label {
     .login-form-panel {
         min-height: 100vh;
         padding: 40px 24px !important;
+    }
+
+    .login-mobile-brand {
+        display: flex !important;
+    }
+
+    .login-form-title {
+        text-align: center !important;
+    }
+
+    .login-form-subtitle {
+        text-align: center !important;
+        margin-bottom: 16px !important;
     }
 
     /* Page headers */
