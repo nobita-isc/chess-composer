@@ -830,18 +830,19 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
               <thead>
                 <tr>
                   <th class="ep-th-grow">Exercise</th>
-                  <th style="width:140px">Week</th>
-                  <th style="width:80px">Puzzles</th>
+                  <th style="width:70px">Puzzles</th>
                   <th style="width:80px">Assigned</th>
-                  <th style="width:80px">Graded</th>
-                  <th style="width:280px">Actions</th>
+                  <th style="width:70px">Graded</th>
+                  <th style="width:240px">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 ${exercises.map(ex => `
                   <tr data-id="${escapeHtml(ex.id)}">
-                    <td class="ep-cell-name">${escapeHtml(ex.name || ex.week_label)}</td>
-                    <td class="ep-cell-muted">${escapeHtml(ex.week_label)}</td>
+                    <td>
+                      <div class="ep-cell-name">${escapeHtml(ex.name || ex.week_label)}</div>
+                      <div class="ep-cell-muted" style="font-size:12px">${escapeHtml(ex.week_label)}</div>
+                    </td>
                     <td>${ex.puzzle_count}</td>
                     <td>${ex.total_assigned}</td>
                     <td class="ep-cell-graded">${gradedFraction(ex)}</td>
@@ -850,9 +851,8 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
                         <button class="btn-outline btn-sm" data-action="play">Play</button>
                         <button class="btn-outline btn-sm" data-action="grade">Grade</button>
                         <button class="btn-outline btn-sm" data-action="assign">Assign</button>
-                        <button class="btn-outline btn-sm" data-action="print">Print</button>
-                        <button class="btn-outline btn-sm btn-sm-danger" data-action="delete" title="Delete">
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                        <button class="btn-outline btn-sm ep-more-btn" data-action="more" title="More actions">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
                         </button>
                       </div>
                     </td>
@@ -887,25 +887,51 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
                   await showAssignDialog(exerciseId);
                   break;
                 }
-                case 'print': {
-                  const data = await apiClient.getExercise(exerciseId);
-                  openPrintPreview(data);
-                  break;
-                }
-                case 'delete': {
-                  showConfirmDialog({
-                    icon: 'rotate-ccw',
-                    iconColor: 'var(--color-error-500)',
-                    iconBg: 'var(--color-error-50)',
-                    title: 'Delete Exercise?',
-                    message: 'This will permanently delete this exercise and all student assignments. This cannot be undone.',
-                    confirmLabel: 'Delete',
-                    confirmColor: 'var(--color-error-500)',
-                    onConfirm: async () => {
-                      await apiClient.deleteExercise(exerciseId);
-                      showToast('Exercise deleted');
-                      renderExercisesTab();
-                    }
+                case 'more': {
+                  // Remove any existing dropdown
+                  content.querySelectorAll('.gd-dropdown').forEach(d => d.remove());
+                  const dropdown = document.createElement('div');
+                  dropdown.className = 'gd-dropdown';
+                  dropdown.innerHTML = `
+                    <button class="gd-dd-item" data-dd="print"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Print Preview</button>
+                    <button class="gd-dd-item" data-dd="print-solutions"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Print Solutions</button>
+                    <div class="gd-dd-sep"></div>
+                    <button class="gd-dd-item gd-dd-danger" data-dd="delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>Delete Exercise</button>
+                  `;
+                  btn.parentElement.style.position = 'relative';
+                  btn.parentElement.appendChild(dropdown);
+                  const closeDd = () => { dropdown.remove(); document.removeEventListener('click', closeDd); };
+                  setTimeout(() => document.addEventListener('click', closeDd), 0);
+
+                  dropdown.querySelectorAll('.gd-dd-item').forEach(item => {
+                    item.addEventListener('click', async (ev) => {
+                      ev.stopPropagation();
+                      dropdown.remove();
+                      const dd = item.dataset.dd;
+                      try {
+                        if (dd === 'print') {
+                          const data = await apiClient.getExercise(exerciseId);
+                          openPrintPreview(data);
+                        } else if (dd === 'print-solutions') {
+                          const data = await apiClient.getExercise(exerciseId);
+                          openPrintSolutions(data);
+                        } else if (dd === 'delete') {
+                          showConfirmDialog({
+                            icon: 'rotate-ccw', iconColor: 'var(--color-error-500)', iconBg: 'var(--color-error-50)',
+                            title: 'Delete Exercise?',
+                            message: 'This will permanently delete this exercise and all student assignments. This cannot be undone.',
+                            confirmLabel: 'Delete', confirmColor: 'var(--color-error-500)',
+                            onConfirm: async () => {
+                              await apiClient.deleteExercise(exerciseId);
+                              showToast('Exercise deleted');
+                              renderExercisesTab();
+                            }
+                          });
+                        }
+                      } catch (error) {
+                        showToast(`Error: ${error.message}`, 'error');
+                      }
+                    });
                   });
                   break;
                 }
