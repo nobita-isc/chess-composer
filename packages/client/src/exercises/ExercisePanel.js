@@ -834,7 +834,7 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
                   <th style="width:80px">Puzzles</th>
                   <th style="width:80px">Assigned</th>
                   <th style="width:80px">Graded</th>
-                  <th style="width:200px">Actions</th>
+                  <th style="width:280px">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -849,7 +849,11 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
                       <div class="ep-actions">
                         <button class="btn-outline btn-sm" data-action="play">Play</button>
                         <button class="btn-outline btn-sm" data-action="grade">Grade</button>
+                        <button class="btn-outline btn-sm" data-action="assign">Assign</button>
                         <button class="btn-outline btn-sm" data-action="print">Print</button>
+                        <button class="btn-outline btn-sm btn-sm-danger" data-action="delete" title="Delete">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -879,9 +883,30 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
                   await showExerciseDetails(exerciseId);
                   break;
                 }
+                case 'assign': {
+                  await showAssignDialog(exerciseId);
+                  break;
+                }
                 case 'print': {
                   const data = await apiClient.getExercise(exerciseId);
                   openPrintPreview(data);
+                  break;
+                }
+                case 'delete': {
+                  showConfirmDialog({
+                    icon: 'rotate-ccw',
+                    iconColor: 'var(--color-error-500)',
+                    iconBg: 'var(--color-error-50)',
+                    title: 'Delete Exercise?',
+                    message: 'This will permanently delete this exercise and all student assignments. This cannot be undone.',
+                    confirmLabel: 'Delete',
+                    confirmColor: 'var(--color-error-500)',
+                    onConfirm: async () => {
+                      await apiClient.deleteExercise(exerciseId);
+                      showToast('Exercise deleted');
+                      renderExercisesTab();
+                    }
+                  });
                   break;
                 }
               }
@@ -1130,59 +1155,82 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
   };
 
   const showAssignDialog = async (exerciseId) => {
-    const dialog = document.createElement('div');
-    dialog.className = 'assign-dialog';
-    dialog.innerHTML = `
-      <div class="dialog-content">
-        <button class="dialog-close">&times;</button>
-        <h3>Assign Exercise to Students</h3>
-        <div class="dialog-body">Loading students...</div>
+    const overlay = document.createElement('div');
+    overlay.className = 'pv-overlay';
+    document.body.style.overflow = 'hidden';
+
+    overlay.innerHTML = `
+      <div class="gd-dialog" style="width:480px">
+        <div class="gd-header">
+          <span class="gd-title">Assign to Students</span>
+          <button class="pv-close-btn" data-action="close">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="gd-body" id="assign-body">
+          <div class="gd-loading">Loading students...</div>
+        </div>
       </div>
     `;
 
-    document.body.appendChild(dialog);
-    openDialogs.push(dialog);
-    dialog.querySelector('.dialog-close').addEventListener('click', () => removeDialog(dialog));
+    document.body.appendChild(overlay);
+    openDialogs.push(overlay);
+
+    const closeDialog = () => {
+      document.body.style.overflow = '';
+      removeDialog(overlay);
+    };
+
+    overlay.querySelector('[data-action="close"]').addEventListener('click', closeDialog);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeDialog(); });
 
     try {
       const students = await apiClient.getStudents();
+      const body = overlay.querySelector('#assign-body');
 
       if (students.length === 0) {
-        dialog.querySelector('.dialog-body').innerHTML = `
-          <p class="empty-message">No students found. Create a student first.</p>
-          <button id="create-student-from-assign" class="action-btn primary-btn">+ Add Student</button>
+        body.innerHTML = `
+          <p style="text-align:center;color:var(--color-gray-400);padding:20px 0">No students found. Create a student first.</p>
+          <button class="generate-btn" style="width:100%" id="create-student-from-assign">+ Add Student</button>
         `;
-        dialog.querySelector('#create-student-from-assign').addEventListener('click', async () => {
-          removeDialog(dialog);
+        body.querySelector('#create-student-from-assign').addEventListener('click', async () => {
+          closeDialog();
           const result = await showStudentDialog(apiClient);
           if (result) {
             showToast('Student created');
-            renderStats();
             await showAssignDialog(exerciseId);
           }
         });
         return;
       }
 
-      dialog.querySelector('.dialog-body').innerHTML = `
-        <div class="student-select-list">
-          ${students.map(s => `
-            <label class="student-checkbox">
-              <input type="checkbox" value="${escapeHtml(s.id)}">
-              <span>${escapeHtml(s.name)} (${SKILL_LEVEL_LABELS[s.skill_level]})</span>
-            </label>
-          `).join('')}
-        </div>
-        <div class="dialog-actions">
-          <button class="cancel-btn">Cancel</button>
-          <button class="assign-btn primary-btn">Assign</button>
+      body.innerHTML = `
+        <div class="gd-list">
+          ${students.map(s => {
+            const skillCls = s.skill_level === 'advanced' ? 'badge-advanced' : s.skill_level === 'intermediate' ? 'badge-intermediate' : 'badge-beginner';
+            return `
+              <label class="gd-check-row">
+                <input type="checkbox" value="${escapeHtml(s.id)}" class="gd-checkbox">
+                <span class="gd-check-name">${escapeHtml(s.name)}</span>
+                <span class="badge ${skillCls}">${SKILL_LEVEL_LABELS[s.skill_level] || s.skill_level}</span>
+              </label>
+            `;
+          }).join('')}
         </div>
       `;
 
-      dialog.querySelector('.cancel-btn').addEventListener('click', () => removeDialog(dialog));
+      // Add footer
+      const footer = document.createElement('div');
+      footer.className = 'gd-footer';
+      footer.innerHTML = `
+        <button class="btn-outline" data-action="cancel">Cancel</button>
+        <button class="generate-btn" data-action="assign">Assign Selected</button>
+      `;
+      overlay.querySelector('.gd-dialog').appendChild(footer);
 
-      dialog.querySelector('.assign-btn').addEventListener('click', async () => {
-        const selected = Array.from(dialog.querySelectorAll('input:checked')).map(i => i.value);
+      footer.querySelector('[data-action="cancel"]').addEventListener('click', closeDialog);
+      footer.querySelector('[data-action="assign"]').addEventListener('click', async () => {
+        const selected = Array.from(overlay.querySelectorAll('.gd-checkbox:checked')).map(i => i.value);
 
         if (selected.length === 0) {
           showToast('Select at least one student', 'error');
@@ -1198,14 +1246,14 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
             showToast(`Assigned to ${result.assigned.length} student(s)`);
           }
 
-          removeDialog(dialog);
+          closeDialog();
           renderExercisesTab();
         } catch (error) {
           showToast(`Error: ${error.message}`, 'error');
         }
       });
     } catch (error) {
-      dialog.querySelector('.dialog-body').innerHTML = `<div class="error">${escapeHtml(error.message)}</div>`;
+      overlay.querySelector('#assign-body').innerHTML = `<div style="padding:20px;text-align:center;color:var(--color-error-500)">${escapeHtml(error.message)}</div>`;
     }
   };
 

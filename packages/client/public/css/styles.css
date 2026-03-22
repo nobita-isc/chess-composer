@@ -1434,6 +1434,54 @@ label {
     margin: 2px 0;
 }
 
+/* Assign dialog checkbox rows */
+.gd-check-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border: 1px solid var(--color-gray-200);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: border-color var(--duration-fast), background var(--duration-fast);
+}
+
+.gd-check-row:hover {
+    border-color: var(--color-brand-300);
+    background: var(--color-brand-50);
+}
+
+.gd-check-row:has(input:checked) {
+    border-color: var(--color-brand-500);
+    background: var(--color-brand-50);
+}
+
+.gd-checkbox {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--color-brand-600);
+    flex-shrink: 0;
+}
+
+.gd-check-name {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-gray-900);
+}
+
+/* Small danger button */
+.btn-sm-danger {
+    color: var(--color-error-500) !important;
+    border-color: var(--color-error-100) !important;
+    background: var(--color-error-50) !important;
+}
+
+.btn-sm-danger:hover {
+    background: var(--color-error-100) !important;
+    color: var(--color-error-600) !important;
+}
+
 /* Confirmation dialog */
 .gd-confirm {
     width: 400px;
