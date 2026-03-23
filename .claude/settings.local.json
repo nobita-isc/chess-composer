@@ -32,7 +32,13 @@
       "Bash(python3:*)",
       "Bash(timeout 10 node:*)",
       "Bash(node -e:*)",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(find /Users/nobita_isc/projects/chess_composer/docs -type f -name *.md)",
+      "Bash(repomix --output repomix-output.xml)",
+      "Bash(npm list:*)",
+      "Bash(/tmp/docs_summary.txt:*)",
+      "Read(//tmp/**)",
+      "Bash(ls:*)"
     ]
   }
 }
