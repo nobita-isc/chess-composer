@@ -29,7 +29,10 @@
       "Bash(git pull:*)",
       "Bash(xargs kill:*)",
       "Bash(lsof:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(timeout 10 node:*)",
+      "Bash(node -e:*)",
+      "Bash(xargs:*)"
     ]
   }
 }
