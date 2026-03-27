@@ -2,6 +2,8 @@
 
 Chess Composer is a **monorepo** with 2 npm workspaces (client & server), ~15K LOC total. Client is Vanilla JS SPA (Vite). Server is Node.js REST API (Hono). Both share chess.js dependency.
 
+**Last Updated**: 2026-03-28 (includes recent UI modernization, inline grading, exercise rename)
+
 ## Directory Structure
 
 ```
@@ -80,20 +82,27 @@ chess_composer/
 - **routeConfig.js** - Route definitions with guards (requireAdmin, requireStudent)
 - **ChessEngineV2.js** - Stockfish integration (optional)
 
-### Exercises Module: `src/exercises/` (8 files, ~5,200 LOC)
+### Exercises Module: `src/exercises/` (9 files, ~6,000 LOC)
 Handles puzzle solving, grading, PDF export, student management.
 
-**Large files needing modularization:**
-- **ExercisePanel.js** (1546 LOC) - Main exercise display, puzzle grid
+**Key components (2026-03-28)**
+- **ExercisePanel.js** (1546 LOC) - Main exercise display, modern `ep-table` pattern
   - Could split: PuzzleGrid, ExerciseHeader, ExerciseFooter
+- **ExercisePuzzleViewer.js** (400+ LOC) - Read-only puzzle display + inline grading mode
+  - New: gradingMode option with C/X keyboard shortcuts
+  - New: auto-advance and progress tracking
 - **PuzzlePlayer.js** (1492 LOC) - Interactive puzzle solver
   - Could split: BoardDisplay, MoveValidator, SolutionDisplay
 - **PrintPreview.js** (751 LOC) - PDF preview/printing
   - Could split: PreviewControls, PreviewContent
-- **GradeDialog.js** - Grading modal
-- **CreateExerciseDialog.js** - Exercise creation form
-- **ExercisePuzzleViewer.js** - Read-only puzzle display
-- **StudentDialog.js** - Student management modal
+- **GradeDialog.js** - Grading modal (enhanced z-index handling)
+- **CreateExerciseDialog.js** - Exercise creation (sticky footer, scrollable grid)
+- **StudentDialog.js** - Student management modal + inline create
+
+**UI Improvements**
+- Modern styled buttons (btn-outline, btn-sm)
+- Dropdown menus with position:fixed to escape overflow
+- Password toggle component on all password inputs
 
 ### Puzzles Module: `src/puzzles/` (4 files, ~1,200 LOC)
 - **CreatePuzzleDialog.js** (785 LOC) - Custom puzzle creation form
@@ -158,18 +167,21 @@ Handles puzzle solving, grading, PDF export, student management.
   - Access token: 15min, refresh token: 7d
   - Password: 10-round bcrypt
 
-### Routes Module: `src/routes/` (8 files, ~1,000 LOC)
+### Routes Module: `src/routes/` (8 files, ~1,100 LOC)
 Each route module registers endpoints for a domain.
 
 **auth.js** - POST /api/auth/login, /refresh, /me
-**puzzles.js** - POST /api/puzzles/generate, POST /custom, GET /stats
+**puzzles.js** - POST /api/puzzles/generate, POST /custom, GET /stats, PUT /:id/block, PUT /:id/unblock, PUT /:id/fen
 **themes.js** - GET /api/themes/list, /categories, /stats
-**exercises.js** - CRUD weekly exercises, GET /export (PDF)
-**student-exercises.js** - POST /grade, /upload-pdf, GET /list
+**exercises.js** - CRUD weekly exercises, PUT /:id (rename), GET /export (PDF)
+**student-exercises.js** - POST /grade, /upload-pdf, GET /list, PUT /:id/* (status updates)
 **students.js** - CRUD students
 **reports.js** - POST /submit, GET /list, PATCH /dismiss, /stats
 **users.js** - User management (admin only)
 **lichess.js** - Proxy Lichess API (reference puzzles)
+
+**New in 2026-03-28**
+- PUT /api/exercises/:id - Rename exercise (accessible via dropdown menu)
 
 ### Middleware: `src/middleware/` (2 files)
 - **authMiddleware.js** - JWT verification, token refresh
@@ -351,6 +363,30 @@ puzzle_modifications (
 - Database query: <100ms typical (SQLite indices)
 - Client renders: <100ms (Vanilla JS, no virtual DOM overhead)
 - Memory footprint: ~500MB (theme index + in-memory cache)
+- Inline grading: instant (no server roundtrip until save)
+
+## Recent Changes (2026-03-28)
+
+**New Features**
+- Inline puzzle grading with C/X keyboard shortcuts, auto-advance, auto-save
+- Exercise rename (PUT /api/exercises/:id)
+- Password toggle on login/create user/edit user dialogs
+- Create Student inline in Create User dialog
+- Multiple exercises per week (removed duplicate-week restriction)
+
+**UI Modernization**
+- All tabs now use modern `ep-table` pattern
+- Styled buttons: `btn-outline btn-sm` across all views
+- Dropdown menus with position:fixed to escape overflow
+- Renamed "Chess Quiz" to "Chess Trainer"
+- SVG favicon (queen icon)
+- Fixed GradeDialog z-index stacking
+
+**Bug Fixes**
+- Timezone: getWeekStart/getWeekEnd now use local time formatting (not UTC)
+- has_exercise: updated to support multiple exercises per week (findExercisesByWeek)
+- Empty .form-error no longer shows pink bar
+- Create exercise dialog: sticky footer, scrollable puzzle grid
 
 ## Integration Points
 

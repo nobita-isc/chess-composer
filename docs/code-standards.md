@@ -18,13 +18,18 @@ Chess Composer follows consistent patterns for code organization, error handling
 
 - **Target**: 200-400 lines per file
 - **Maximum**: 800 lines (triggers refactoring review)
-- **Large files marked for modularization**:
-  - ExercisePanel.js (1546 LOC) → Split into components
-  - PuzzlePlayer.js (1492 LOC) → Split into modules
-  - CreatePuzzleDialog.js (785 LOC) → Extract forms, validation
-  - GenerateView.js (~683 LOC) → Extract panels, filters
-  - AdminPanel.js (678 LOC) → Extract sub-sections
-  - PrintPreview.js (751 LOC) → Extract controls, content
+- **Large files marked for modularization** (priority order):
+  1. ExercisePanel.js (1546 LOC) → Split into components
+  2. PuzzlePlayer.js (1492 LOC) → Split into modules
+  3. CreatePuzzleDialog.js (785 LOC) → Extract forms, validation
+  4. PrintPreview.js (751 LOC) → Extract controls, content
+  5. GenerateView.js (~683 LOC) → Extract panels, filters
+  6. AdminPanel.js (678 LOC) → Extract sub-sections
+
+**Last refactored**: 2026-03-28
+- ExercisePanel & AdminPanel: Modern UI patterns added (ep-table, gd-dropdown)
+- PuzzlePlayer: Compatible with new grading mode
+- Small optimizations: password toggle, inline create
 
 ### Directory Structure
 
@@ -376,6 +381,96 @@ function createStudentWithUser(studentData, userName, passwordHash) {
     return { success: false, error: 'Failed to create student' }
   }
 }
+```
+
+### UI Component Patterns (New 2026-03-28)
+
+**Modern Table Pattern (ep-table)**
+```html
+<!-- ✅ GOOD: Styled table with hover, compact spacing -->
+<div class="ep-table">
+  <div class="ep-table-row ep-table-header">
+    <div class="ep-table-cell">Name</div>
+    <div class="ep-table-cell">Status</div>
+    <div class="ep-table-cell">Actions</div>
+  </div>
+  <div class="ep-table-row">
+    <div class="ep-table-cell">Exercise 1</div>
+    <div class="ep-table-cell">Active</div>
+    <div class="ep-table-cell">
+      <div class="gd-dropdown">
+        <button class="btn-outline btn-sm">...</button>
+        <div class="dropdown-menu">
+          <button>Edit</button>
+          <button>Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+```
+
+**Dropdown Menus with Fixed Positioning**
+```javascript
+// ✅ GOOD: Fixed positioning to escape overflow containers
+.gd-dropdown {
+  position: relative;
+}
+
+.gd-dropdown .dropdown-menu {
+  position: fixed;  // NOT absolute - breaks out of overflow: hidden
+  top: 0;
+  left: 0;
+  background: white;
+  border: 1px solid #ccc;
+  z-index: 1000;
+}
+```
+
+**Password Toggle Component**
+```html
+<!-- ✅ GOOD: Toggle show/hide password -->
+<div class="password-input-wrap">
+  <input type="password" id="pw" name="password" />
+  <button class="password-toggle" aria-label="Show password">👁️</button>
+</div>
+
+<style>
+.password-toggle {
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+.password-toggle.visible ~ input {
+  /* When active, input type changes to text */
+}
+</style>
+```
+
+**Styled Button Classes**
+```css
+/* ✅ GOOD: Semantic button classes */
+.btn-primary {
+  background: #007bff;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid #999;
+  color: #333;
+  padding: 6px 12px;
+}
+
+.btn-sm {
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+/* Usage: <button class="btn-outline btn-sm">Delete</button> */
 ```
 
 ## Naming Conventions

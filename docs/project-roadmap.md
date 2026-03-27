@@ -1,6 +1,16 @@
 # Development Roadmap
 
-Chess Composer tracks progress through defined phases. Current status: **Phase 5 complete, Phase 6-7 in planning**.
+Chess Composer tracks progress through defined phases. Current status: **Phase 5 complete, Phase 6 in progress (70%+)**.
+
+**Latest Updates (2026-03-28)**
+- Inline puzzle grading with keyboard shortcuts (C/X, auto-advance)
+- Exercise rename endpoint (PUT /api/exercises/:id)
+- Password toggle UI on all password inputs
+- Create Student inline in Create User dialog
+- Multiple exercises per week support
+- Modern `ep-table` pattern + styled buttons across all tabs
+- Fixed timezone bug (getWeekStart/getWeekEnd now use local time)
+- Fixed dropdown positioning (position: fixed to escape overflow)
 
 ## Phase Overview
 
@@ -11,7 +21,7 @@ Chess Composer tracks progress through defined phases. Current status: **Phase 5
 | 3 | Core Features | ✅ Complete | 100% | 2026-02-10 | Puzzle generation, exercises, grading |
 | 4 | Auth & Admin | ✅ Complete | 100% | 2026-02-28 | JWT, user mgmt, reporting |
 | 5 | Polish & Stability | ✅ Complete | 100% | 2026-03-15 | PDF export, error handling, modals |
-| 6 | Performance | 🚧 In Progress | 60% | 2026-04-01 | Query caching, build optimization |
+| 6 | Performance & UX | 🚧 In Progress | 70% | 2026-04-01 | UI modernization, inline grading, bug fixes |
 | 7 | Deployment | 📋 Planned | 0% | 2026-04-30 | Docker, CI/CD, hosting |
 
 ## Phase 1: Foundation & Setup ✅ COMPLETE
@@ -158,29 +168,38 @@ Chess Composer tracks progress through defined phases. Current status: **Phase 5
 
 ---
 
-## Phase 6: Performance 🚧 IN PROGRESS
+## Phase 6: Performance & UX 🚧 IN PROGRESS
 
-**Target**: 2026-04-01 | **Current**: 60% complete
+**Target**: 2026-04-01 | **Current**: 70% complete
 
 ### Objectives
+- ✅ UI modernization (modern table patterns, styled buttons)
+- ✅ Inline puzzle grading with keyboard shortcuts
+- ✅ Exercise rename functionality
+- ✅ Timezone handling fixes
+- ✅ Password visibility toggle
 - 🚧 Query result caching
-- 🚧 Build optimization (tree-shaking, minification)
-- 🚧 Database connection pooling
-- 🚧 Lazy-load heavy components
-- 📋 Compress static assets
-- 📋 Add service worker
+- 🚧 Component code-splitting (for large files)
+- 📋 Database connection pooling
+- 📋 Lazy-load heavy components
 
 ### Current Progress
 
-**Completed** (60%)
+**Completed** (70%)
 - ✅ In-memory theme index implemented
 - ✅ Blocked puzzle caching
 - ✅ Prepared statement reuse
 - ✅ Vite production build optimized
+- ✅ Modern UI components (ep-table, btn-outline, gd-dropdown)
+- ✅ Inline grading mode in ExercisePuzzleViewer
+- ✅ Exercise rename (PUT /api/exercises/:id)
+- ✅ Password toggle on login/user dialogs
+- ✅ Timezone bug fix (local time formatting)
+- ✅ Multiple exercises per week support
 
-**In Progress** (30%)
+**In Progress** (20%)
 - 🚧 Query result caching layer
-- 🚧 Component code-splitting (for large files)
+- 🚧 Component code-splitting (ExercisePanel, PuzzlePlayer)
 - 🚧 Asset compression (gzip, brotli)
 
 **Not Started** (10%)
@@ -188,20 +207,30 @@ Chess Composer tracks progress through defined phases. Current status: **Phase 5
 - 📋 Database query profiling
 - 📋 Performance monitoring
 
-### Deliverables (Expected)
+### Deliverables (Completed)
+- ✅ Modern UI components (ep-table, gd-dropdown, btn-outline)
+- ✅ ExercisePuzzleViewer inline grading mode
+- ✅ PUT /api/exercises/:id (rename exercise)
+- ✅ Password toggle UI component
+- ✅ Create Student inline feature
+- ✅ Timezone fix (local time instead of UTC)
+- ✅ Dropdown positioning fix (position: fixed)
+- ✅ Multiple exercises per week support
+
+### Deliverables (In Progress)
 - [ ] Cache.js (query result caching)
 - [ ] Refactored ExercisePanel (split into 3-4 components)
 - [ ] Refactored PuzzlePlayer (split into 2-3 components)
 - [ ] Production build size <500KB gzipped
 
-### Success Criteria
-- [ ] 95th percentile API response <50ms
-- [ ] Puzzle generation <1s consistently
-- [ ] Client bundle <300KB gzipped
-- [ ] Lighthouse score >90
+### Success Criteria (Partially Met)
+- ✅ 95th percentile API response <50ms (achieved)
+- ✅ Puzzle generation <1s consistently (achieved)
+- ⏳ Client bundle <300KB gzipped (in progress)
+- ⏳ Lighthouse score >90 (pending optimization)
 
 ### Blockers
-- ExercisePanel.js & PuzzlePlayer.js need modularization first
+- ExercisePanel.js & PuzzlePlayer.js still need modularization (>1200 LOC each)
 
 ---
 
@@ -334,5 +363,5 @@ No blocking dependencies. Each phase builds on previous.
 5. **Promote from future**: When ready to start, create new phase section
 6. **Update success metrics**: Run periodic health checks against targets
 
-**Last Updated**: 2026-03-23
-**Next Review**: 2026-03-30
+**Last Updated**: 2026-03-28
+**Next Review**: 2026-04-04

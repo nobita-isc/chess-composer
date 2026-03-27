@@ -2,6 +2,14 @@
 
 Instructions for setting up Chess Composer in development, staging, and production environments.
 
+**Latest Features (2026-03-28)**
+- Inline puzzle grading with keyboard shortcuts (C/X)
+- Exercise rename (PUT /api/exercises/:id)
+- Password visibility toggle on login/user management
+- Modern UI components (ep-table, styled buttons, dropdown menus)
+- Multiple exercises per week support
+- Timezone handling fixes
+
 ## Prerequisites
 
 - **Node.js** v22+ (check: `node --version`)

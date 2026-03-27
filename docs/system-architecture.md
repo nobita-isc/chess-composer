@@ -77,17 +77,18 @@ ExercisePanel renders puzzles
 
 ### Key Modules
 
-| Module | Purpose | LOC |
-|--------|---------|-----|
-| index.js | Entry point, routing | 211 |
-| ApiClient.js | HTTP client (all endpoints) | 534 |
-| AuthManager.js | JWT token management | ~80 |
-| HashRouter.js | SPA routing (#/generate, etc.) | ~100 |
-| ExercisePanel.js | Puzzle display grid | 1546 |
-| PuzzlePlayer.js | Interactive solver | 1492 |
-| GradeDialog.js | Grading interface | ~300 |
-| GenerateView.js | Puzzle generation UI | ~683 |
-| AdminPanel.js | Admin dashboard | 678 |
+| Module | Purpose | LOC | Status |
+|--------|---------|-----|--------|
+| index.js | Entry point, routing | 211 | ✅ |
+| ApiClient.js | HTTP client (all endpoints) | 534 | ✅ |
+| AuthManager.js | JWT token management | ~80 | ✅ |
+| HashRouter.js | SPA routing (#/generate, etc.) | ~100 | ✅ |
+| ExercisePanel.js | Puzzle display grid + modern UI | 1546 | 🚧 Needs split |
+| ExercisePuzzleViewer.js | Inline grading mode | ~400 | ✅ |
+| PuzzlePlayer.js | Interactive solver | 1492 | 🚧 Needs split |
+| GradeDialog.js | Grading interface | ~300 | ✅ |
+| GenerateView.js | Puzzle generation UI | ~683 | ✅ |
+| AdminPanel.js | Admin dashboard (modern UI) | 678 | ✅ |
 
 ### State Management Pattern
 
@@ -225,10 +226,10 @@ Client
 | Module | Endpoints | Methods | Status |
 |--------|-----------|---------|--------|
 | auth.js | /api/auth/login, /refresh, /me | POST, GET | ✅ |
-| puzzles.js | /api/puzzles/generate, /custom, /stats | POST, GET | ✅ |
+| puzzles.js | /api/puzzles/generate, /custom, /stats, /:id/block, /:id/unblock, /:id/fen | POST, GET, PUT | ✅ |
 | themes.js | /api/themes/list, /categories, /stats | GET | ✅ |
-| exercises.js | /api/exercises/*, /export | CRUD, GET | ✅ |
-| student-exercises.js | /api/student-exercises/grade, /upload, /list | POST, GET | ✅ |
+| exercises.js | /api/exercises/*, /:id (rename), /export | CRUD + PUT, GET | ✅ |
+| student-exercises.js | /api/student-exercises/grade, /upload, /list, /:id/* | POST, GET, PUT | ✅ |
 | students.js | /api/students/* | CRUD | ✅ |
 | reports.js | /api/reports/submit, /list, /dismiss | POST, GET, PATCH | ✅ |
 | users.js | /api/users/* (admin only) | CRUD | ✅ |
