@@ -310,7 +310,10 @@ function _openViewer(puzzles, title, puzzleIndex, gradingCtx = null) {
 
   // Grading button handlers
   if (gradingCtx) {
+    let isSaving = false
     const gradeAndSave = async (result) => {
+      if (isSaving) return
+      isSaving = true
       gradingCtx.results[puzzleIndex] = result
 
       // Update button states
@@ -330,6 +333,8 @@ function _openViewer(puzzles, title, puzzleIndex, gradingCtx = null) {
         await gradingCtx.apiClient.gradeExercise(gradingCtx.assignment.id, score, null, puzzleResults)
       } catch (err) {
         _showStatus(overlay, 'error', 'Save failed', err.message)
+      } finally {
+        isSaving = false
       }
 
       // Auto-advance to next ungraded puzzle

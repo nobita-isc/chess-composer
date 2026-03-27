@@ -51,8 +51,11 @@ export class ExerciseService {
    * @returns {string}
    */
   formatWeekLabel(weekStart, weekEnd) {
-    const start = new Date(weekStart);
-    const end = new Date(weekEnd);
+    // Parse as local date to avoid UTC off-by-one
+    const [sy, sm, sd] = weekStart.split('-').map(Number);
+    const [ey, em, ed] = weekEnd.split('-').map(Number);
+    const start = new Date(sy, sm - 1, sd);
+    const end = new Date(ey, em - 1, ed);
     const options = { month: 'short', day: 'numeric' };
     return `${start.toLocaleDateString('en-US', options)} - ${end.toLocaleDateString('en-US', options)}`;
   }

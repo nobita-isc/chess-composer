@@ -9,6 +9,7 @@ import { pdfGenerator } from '../exercises/PdfGenerator.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { requireRole } from '../middleware/roleMiddleware.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -141,7 +142,7 @@ exercises.get('/:id/pdf', async (c) => {
  * PUT /api/exercises/:id
  * Update exercise (name)
  */
-exercises.put('/:id', async (c) => {
+exercises.put('/:id', requireRole('admin'), async (c) => {
   try {
     const id = c.req.param('id');
     const { name } = await c.req.json();
@@ -150,7 +151,15 @@ exercises.put('/:id', async (c) => {
       return c.json({ success: false, error: 'Name is required' }, 400);
     }
 
-    exerciseRepository.updateExerciseName(id, name.trim());
+    const trimmed = name.trim();
+    if (trimmed.length > 200) {
+      return c.json({ success: false, error: 'Name must be 200 characters or less' }, 400);
+    }
+
+    const result = exerciseRepository.updateExerciseName(id, trimmed);
+    if (!result.success) {
+      return c.json({ success: false, error: result.error }, 404);
+    }
     return c.json({ success: true });
   } catch (error) {
     return c.json({ success: false, error: error.message }, 500);

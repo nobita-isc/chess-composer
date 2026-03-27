@@ -96,18 +96,6 @@ export class ExerciseRepository {
   }
 
   /**
-   * Get exercise for a specific week
-   * @param {string} weekStart - Week start date (YYYY-MM-DD)
-   * @returns {object|null}
-   */
-  findExerciseByWeek(weekStart) {
-    return database.queryOne(
-      'SELECT * FROM weekly_exercises WHERE week_start = ?',
-      [weekStart]
-    );
-  }
-
-  /**
    * Get all exercises for a specific week
    * @param {string} weekStart - Week start date (YYYY-MM-DD)
    * @returns {object[]}
@@ -123,9 +111,14 @@ export class ExerciseRepository {
    * Update exercise name
    * @param {string} id - Exercise ID
    * @param {string} name - New name
+   * @returns {{ success: boolean, error?: string }}
    */
   updateExerciseName(id, name) {
-    database.run('UPDATE weekly_exercises SET name = ? WHERE id = ?', [name, id]);
+    const result = database.run('UPDATE weekly_exercises SET name = ? WHERE id = ?', [name, id]);
+    if (result.changes === 0) {
+      return { success: false, error: 'Exercise not found' };
+    }
+    return { success: true };
   }
 
   /**
