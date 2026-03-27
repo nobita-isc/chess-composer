@@ -38,7 +38,9 @@
       "Bash(npm list:*)",
       "Bash(/tmp/docs_summary.txt:*)",
       "Read(//tmp/**)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(/dev/null:*)",
+      "Bash(find packages/client/src packages/server/src -name *.js -exec wc -l {} +)"
     ]
   }
 }
