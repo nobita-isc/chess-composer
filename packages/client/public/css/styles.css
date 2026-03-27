@@ -1133,6 +1133,63 @@ label {
 
 .pv-action-report:hover { background: var(--color-error-100); }
 
+/* Grading mode */
+.pv-grade-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+    background: var(--color-bg-muted);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-gray-200);
+}
+
+.pv-grade-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-gray-500);
+}
+
+.pv-grade-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.pv-grade-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+    border: 2px solid var(--color-gray-200);
+    background: var(--color-bg-base);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--duration-fast);
+}
+
+.pv-grade-correct { color: var(--color-success-600); }
+.pv-grade-correct:hover { border-color: var(--color-success-500); background: var(--color-success-50); }
+.pv-grade-correct.active { border-color: var(--color-success-500); background: var(--color-success-500); color: #fff; }
+
+.pv-grade-wrong { color: var(--color-error-600); }
+.pv-grade-wrong:hover { border-color: var(--color-error-500); background: var(--color-error-50); }
+.pv-grade-wrong.active { border-color: var(--color-error-500); background: var(--color-error-500); color: #fff; }
+
+.pv-grade-status {
+    font-size: 12px;
+    color: var(--color-gray-500);
+    text-align: center;
+}
+
+.pv-grade-correct-count { color: var(--color-success-600); font-weight: 600; }
+.pv-grade-wrong-count { color: var(--color-error-600); font-weight: 600; }
+
 .pv-action-retry {
     background: var(--color-brand-600);
     color: white;
@@ -1383,17 +1440,13 @@ label {
 
 /* Dropdown menu */
 .gd-dropdown {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    margin-top: 4px;
     width: 180px;
     background: var(--color-bg-base);
     border: 1px solid var(--color-gray-200);
     border-radius: var(--radius-lg);
     box-shadow: 0 4px 16px rgba(0,0,0,0.1);
     padding: 4px;
-    z-index: 100;
+    z-index: 60000;
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -2658,6 +2711,36 @@ label {
     margin-top: var(--space-1);
 }
 
+/* Password input with show/hide toggle */
+.password-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.password-input-wrap input {
+    flex: 1;
+    padding-right: 40px;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-gray-400);
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    border-radius: var(--radius-sm);
+    transition: color var(--duration-fast);
+}
+
+.password-toggle:hover {
+    color: var(--color-gray-700);
+}
+
 .form-actions {
     display: flex;
     justify-content: flex-end;
@@ -2709,6 +2792,10 @@ label {
     border: 1px solid var(--color-error-100);
     margin-bottom: var(--space-4);
     font-size: var(--font-size-sm);
+}
+
+.form-error:empty {
+    display: none;
 }
 
 /* ============================================

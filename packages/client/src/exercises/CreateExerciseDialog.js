@@ -118,8 +118,8 @@ export function showCreateExerciseDialog(apiClient, initialPuzzles, onPuzzlesUpd
           </div>
         </div>
         <div class="confirm-actions">
-          <button class="primary-btn" id="dlg-use-existing">Use Current ${n} Puzzle${n !== 1 ? 's' : ''}</button>
-          <button class="secondary-btn" id="dlg-regenerate">Generate New Puzzles</button>
+          <button class="generate-btn" id="dlg-use-existing">Use Current ${n} Puzzle${n !== 1 ? 's' : ''}</button>
+          <button class="btn-outline" id="dlg-regenerate" style="padding:10px 20px">Generate New Puzzles</button>
         </div>
       `;
 
@@ -185,36 +185,38 @@ export function showCreateExerciseDialog(apiClient, initialPuzzles, onPuzzlesUpd
           </div>
         ` : ''}
 
-        <form id="exercise-form" class="exercise-form">
-          <div class="form-group">
-            <label for="exercise-name">Exercise Name (optional)</label>
-            <input type="text" id="exercise-name"
-              placeholder="${currentWeek ? `Week of ${escapeHtml(currentWeek.week_label)}` : 'Enter a name'}">
-          </div>
-
-          <div class="form-group">
-            <label for="week-start">Week Start (Monday)</label>
-            <input type="date" id="week-start"
-              value="${currentWeek?.week_start || getDefaultMonday()}">
-          </div>
-
-          <div class="puzzles-summary">
-            <h4>Puzzles to Include (${puzzles.length})</h4>
-            <div class="puzzle-thumbnail-grid">
-              ${puzzles.map((p, i) => renderPuzzleThumbnail(p, i)).join('')}
+        <form id="exercise-form" class="exercise-form" style="display:flex;flex-direction:column;max-height:calc(90vh - 80px)">
+          <div style="flex:1;overflow-y:auto;padding-right:4px">
+            <div class="form-group">
+              <label for="exercise-name">Exercise Name (optional)</label>
+              <input type="text" id="exercise-name"
+                placeholder="${currentWeek ? `Week of ${escapeHtml(currentWeek.week_label)}` : 'Enter a name'}">
             </div>
+
+            <div class="form-group">
+              <label for="week-start">Week Start (Monday)</label>
+              <input type="date" id="week-start"
+                value="${currentWeek?.week_start || getDefaultMonday()}">
+            </div>
+
+            <div class="puzzles-summary">
+              <h4>Puzzles to Include (${puzzles.length})</h4>
+              <div class="puzzle-thumbnail-grid" style="max-height:300px;overflow-y:auto">
+                ${puzzles.map((p, i) => renderPuzzleThumbnail(p, i)).join('')}
+              </div>
+            </div>
+
+            <div class="form-error" id="form-error"></div>
           </div>
 
-          <div class="form-error" id="form-error"></div>
-
-          <div class="dialog-actions">
-            <button type="button" class="cancel-btn">Cancel</button>
-            <button type="submit" class="save-btn primary-btn">Create Exercise</button>
+          <div class="dialog-actions" style="flex-shrink:0;border-top:1px solid var(--color-gray-200);padding-top:16px;margin-top:16px">
+            <button type="button" class="btn-outline" style="padding:10px 20px">Cancel</button>
+            <button type="submit" class="save-btn generate-btn" style="padding:10px 20px">Create Exercise</button>
           </div>
         </form>
       `;
 
-      innerEl.querySelector('.cancel-btn').addEventListener('click', () => closeDialog(null));
+      innerEl.querySelector('.btn-outline').addEventListener('click', () => closeDialog(null));
       attachThumbnailZoom(innerEl, puzzles);
 
       innerEl.querySelector('#exercise-form').addEventListener('submit', async (e) => {

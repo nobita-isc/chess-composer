@@ -33,7 +33,7 @@ export function renderStudentDashboard(container, apiClient, { initialTab = 'exe
       <aside class="sidebar student-sidebar">
         <div class="sidebar-brand">
           <span class="sidebar-logo student-logo">&#9819;</span>
-          <span class="sidebar-title">Chess Quiz</span>
+          <span class="sidebar-title">Chess Trainer</span>
         </div>
         <nav class="sidebar-nav">
           <button class="sidebar-nav-item student-nav-item ${activeTab === 'exercises' ? 'active' : ''}" data-tab="exercises" title="My Exercises">

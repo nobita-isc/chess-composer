@@ -78,7 +78,7 @@ function getDestinationMap(chess) {
 /**
  * Open a puzzle viewer modal for exercise puzzles.
  * @param {Object} exercise - Exercise data with { puzzles, name, week_label }
- * @param {Object} [options] - Optional config { startIndex }
+ * @param {Object} [options] - Optional config { startIndex, gradingMode, assignment, apiClient, onGraded }
  */
 export function openExercisePuzzleViewer(exercise, options = {}) {
   const rawPuzzles = exercise.puzzles || []
@@ -88,10 +88,29 @@ export function openExercisePuzzleViewer(exercise, options = {}) {
   const title = exercise.name || exercise.week_label || 'Exercise'
   const startIndex = options.startIndex || 0
 
-  _openViewer(puzzles, title, startIndex)
+  // Grading state: array of true/false/null per puzzle
+  const gradingCtx = options.gradingMode ? {
+    enabled: true,
+    results: new Array(puzzles.length).fill(null),
+    assignment: options.assignment,
+    apiClient: options.apiClient,
+    onGraded: options.onGraded
+  } : null
+
+  // Load existing puzzle_results if available
+  if (gradingCtx && options.assignment?.puzzle_results) {
+    const existing = options.assignment.puzzle_results.split(',')
+    existing.forEach((v, i) => {
+      if (i < puzzles.length) {
+        gradingCtx.results[i] = v === '1' ? true : v === '0' ? false : null
+      }
+    })
+  }
+
+  _openViewer(puzzles, title, startIndex, gradingCtx)
 }
 
-function _openViewer(puzzles, title, puzzleIndex) {
+function _openViewer(puzzles, title, puzzleIndex, gradingCtx = null) {
   const puzzle = puzzles[puzzleIndex]
   if (!puzzle) return
 
@@ -167,6 +186,24 @@ function _openViewer(puzzles, title, puzzleIndex) {
               </button>
             </div>
           </div>
+          ${gradingCtx ? `
+          <div class="pv-grade-section" id="epv-grade">
+            <div class="pv-grade-label">Grade this puzzle</div>
+            <div class="pv-grade-buttons">
+              <button class="pv-grade-btn pv-grade-correct ${gradingCtx.results[puzzleIndex] === true ? 'active' : ''}" data-action="grade-correct">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Correct</span>
+              </button>
+              <button class="pv-grade-btn pv-grade-wrong ${gradingCtx.results[puzzleIndex] === false ? 'active' : ''}" data-action="grade-wrong">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                <span>Wrong</span>
+              </button>
+            </div>
+            <div class="pv-grade-status" id="epv-grade-status">
+              ${_gradeSummaryHtml(gradingCtx)}
+            </div>
+          </div>
+          ` : ''}
           <div class="pv-actions">
             <button class="pv-action-btn pv-action-hint" data-action="hint">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0018 8 6 6 0 006 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 019 14"/></svg>
@@ -186,8 +223,10 @@ function _openViewer(puzzles, title, puzzleIndex) {
 
   const close = () => {
     document.body.style.overflow = ''
+    if (state._gradeKeyHandler) document.removeEventListener('keydown', state._gradeKeyHandler)
     if (state.boardInstance?.destroy) state.boardInstance.destroy()
     document.body.removeChild(overlay)
+    if (gradingCtx?.onGraded) gradingCtx.onGraded()
   }
 
   // Init board
@@ -226,13 +265,19 @@ function _openViewer(puzzles, title, puzzleIndex) {
   overlay.querySelector('[data-action="close"]').addEventListener('click', close)
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close() })
 
+  // Navigate without triggering onGraded callback
+  const navigateTo = (idx) => {
+    document.body.style.overflow = ''
+    if (state._gradeKeyHandler) document.removeEventListener('keydown', state._gradeKeyHandler)
+    if (state.boardInstance?.destroy) state.boardInstance.destroy()
+    document.body.removeChild(overlay)
+    _openViewer(puzzles, title, idx, gradingCtx)
+  }
   overlay.querySelector('[data-action="prev"]').addEventListener('click', () => {
-    close()
-    if (puzzleIndex > 0) _openViewer(puzzles, title, puzzleIndex - 1)
+    if (puzzleIndex > 0) navigateTo(puzzleIndex - 1)
   })
   overlay.querySelector('[data-action="next"]').addEventListener('click', () => {
-    close()
-    if (puzzleIndex < puzzles.length - 1) _openViewer(puzzles, title, puzzleIndex + 1)
+    if (puzzleIndex < puzzles.length - 1) navigateTo(puzzleIndex + 1)
   })
   overlay.querySelector('[data-action="flip"]').addEventListener('click', () => {
     state.orientation = state.orientation === 'white' ? 'black' : 'white'
@@ -262,6 +307,58 @@ function _openViewer(puzzles, title, puzzleIndex) {
     const btn = overlay.querySelector('[data-action="solution"]')
     if (btn) { btn.disabled = true; btn.style.opacity = '0.5' }
   })
+
+  // Grading button handlers
+  if (gradingCtx) {
+    const gradeAndSave = async (result) => {
+      gradingCtx.results[puzzleIndex] = result
+
+      // Update button states
+      const correctBtn = overlay.querySelector('[data-action="grade-correct"]')
+      const wrongBtn = overlay.querySelector('[data-action="grade-wrong"]')
+      correctBtn.classList.toggle('active', result === true)
+      wrongBtn.classList.toggle('active', result === false)
+
+      // Update summary
+      const statusEl = overlay.querySelector('#epv-grade-status')
+      if (statusEl) statusEl.innerHTML = _gradeSummaryHtml(gradingCtx)
+
+      // Save to server
+      try {
+        const score = gradingCtx.results.filter(r => r === true).length
+        const puzzleResults = gradingCtx.results.map(r => r === true ? '1' : r === false ? '0' : '').join(',')
+        await gradingCtx.apiClient.gradeExercise(gradingCtx.assignment.id, score, null, puzzleResults)
+      } catch (err) {
+        _showStatus(overlay, 'error', 'Save failed', err.message)
+      }
+
+      // Auto-advance to next ungraded puzzle
+      const nextUngraded = gradingCtx.results.findIndex((r, i) => r === null && i > puzzleIndex)
+      if (nextUngraded !== -1) {
+        setTimeout(() => navigateTo(nextUngraded), 400)
+      } else {
+        // Check if all graded
+        const allGraded = gradingCtx.results.every(r => r !== null)
+        if (allGraded) {
+          _showStatus(overlay, 'success', 'All puzzles graded!',
+            `Score: ${gradingCtx.results.filter(r => r === true).length}/${puzzles.length}`)
+        }
+      }
+    }
+
+    overlay.querySelector('[data-action="grade-correct"]').addEventListener('click', () => gradeAndSave(true))
+    overlay.querySelector('[data-action="grade-wrong"]').addEventListener('click', () => gradeAndSave(false))
+
+    // Keyboard shortcuts: C=correct, X=wrong
+    const keyHandler = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+      if (e.key === 'c' || e.key === 'C') gradeAndSave(true)
+      else if (e.key === 'x' || e.key === 'X') gradeAndSave(false)
+    }
+    document.addEventListener('keydown', keyHandler)
+    // Store for cleanup on navigation/close
+    state._gradeKeyHandler = keyHandler
+  }
 }
 
 function _autoPlayOpponent(puzzle, state, overlay) {
@@ -381,6 +478,13 @@ function _showStatus(overlay, type, title, message) {
   el.className = `pv-status-banner pv-status-${type}`
   el.innerHTML = `<div class="pv-status-title">${escapeHtml(title)}</div><div class="pv-status-msg">${escapeHtml(message)}</div>`
   el.style.display = 'flex'
+}
+
+function _gradeSummaryHtml(gradingCtx) {
+  const correct = gradingCtx.results.filter(r => r === true).length
+  const wrong = gradingCtx.results.filter(r => r === false).length
+  const remaining = gradingCtx.results.filter(r => r === null).length
+  return `<span class="pv-grade-correct-count">${correct} correct</span> · <span class="pv-grade-wrong-count">${wrong} wrong</span> · ${remaining} remaining`
 }
 
 function _hideActions(overlay, actions) {

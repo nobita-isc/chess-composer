@@ -72,7 +72,7 @@ exercises.get('/current-week', (c) => {
   try {
     const weekStart = exerciseService.getWeekStart();
     const weekEnd = exerciseService.getWeekEnd(weekStart);
-    const existing = exerciseRepository.findExerciseByWeek(weekStart);
+    const exercises_list = exerciseRepository.findExercisesByWeek(weekStart);
 
     return c.json({
       success: true,
@@ -80,8 +80,8 @@ exercises.get('/current-week', (c) => {
         week_start: weekStart,
         week_end: weekEnd,
         week_label: exerciseService.formatWeekLabel(weekStart, weekEnd),
-        has_exercise: !!existing,
-        exercise: existing
+        has_exercise: exercises_list.length > 0,
+        exercise_count: exercises_list.length
       }
     });
   } catch (error) {
@@ -132,6 +132,26 @@ exercises.get('/:id/pdf', async (c) => {
         'Content-Length': pdfBuffer.length.toString()
       }
     });
+  } catch (error) {
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+/**
+ * PUT /api/exercises/:id
+ * Update exercise (name)
+ */
+exercises.put('/:id', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const { name } = await c.req.json();
+
+    if (!name || !name.trim()) {
+      return c.json({ success: false, error: 'Name is required' }, 400);
+    }
+
+    exerciseRepository.updateExerciseName(id, name.trim());
+    return c.json({ success: true });
   } catch (error) {
     return c.json({ success: false, error: error.message }, 500);
   }

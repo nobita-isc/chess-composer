@@ -66,7 +66,7 @@ export function showAdminPanel(apiClient) {
             </tr>
           </thead>
           <tbody id="reports-tbody">
-            <tr><td colspan="6" class="loading-cell">Loading reports...</td></tr>
+            <tr><td colspan="5" class="loading-cell">Loading reports...</td></tr>
           </tbody>
         </table>
       </div>
@@ -110,7 +110,7 @@ export function showAdminPanel(apiClient) {
 
   const renderReports = async () => {
     const tbody = overlay.querySelector('#reports-tbody');
-    tbody.innerHTML = '<tr><td colspan="6" class="loading-cell">Loading...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="loading-cell">Loading...</td></tr>';
 
     try {
       const result = await apiClient.getReports({
@@ -122,68 +122,97 @@ export function showAdminPanel(apiClient) {
       const { reports, total, hasMore } = result;
 
       if (reports.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">No reports found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">No reports found</td></tr>';
         return;
       }
 
+      const reasonBadge = (reason) => {
+        const cls = reason === 'wrong_solution' ? 'badge-advanced' : reason === 'broken_position' ? 'badge-intermediate' : 'badge-theme';
+        return `<span class="badge ${cls}">${REPORT_REASON_LABELS[reason] || reason}</span>`;
+      };
+
+      const statusBadge = (dismissed) => {
+        return dismissed
+          ? '<span class="badge badge-beginner">Dismissed</span>'
+          : '<span class="badge badge-intermediate">Pending</span>';
+      };
+
       tbody.innerHTML = reports.map(report => `
         <tr data-report-id="${report.id}" data-puzzle-id="${escapeHtml(report.puzzle_id)}">
-          <td class="puzzle-id-cell">
-            <code>${escapeHtml(report.puzzle_id)}</code>
+          <td>
+            <div class="ep-cell-name"><code style="font-size:12px">${escapeHtml(report.puzzle_id)}</code></div>
+            <div class="ep-cell-muted" style="font-size:12px">${report.notes ? escapeHtml(report.notes) : 'No notes'}</div>
           </td>
-          <td class="reason-cell">
-            <span class="reason-badge reason-${report.reason}">
-              ${REPORT_REASON_LABELS[report.reason] || report.reason}
-            </span>
-          </td>
-          <td class="notes-cell">
-            ${report.notes ? escapeHtml(report.notes) : '<em class="no-notes">No notes</em>'}
-          </td>
-          <td class="date-cell">
-            ${formatDate(report.reported_at)}
-          </td>
-          <td class="status-cell">
-            ${report.dismissed ?
-              '<span class="status-badge status-dismissed">Dismissed</span>' :
-              '<span class="status-badge status-pending">Pending</span>'}
-          </td>
-          <td class="actions-cell">
-            <button class="action-btn block-btn" data-action="block" title="Block puzzle">🚫</button>
-            <button class="action-btn unblock-btn" data-action="unblock" title="Unblock puzzle">✅</button>
-            <button class="action-btn dismiss-btn" data-action="dismiss" title="Dismiss report">👁️</button>
-            <button class="action-btn edit-btn" data-action="edit" title="Edit FEN">✏️</button>
+          <td>${reasonBadge(report.reason)}</td>
+          <td><div class="ep-cell-muted" style="font-size:12px">${formatDate(report.reported_at)}</div></td>
+          <td>${statusBadge(report.dismissed)}</td>
+          <td>
+            <div class="ep-actions">
+              <button class="btn-outline btn-sm" data-action="block" title="Block">Block</button>
+              <button class="btn-outline btn-sm" data-action="dismiss" title="Dismiss">Dismiss</button>
+              <button class="btn-outline btn-sm ep-more-btn" data-action="more" title="More actions">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+              </button>
+            </div>
           </td>
         </tr>
       `).join('');
 
       // Attach action handlers
-      tbody.querySelectorAll('.action-btn').forEach(btn => {
+      tbody.querySelectorAll('[data-action]').forEach(btn => {
         btn.addEventListener('click', async (e) => {
-          const row = e.target.closest('tr');
+          e.stopPropagation();
+          const row = btn.closest('tr');
           const reportId = parseInt(row.dataset.reportId);
           const puzzleId = row.dataset.puzzleId;
-          const action = e.target.dataset.action;
+          const action = btn.dataset.action;
 
           try {
-            switch (action) {
-              case 'block':
-                await apiClient.blockPuzzle(puzzleId);
-                showToast('Puzzle blocked');
-                break;
-              case 'unblock':
-                await apiClient.unblockPuzzle(puzzleId);
-                showToast('Puzzle unblocked');
-                break;
-              case 'dismiss':
-                await apiClient.dismissReport(reportId);
-                showToast('Report dismissed');
-                break;
-              case 'edit':
-                showEditFENDialog(puzzleId);
-                return;
+            if (action === 'block') {
+              await apiClient.blockPuzzle(puzzleId);
+              showToast('Puzzle blocked');
+              await renderStats();
+              await renderReports();
+            } else if (action === 'dismiss') {
+              await apiClient.dismissReport(reportId);
+              showToast('Report dismissed');
+              await renderStats();
+              await renderReports();
+            } else if (action === 'more') {
+              document.querySelectorAll('.gd-dropdown').forEach(d => d.remove());
+              const dropdown = document.createElement('div');
+              dropdown.className = 'gd-dropdown';
+              dropdown.innerHTML = `
+                <button class="gd-dd-item" data-dd="unblock"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Unblock Puzzle</button>
+                <button class="gd-dd-item" data-dd="edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5z"/></svg>Edit FEN</button>
+              `;
+              const rect = btn.getBoundingClientRect();
+              dropdown.style.position = 'fixed';
+              dropdown.style.top = `${rect.bottom + 4}px`;
+              dropdown.style.right = `${window.innerWidth - rect.right}px`;
+              document.body.appendChild(dropdown);
+              const closeDd = () => { dropdown.remove(); document.removeEventListener('click', closeDd); };
+              setTimeout(() => document.addEventListener('click', closeDd), 0);
+              dropdown.querySelectorAll('.gd-dd-item').forEach(item => {
+                item.addEventListener('click', async (ev) => {
+                  ev.stopPropagation();
+                  dropdown.remove();
+                  const dd = item.dataset.dd;
+                  try {
+                    if (dd === 'unblock') {
+                      await apiClient.unblockPuzzle(puzzleId);
+                      showToast('Puzzle unblocked');
+                      await renderStats();
+                      await renderReports();
+                    } else if (dd === 'edit') {
+                      showEditFENDialog(puzzleId);
+                    }
+                  } catch (err) {
+                    showToast(`Error: ${err.message}`, 'error');
+                  }
+                });
+              });
             }
-            await renderStats();
-            await renderReports();
           } catch (error) {
             showToast(`Error: ${error.message}`, 'error');
           }
@@ -192,7 +221,7 @@ export function showAdminPanel(apiClient) {
 
       renderPagination(total);
     } catch (error) {
-      tbody.innerHTML = `<tr><td colspan="6" class="error-cell">Error: ${escapeHtml(error.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="error-cell">Error: ${escapeHtml(error.message)}</td></tr>`;
     }
   };
 
@@ -372,39 +401,36 @@ export function renderAdminPage(container, apiClient) {
 
   container.innerHTML = `
     <div class="page-panel admin-content">
-      <header class="admin-header">
-        <h2 id="admin-panel-title">Puzzle Reports Admin</h2>
-        <div class="admin-stats" id="admin-stats">
-          Loading stats...
+      <div class="main-header main-header-row">
+        <div>
+          <h1 class="page-title">Reports</h1>
+          <p class="page-subtitle">Manage puzzle reports and blocked puzzles</p>
         </div>
-      </header>
-
-      <div class="admin-controls">
-        <div class="filter-controls">
-          <label class="filter-checkbox">
-            <input type="checkbox" id="include-dismissed">
-            <span>Show dismissed reports</span>
-          </label>
-        </div>
-        <button id="create-puzzle-btn" class="action-btn" style="background: #28a745; padding: 8px 16px; border-radius: 4px; color: white; font-weight: 600;">
-          + Create Custom Puzzle
-        </button>
+        <button id="create-puzzle-btn" class="generate-btn">+ Create Custom Puzzle</button>
       </div>
 
-      <div class="reports-table-container">
-        <table class="reports-table">
+      <div class="admin-stats" id="admin-stats" style="display:flex;gap:12px;margin-bottom:16px"></div>
+
+      <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--color-gray-500);cursor:pointer">
+          <input type="checkbox" id="include-dismissed" style="accent-color:var(--color-brand-600)">
+          <span>Show dismissed reports</span>
+        </label>
+      </div>
+
+      <div class="ep-table-wrap">
+        <table class="ep-table">
           <thead>
             <tr>
-              <th>Puzzle ID</th>
-              <th>Reason</th>
-              <th>Notes</th>
-              <th>Reported</th>
-              <th>Status</th>
-              <th>Actions</th>
+              <th class="ep-th-grow">Puzzle</th>
+              <th style="width:110px">Reason</th>
+              <th style="width:100px">Reported</th>
+              <th style="width:90px">Status</th>
+              <th style="width:180px">Actions</th>
             </tr>
           </thead>
           <tbody id="reports-tbody">
-            <tr><td colspan="6" class="loading-cell">Loading reports...</td></tr>
+            <tr><td colspan="5" class="loading-cell">Loading reports...</td></tr>
           </tbody>
         </table>
       </div>
@@ -438,18 +464,9 @@ export function renderAdminPage(container, apiClient) {
       const stats = await apiClient.getReportStats();
 
       statsEl.innerHTML = `
-        <div class="stat-item">
-          <span class="stat-value">${stats.totalReports}</span>
-          <span class="stat-label">Total Reports</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-value">${stats.pendingReports}</span>
-          <span class="stat-label">Pending</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-value">${stats.blockedPuzzles}</span>
-          <span class="stat-label">Blocked Puzzles</span>
-        </div>
+        <div class="gd-stat"><span class="gd-stat-label">Total Reports</span><span class="gd-stat-value">${stats.totalReports}</span></div>
+        <div class="gd-stat"><span class="gd-stat-label">Pending</span><span class="gd-stat-value" style="color:var(--color-warning-500)">${stats.pendingReports}</span></div>
+        <div class="gd-stat"><span class="gd-stat-label">Blocked Puzzles</span><span class="gd-stat-value" style="color:var(--color-error-600)">${stats.blockedPuzzles}</span></div>
       `;
     } catch (error) {
       statsEl.innerHTML = '<span class="error">Failed to load stats</span>';
@@ -458,7 +475,7 @@ export function renderAdminPage(container, apiClient) {
 
   const renderReports = async () => {
     const tbody = container.querySelector('#reports-tbody');
-    tbody.innerHTML = '<tr><td colspan="6" class="loading-cell">Loading...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="loading-cell">Loading...</td></tr>';
 
     try {
       const result = await apiClient.getReports({
@@ -470,67 +487,96 @@ export function renderAdminPage(container, apiClient) {
       const { reports, total } = result;
 
       if (reports.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">No reports found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">No reports found</td></tr>';
         return;
       }
 
+      const reasonBadge = (reason) => {
+        const cls = reason === 'wrong_solution' ? 'badge-advanced' : reason === 'broken_position' ? 'badge-intermediate' : 'badge-theme';
+        return `<span class="badge ${cls}">${REPORT_REASON_LABELS[reason] || reason}</span>`;
+      };
+
+      const statusBadge = (dismissed) => {
+        return dismissed
+          ? '<span class="badge badge-beginner">Dismissed</span>'
+          : '<span class="badge badge-intermediate">Pending</span>';
+      };
+
       tbody.innerHTML = reports.map(report => `
         <tr data-report-id="${report.id}" data-puzzle-id="${escapeHtml(report.puzzle_id)}">
-          <td class="puzzle-id-cell">
-            <code>${escapeHtml(report.puzzle_id)}</code>
+          <td>
+            <div class="ep-cell-name"><code style="font-size:12px">${escapeHtml(report.puzzle_id)}</code></div>
+            <div class="ep-cell-muted" style="font-size:12px">${report.notes ? escapeHtml(report.notes) : 'No notes'}</div>
           </td>
-          <td class="reason-cell">
-            <span class="reason-badge reason-${report.reason}">
-              ${REPORT_REASON_LABELS[report.reason] || report.reason}
-            </span>
-          </td>
-          <td class="notes-cell">
-            ${report.notes ? escapeHtml(report.notes) : '<em class="no-notes">No notes</em>'}
-          </td>
-          <td class="date-cell">
-            ${formatDate(report.reported_at)}
-          </td>
-          <td class="status-cell">
-            ${report.dismissed ?
-              '<span class="status-badge status-dismissed">Dismissed</span>' :
-              '<span class="status-badge status-pending">Pending</span>'}
-          </td>
-          <td class="actions-cell">
-            <button class="action-btn block-btn" data-action="block" title="Block puzzle">🚫</button>
-            <button class="action-btn unblock-btn" data-action="unblock" title="Unblock puzzle">✅</button>
-            <button class="action-btn dismiss-btn" data-action="dismiss" title="Dismiss report">👁️</button>
-            <button class="action-btn edit-btn" data-action="edit" title="Edit FEN">✏️</button>
+          <td>${reasonBadge(report.reason)}</td>
+          <td><div class="ep-cell-muted" style="font-size:12px">${formatDate(report.reported_at)}</div></td>
+          <td>${statusBadge(report.dismissed)}</td>
+          <td>
+            <div class="ep-actions">
+              <button class="btn-outline btn-sm" data-action="block" title="Block">Block</button>
+              <button class="btn-outline btn-sm" data-action="dismiss" title="Dismiss">Dismiss</button>
+              <button class="btn-outline btn-sm ep-more-btn" data-action="more" title="More actions">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+              </button>
+            </div>
           </td>
         </tr>
       `).join('');
 
-      tbody.querySelectorAll('.action-btn').forEach(btn => {
+      tbody.querySelectorAll('[data-action]').forEach(btn => {
         btn.addEventListener('click', async (e) => {
-          const row = e.target.closest('tr');
+          e.stopPropagation();
+          const row = btn.closest('tr');
           const reportId = parseInt(row.dataset.reportId);
           const puzzleId = row.dataset.puzzleId;
-          const action = e.target.dataset.action;
+          const action = btn.dataset.action;
 
           try {
-            switch (action) {
-              case 'block':
-                await apiClient.blockPuzzle(puzzleId);
-                showToast('Puzzle blocked');
-                break;
-              case 'unblock':
-                await apiClient.unblockPuzzle(puzzleId);
-                showToast('Puzzle unblocked');
-                break;
-              case 'dismiss':
-                await apiClient.dismissReport(reportId);
-                showToast('Report dismissed');
-                break;
-              case 'edit':
-                showEditFENDialog(puzzleId);
-                return;
+            if (action === 'block') {
+              await apiClient.blockPuzzle(puzzleId);
+              showToast('Puzzle blocked');
+              await renderStats();
+              await renderReports();
+            } else if (action === 'dismiss') {
+              await apiClient.dismissReport(reportId);
+              showToast('Report dismissed');
+              await renderStats();
+              await renderReports();
+            } else if (action === 'more') {
+              document.querySelectorAll('.gd-dropdown').forEach(d => d.remove());
+              const dropdown = document.createElement('div');
+              dropdown.className = 'gd-dropdown';
+              dropdown.innerHTML = `
+                <button class="gd-dd-item" data-dd="unblock"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Unblock Puzzle</button>
+                <button class="gd-dd-item" data-dd="edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5z"/></svg>Edit FEN</button>
+              `;
+              const rect = btn.getBoundingClientRect();
+              dropdown.style.position = 'fixed';
+              dropdown.style.top = `${rect.bottom + 4}px`;
+              dropdown.style.right = `${window.innerWidth - rect.right}px`;
+              document.body.appendChild(dropdown);
+              const closeDd = () => { dropdown.remove(); document.removeEventListener('click', closeDd); };
+              setTimeout(() => document.addEventListener('click', closeDd), 0);
+              dropdown.querySelectorAll('.gd-dd-item').forEach(item => {
+                item.addEventListener('click', async (ev) => {
+                  ev.stopPropagation();
+                  dropdown.remove();
+                  const dd = item.dataset.dd;
+                  try {
+                    if (dd === 'unblock') {
+                      await apiClient.unblockPuzzle(puzzleId);
+                      showToast('Puzzle unblocked');
+                      await renderStats();
+                      await renderReports();
+                    } else if (dd === 'edit') {
+                      showEditFENDialog(puzzleId);
+                    }
+                  } catch (err) {
+                    showToast(`Error: ${err.message}`, 'error');
+                  }
+                });
+              });
             }
-            await renderStats();
-            await renderReports();
           } catch (error) {
             showToast(`Error: ${error.message}`, 'error');
           }
@@ -539,7 +585,7 @@ export function renderAdminPage(container, apiClient) {
 
       renderPagination(total);
     } catch (error) {
-      tbody.innerHTML = `<tr><td colspan="6" class="error-cell">Error: ${escapeHtml(error.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="error-cell">Error: ${escapeHtml(error.message)}</td></tr>`;
     }
   };
 

@@ -10,6 +10,14 @@ import { database } from '../database/SqliteDatabase.js';
 // Valid puzzle ID pattern (alphanumeric, underscore, hyphen)
 const PUZZLE_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
+/** Format a Date as YYYY-MM-DD using local timezone */
+function formatLocalDate(d) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export class ExerciseService {
   /**
    * Get the Monday of the current week
@@ -20,8 +28,8 @@ export class ExerciseService {
     const d = new Date(date);
     const day = d.getDay();
     const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Sunday
-    const monday = new Date(d.setDate(diff));
-    return monday.toISOString().split('T')[0];
+    const monday = new Date(d.getFullYear(), d.getMonth(), diff);
+    return formatLocalDate(monday);
   }
 
   /**
@@ -30,10 +38,10 @@ export class ExerciseService {
    * @returns {string} - YYYY-MM-DD format
    */
   getWeekEnd(weekStart) {
-    const monday = new Date(weekStart);
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    return sunday.toISOString().split('T')[0];
+    const [y, m, d] = weekStart.split('-').map(Number);
+    const monday = new Date(y, m - 1, d);
+    const sunday = new Date(y, m - 1, d + 6);
+    return formatLocalDate(sunday);
   }
 
   /**
@@ -70,15 +78,6 @@ export class ExerciseService {
 
     const weekStart = data.weekStart || this.getWeekStart();
     const weekEnd = this.getWeekEnd(weekStart);
-
-    // Check if exercise already exists for this week
-    const existing = exerciseRepository.findExerciseByWeek(weekStart);
-    if (existing) {
-      return {
-        success: false,
-        error: `Exercise already exists for week ${this.formatWeekLabel(weekStart, weekEnd)}`
-      };
-    }
 
     // Create the exercise
     const result = exerciseRepository.createExercise({

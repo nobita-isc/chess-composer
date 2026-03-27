@@ -147,6 +147,8 @@ export function showGradeDialog(apiClient, assignment) {
       }
     });
 
+    // Ensure grade dialog appears above other overlays (pv-overlay is z-index 50000)
+    dialog.style.zIndex = '55000';
     document.body.appendChild(dialog);
   });
 }

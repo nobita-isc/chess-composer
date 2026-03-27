@@ -1,5 +1,5 @@
 /**
- * Chess Quiz Composer - Bootstrap Entry Point
+ * Chess Trainer Composer - Bootstrap Entry Point
  *
  * Initializes auth, determines user role, sets up hash-based routing.
  */

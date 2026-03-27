@@ -108,6 +108,27 @@ export class ExerciseRepository {
   }
 
   /**
+   * Get all exercises for a specific week
+   * @param {string} weekStart - Week start date (YYYY-MM-DD)
+   * @returns {object[]}
+   */
+  findExercisesByWeek(weekStart) {
+    return database.query(
+      'SELECT * FROM weekly_exercises WHERE week_start = ?',
+      [weekStart]
+    );
+  }
+
+  /**
+   * Update exercise name
+   * @param {string} id - Exercise ID
+   * @param {string} name - New name
+   */
+  updateExerciseName(id, name) {
+    database.run('UPDATE weekly_exercises SET name = ? WHERE id = ?', [name, id]);
+  }
+
+  /**
    * Delete an exercise
    * @param {string} id - Exercise ID
    * @returns {{ success: boolean, error?: string }}

@@ -486,40 +486,49 @@ export function showExercisePanel(apiClient, getCurrentPuzzles, onPuzzlesUpdated
     try {
       const students = await apiClient.getStudents();
 
-      content.innerHTML = `
-        <div class="students-header">
-          <button id="add-student-btn" class="action-btn primary-btn">+ Add Student</button>
-        </div>
+      const skillBadgeFn = (level) => {
+        const cls = level === 'advanced' ? 'badge-advanced' : level === 'intermediate' ? 'badge-intermediate' : 'badge-beginner';
+        return `<span class="badge ${cls}">${SKILL_LEVEL_LABELS[level] || level}</span>`;
+      };
 
-        <div class="students-list">
-          ${students.length === 0 ?
-            '<div class="empty-message">No students yet</div>' :
-            `<table class="students-table">
+      content.innerHTML = `
+        <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+          <button id="add-student-btn" class="generate-btn" style="font-size:13px;padding:8px 16px">+ Add Student</button>
+        </div>
+        ${students.length === 0 ?
+          '<div class="empty-message">No students yet. Click "+ Add Student" to get started.</div>' :
+          `<div class="ep-table-wrap">
+            <table class="ep-table">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Skill Level</th>
-                  <th>Actions</th>
+                  <th class="ep-th-grow">Student</th>
+                  <th style="width:100px">Skill</th>
+                  <th style="width:180px">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 ${students.map(s => `
                   <tr data-id="${escapeHtml(s.id)}">
-                    <td>${escapeHtml(s.name)}</td>
-                    <td>${s.email ? escapeHtml(s.email) : '<em>-</em>'}</td>
-                    <td>${SKILL_LEVEL_LABELS[s.skill_level] || s.skill_level}</td>
                     <td>
-                      <button class="action-btn" data-action="edit" title="Edit">✏️</button>
-                      <button class="action-btn" data-action="performance" title="Performance">📊</button>
-                      <button class="action-btn" data-action="delete" title="Delete">🗑️</button>
+                      <div class="ep-cell-name">${escapeHtml(s.name)}</div>
+                      <div class="ep-cell-muted" style="font-size:12px">${s.email ? escapeHtml(s.email) : 'No email'}</div>
+                    </td>
+                    <td>${skillBadgeFn(s.skill_level)}</td>
+                    <td>
+                      <div class="ep-actions">
+                        <button class="btn-outline btn-sm" data-action="edit">Edit</button>
+                        <button class="btn-outline btn-sm" data-action="performance">Stats</button>
+                        <button class="btn-outline btn-sm ep-more-btn" data-action="more" title="More actions">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 `).join('')}
               </tbody>
-            </table>`
-          }
-        </div>
+            </table>
+          </div>`
+        }
       `;
 
       content.querySelector('#add-student-btn').addEventListener('click', async () => {
@@ -531,37 +540,59 @@ export function showExercisePanel(apiClient, getCurrentPuzzles, onPuzzlesUpdated
         }
       });
 
-      content.querySelectorAll('.students-table .action-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const row = e.target.closest('tr');
-          const studentId = row.dataset.id;
-          const action = e.target.dataset.action;
+      content.querySelectorAll('.ep-table tbody tr').forEach(row => {
+        row.querySelectorAll('[data-action]').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const studentId = row.dataset.id;
+            const action = btn.dataset.action;
 
-          try {
-            switch (action) {
-              case 'edit':
+            try {
+              if (action === 'edit') {
                 const student = await apiClient.getStudent(studentId);
                 const result = await showStudentDialog(apiClient, student);
                 if (result) {
                   showToast('Student updated');
                   renderStudentsTab();
                 }
-                break;
-              case 'performance':
+              } else if (action === 'performance') {
                 await showStudentPerformance(studentId);
-                break;
-              case 'delete':
-                if (confirm('Delete this student? This will also remove their exercise assignments.')) {
-                  await apiClient.deleteStudent(studentId);
-                  showToast('Student deleted');
-                  renderStudentsTab();
-                  renderStats();
-                }
-                break;
+              } else if (action === 'more') {
+                // Remove existing dropdowns
+                document.querySelectorAll('.gd-dropdown').forEach(d => d.remove());
+                const dropdown = document.createElement('div');
+                dropdown.className = 'gd-dropdown';
+                dropdown.innerHTML = `
+                  <button class="gd-dd-item gd-dd-danger" data-dd="delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>Delete Student</button>
+                `;
+                const rect = btn.getBoundingClientRect();
+                dropdown.style.position = 'fixed';
+                dropdown.style.top = `${rect.bottom + 4}px`;
+                dropdown.style.right = `${window.innerWidth - rect.right}px`;
+                document.body.appendChild(dropdown);
+                const closeDd = () => { dropdown.remove(); document.removeEventListener('click', closeDd); };
+                setTimeout(() => document.addEventListener('click', closeDd), 0);
+                dropdown.querySelector('[data-dd="delete"]').addEventListener('click', async (ev) => {
+                  ev.stopPropagation();
+                  dropdown.remove();
+                  showConfirmDialog({
+                    icon: 'rotate-ccw', iconColor: 'var(--color-error-500)', iconBg: 'var(--color-error-50)',
+                    title: 'Delete Student?',
+                    message: 'This will permanently delete this student and all their exercise assignments.',
+                    confirmLabel: 'Delete', confirmColor: 'var(--color-error-500)',
+                    onConfirm: async () => {
+                      await apiClient.deleteStudent(studentId);
+                      showToast('Student deleted');
+                      renderStudentsTab();
+                      renderStats();
+                    }
+                  });
+                });
+              }
+            } catch (error) {
+              showToast(`Error: ${error.message}`, 'error');
             }
-          } catch (error) {
-            showToast(`Error: ${error.message}`, 'error');
-          }
+          });
         });
       });
     } catch (error) {
@@ -893,13 +924,18 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
                   const dropdown = document.createElement('div');
                   dropdown.className = 'gd-dropdown';
                   dropdown.innerHTML = `
+                    <button class="gd-dd-item" data-dd="rename"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5z"/></svg>Rename</button>
                     <button class="gd-dd-item" data-dd="print"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Print Preview</button>
                     <button class="gd-dd-item" data-dd="print-solutions"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Print Solutions</button>
                     <div class="gd-dd-sep"></div>
                     <button class="gd-dd-item gd-dd-danger" data-dd="delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>Delete Exercise</button>
                   `;
-                  btn.parentElement.style.position = 'relative';
-                  btn.parentElement.appendChild(dropdown);
+                  // Position dropdown using fixed positioning to escape table layout
+                  const rect = btn.getBoundingClientRect();
+                  dropdown.style.position = 'fixed';
+                  dropdown.style.top = `${rect.bottom + 4}px`;
+                  dropdown.style.right = `${window.innerWidth - rect.right}px`;
+                  document.body.appendChild(dropdown);
                   const closeDd = () => { dropdown.remove(); document.removeEventListener('click', closeDd); };
                   setTimeout(() => document.addEventListener('click', closeDd), 0);
 
@@ -909,7 +945,15 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
                       dropdown.remove();
                       const dd = item.dataset.dd;
                       try {
-                        if (dd === 'print') {
+                        if (dd === 'rename') {
+                          const currentName = row.querySelector('.ep-cell-name')?.textContent || '';
+                          const newName = prompt('Enter new exercise name:', currentName);
+                          if (newName && newName.trim() && newName.trim() !== currentName) {
+                            await apiClient.updateExercise(exerciseId, newName.trim());
+                            showToast('Exercise renamed');
+                            renderExercisesTab();
+                          }
+                        } else if (dd === 'print') {
                           const data = await apiClient.getExercise(exerciseId);
                           openPrintPreview(data);
                         } else if (dd === 'print-solutions') {
@@ -1091,14 +1135,19 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
           dropdown.className = 'gd-dropdown';
           dropdown.innerHTML = `
             <button class="gd-dd-item" data-dd="view"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>View Puzzles</button>
+            <button class="gd-dd-item" data-dd="grade-puzzles"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Grade Puzzles</button>
             <button class="gd-dd-item" data-dd="quick-grade"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5z"/></svg>Quick Grade</button>
             <div class="gd-dd-sep"></div>
             ${!a.is_final ? `<button class="gd-dd-item" data-dd="mark-final"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>Mark as Final</button>` : ''}
             <button class="gd-dd-item gd-dd-danger" data-dd="reset"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>Reset Score</button>
           `;
 
-          btn.parentElement.style.position = 'relative';
-          btn.parentElement.appendChild(dropdown);
+          // Position dropdown using fixed positioning to escape overflow clipping
+          const rect = btn.getBoundingClientRect();
+          dropdown.style.position = 'fixed';
+          dropdown.style.top = `${rect.bottom + 4}px`;
+          dropdown.style.right = `${window.innerWidth - rect.right}px`;
+          overlay.appendChild(dropdown);
 
           // Close dropdown on outside click
           const closeDropdown = () => { dropdown.remove(); document.removeEventListener('click', closeDropdown); };
@@ -1112,6 +1161,11 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
 
               if (action === 'view') {
                 openExercisePuzzleViewer(exercise);
+              } else if (action === 'grade-puzzles') {
+                openExercisePuzzleViewer(exercise, {
+                  gradingMode: true, assignment: a, apiClient,
+                  onGraded: () => { showToast('Graded successfully'); closeDialog(); showExerciseDetails(exerciseId); }
+                });
               } else if (action === 'quick-grade') {
                 const result = await showGradeDialog(apiClient, a);
                 if (result) { showToast('Saved'); closeDialog(); showExerciseDetails(exerciseId); }
@@ -1292,40 +1346,49 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
     try {
       const students = await apiClient.getStudents();
 
-      content.innerHTML = `
-        <div class="students-header">
-          <button id="add-student-btn" class="action-btn primary-btn">+ Add Student</button>
-        </div>
+      const skillBadgeFn = (level) => {
+        const cls = level === 'advanced' ? 'badge-advanced' : level === 'intermediate' ? 'badge-intermediate' : 'badge-beginner';
+        return `<span class="badge ${cls}">${SKILL_LEVEL_LABELS[level] || level}</span>`;
+      };
 
-        <div class="students-list">
-          ${students.length === 0 ?
-            '<div class="empty-message">No students yet</div>' :
-            `<table class="students-table">
+      content.innerHTML = `
+        <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+          <button id="add-student-btn" class="generate-btn" style="font-size:13px;padding:8px 16px">+ Add Student</button>
+        </div>
+        ${students.length === 0 ?
+          '<div class="empty-message">No students yet. Click "+ Add Student" to get started.</div>' :
+          `<div class="ep-table-wrap">
+            <table class="ep-table">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Skill Level</th>
-                  <th>Actions</th>
+                  <th class="ep-th-grow">Student</th>
+                  <th style="width:100px">Skill</th>
+                  <th style="width:180px">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 ${students.map(s => `
                   <tr data-id="${escapeHtml(s.id)}">
-                    <td>${escapeHtml(s.name)}</td>
-                    <td>${s.email ? escapeHtml(s.email) : '<em>-</em>'}</td>
-                    <td>${SKILL_LEVEL_LABELS[s.skill_level] || s.skill_level}</td>
                     <td>
-                      <button class="action-btn" data-action="edit" title="Edit">✏️</button>
-                      <button class="action-btn" data-action="performance" title="Performance">📊</button>
-                      <button class="action-btn" data-action="delete" title="Delete">🗑️</button>
+                      <div class="ep-cell-name">${escapeHtml(s.name)}</div>
+                      <div class="ep-cell-muted" style="font-size:12px">${s.email ? escapeHtml(s.email) : 'No email'}</div>
+                    </td>
+                    <td>${skillBadgeFn(s.skill_level)}</td>
+                    <td>
+                      <div class="ep-actions">
+                        <button class="btn-outline btn-sm" data-action="edit">Edit</button>
+                        <button class="btn-outline btn-sm" data-action="performance">Stats</button>
+                        <button class="btn-outline btn-sm ep-more-btn" data-action="more" title="More actions">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 `).join('')}
               </tbody>
-            </table>`
-          }
-        </div>
+            </table>
+          </div>`
+        }
       `;
 
       content.querySelector('#add-student-btn').addEventListener('click', async () => {
@@ -1337,37 +1400,59 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
         }
       });
 
-      content.querySelectorAll('.students-table .action-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const row = e.target.closest('tr');
-          const studentId = row.dataset.id;
-          const action = e.target.dataset.action;
+      content.querySelectorAll('.ep-table tbody tr').forEach(row => {
+        row.querySelectorAll('[data-action]').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const studentId = row.dataset.id;
+            const action = btn.dataset.action;
 
-          try {
-            switch (action) {
-              case 'edit':
+            try {
+              if (action === 'edit') {
                 const student = await apiClient.getStudent(studentId);
                 const result = await showStudentDialog(apiClient, student);
                 if (result) {
                   showToast('Student updated');
                   renderStudentsTab();
                 }
-                break;
-              case 'performance':
+              } else if (action === 'performance') {
                 await showStudentPerformance(studentId);
-                break;
-              case 'delete':
-                if (confirm('Delete this student? This will also remove their exercise assignments.')) {
-                  await apiClient.deleteStudent(studentId);
-                  showToast('Student deleted');
-                  renderStudentsTab();
-                  renderStats();
-                }
-                break;
+              } else if (action === 'more') {
+                // Remove existing dropdowns
+                document.querySelectorAll('.gd-dropdown').forEach(d => d.remove());
+                const dropdown = document.createElement('div');
+                dropdown.className = 'gd-dropdown';
+                dropdown.innerHTML = `
+                  <button class="gd-dd-item gd-dd-danger" data-dd="delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>Delete Student</button>
+                `;
+                const rect = btn.getBoundingClientRect();
+                dropdown.style.position = 'fixed';
+                dropdown.style.top = `${rect.bottom + 4}px`;
+                dropdown.style.right = `${window.innerWidth - rect.right}px`;
+                document.body.appendChild(dropdown);
+                const closeDd = () => { dropdown.remove(); document.removeEventListener('click', closeDd); };
+                setTimeout(() => document.addEventListener('click', closeDd), 0);
+                dropdown.querySelector('[data-dd="delete"]').addEventListener('click', async (ev) => {
+                  ev.stopPropagation();
+                  dropdown.remove();
+                  showConfirmDialog({
+                    icon: 'rotate-ccw', iconColor: 'var(--color-error-500)', iconBg: 'var(--color-error-50)',
+                    title: 'Delete Student?',
+                    message: 'This will permanently delete this student and all their exercise assignments.',
+                    confirmLabel: 'Delete', confirmColor: 'var(--color-error-500)',
+                    onConfirm: async () => {
+                      await apiClient.deleteStudent(studentId);
+                      showToast('Student deleted');
+                      renderStudentsTab();
+                      renderStats();
+                    }
+                  });
+                });
+              }
+            } catch (error) {
+              showToast(`Error: ${error.message}`, 'error');
             }
-          } catch (error) {
-            showToast(`Error: ${error.message}`, 'error');
-          }
+          });
         });
       });
     } catch (error) {

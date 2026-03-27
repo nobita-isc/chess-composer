@@ -17,16 +17,15 @@ const ROLE_LABELS = {
 export function renderUsersPage(container, apiClient) {
   container.innerHTML = `
     <div class="page-panel admin-content">
-      <header class="admin-header">
-        <h2>User Management</h2>
-        <div class="admin-stats" id="user-panel-stats">Loading...</div>
-      </header>
-
-      <div class="panel-actions" style="margin-bottom: var(--space-4);">
-        <button id="create-user-btn" class="action-btn" style="background: var(--color-brand-500); color: white;">
-          + Create User
-        </button>
+      <div class="main-header main-header-row">
+        <div>
+          <h1 class="page-title">User Management</h1>
+          <p class="page-subtitle">Manage user accounts and permissions</p>
+        </div>
+        <button id="create-user-btn" class="generate-btn">+ Create User</button>
       </div>
+
+      <div class="admin-stats" id="user-panel-stats" style="display:flex;gap:12px;margin-bottom:16px"></div>
 
       <div id="users-table-container">
         <div class="loading-cell">Loading users...</div>
@@ -50,85 +49,98 @@ export function renderUsersPage(container, apiClient) {
       const studentCount = users.filter(u => u.role === 'student').length;
 
       statsEl.innerHTML = `
-        <div class="stat-item">
-          <span class="stat-value">${adminCount}</span>
-          <span class="stat-label">Admins</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-value">${studentCount}</span>
-          <span class="stat-label">Student Accounts</span>
-        </div>
+        <div class="gd-stat"><span class="gd-stat-label">Admins</span><span class="gd-stat-value">${adminCount}</span></div>
+        <div class="gd-stat"><span class="gd-stat-label">Student Accounts</span><span class="gd-stat-value" style="color:var(--color-brand-600)">${studentCount}</span></div>
       `;
 
       if (users.length === 0) {
-        tableContainer.innerHTML = '<div class="empty-state"><p>No users found.</p></div>';
+        tableContainer.innerHTML = '<div class="empty-message">No users found.</div>';
         return;
       }
 
+      const roleBadge = (role) => {
+        const cls = role === 'admin' ? 'badge-advanced' : 'badge-beginner';
+        return `<span class="badge ${cls}">${ROLE_LABELS[role] || role}</span>`;
+      };
+
       tableContainer.innerHTML = `
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Username</th>
-              <th>Role</th>
-              <th>Linked Student</th>
-              <th>Created</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${users.map(user => `
+        <div class="ep-table-wrap">
+          <table class="ep-table">
+            <thead>
               <tr>
-                <td><strong>${escapeHtml(user.username)}</strong></td>
-                <td><span class="role-badge role-${user.role}">${ROLE_LABELS[user.role] || user.role}</span></td>
-                <td>${user.student_name ? escapeHtml(user.student_name) : '<span class="text-muted">-</span>'}</td>
-                <td>${formatDate(user.created_at)}</td>
-                <td>
-                  <div class="action-btns">
-                    <button class="edit-user-btn small-btn" data-user-id="${user.id}" title="Edit">Edit</button>
-                    ${user.username !== 'admin' ? `
-                      <button class="delete-user-btn small-btn danger-btn" data-user-id="${user.id}" data-username="${escapeHtml(user.username)}" title="Delete">Delete</button>
-                    ` : ''}
-                  </div>
-                </td>
+                <th class="ep-th-grow">User</th>
+                <th style="width:90px">Role</th>
+                <th style="width:140px">Linked Student</th>
+                <th style="width:180px">Actions</th>
               </tr>
-            `).join('')}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              ${users.map(user => `
+                <tr data-user-id="${user.id}" data-username="${escapeHtml(user.username)}">
+                  <td>
+                    <div class="ep-cell-name">${escapeHtml(user.username)}</div>
+                    <div class="ep-cell-muted" style="font-size:12px">${formatDate(user.created_at)}</div>
+                  </td>
+                  <td>${roleBadge(user.role)}</td>
+                  <td>${user.student_name ? `<div class="ep-cell-muted" style="font-size:13px">${escapeHtml(user.student_name)}</div>` : '<div class="ep-cell-muted" style="font-size:12px">—</div>'}</td>
+                  <td>
+                    <div class="ep-actions">
+                      <button class="btn-outline btn-sm" data-action="edit">Edit</button>
+                      ${user.username !== 'admin' ? `
+                        <button class="btn-outline btn-sm ep-more-btn" data-action="more" title="More actions">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                        </button>
+                      ` : ''}
+                    </div>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
       `;
 
-      tableContainer.querySelectorAll('.edit-user-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const userId = btn.dataset.userId;
-          const user = users.find(u => u.id === userId);
-          if (user) {
-            showEditUserDialog(apiClient, user, students, () => renderUsers());
-          }
-        });
-      });
+      tableContainer.querySelectorAll('[data-action]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const row = btn.closest('tr');
+          const userId = row.dataset.userId;
+          const username = row.dataset.username;
+          const action = btn.dataset.action;
 
-      tableContainer.querySelectorAll('.delete-user-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const userId = btn.dataset.userId;
-          const username = btn.dataset.username;
-          if (confirm(`Delete user "${username}"? This cannot be undone.`)) {
-            try {
-              await apiClient.deleteUser(userId);
-              renderUsers();
-            } catch (error) {
-              alert(`Failed to delete user: ${error.message}`);
-            }
+          if (action === 'edit') {
+            const user = users.find(u => u.id === userId);
+            if (user) showEditUserDialog(apiClient, user, students, () => renderUsers());
+          } else if (action === 'more') {
+            document.querySelectorAll('.gd-dropdown').forEach(d => d.remove());
+            const dropdown = document.createElement('div');
+            dropdown.className = 'gd-dropdown';
+            dropdown.innerHTML = `
+              <button class="gd-dd-item gd-dd-danger" data-dd="delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>Delete User</button>
+            `;
+            const rect = btn.getBoundingClientRect();
+            dropdown.style.position = 'fixed';
+            dropdown.style.top = `${rect.bottom + 4}px`;
+            dropdown.style.right = `${window.innerWidth - rect.right}px`;
+            document.body.appendChild(dropdown);
+            const closeDd = () => { dropdown.remove(); document.removeEventListener('click', closeDd); };
+            setTimeout(() => document.addEventListener('click', closeDd), 0);
+            dropdown.querySelector('[data-dd="delete"]').addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              dropdown.remove();
+              if (confirm(`Delete user "${username}"? This cannot be undone.`)) {
+                apiClient.deleteUser(userId).then(() => renderUsers()).catch(err => alert(err.message));
+              }
+            });
           }
         });
       });
     } catch (error) {
-      tableContainer.innerHTML = `<div class="error-message">Failed to load users: ${escapeHtml(error.message)}</div>`;
+      tableContainer.innerHTML = `<div class="error-cell">Failed to load users: ${escapeHtml(error.message)}</div>`;
     }
   }
 
   renderUsers();
-
-  // Return cleanup (sub-dialogs append to document.body and self-close)
   return () => {};
 }
 
@@ -141,18 +153,13 @@ export function showUserManagementPanel(apiClient) {
   overlay.innerHTML = `
     <div class="admin-content">
       <button class="admin-close" aria-label="Close panel">&times;</button>
-
       <header class="admin-header">
         <h2>User Management</h2>
-        <div class="admin-stats" id="user-panel-stats">Loading...</div>
+        <div class="admin-stats" id="user-panel-stats" style="display:flex;gap:12px"></div>
       </header>
-
       <div class="panel-actions" style="margin-bottom: var(--space-4);">
-        <button id="create-user-btn" class="action-btn" style="background: var(--color-brand-500); color: white;">
-          + Create User
-        </button>
+        <button id="create-user-btn" class="generate-btn">+ Create User</button>
       </div>
-
       <div id="users-table-container">
         <div class="loading-cell">Loading users...</div>
       </div>
@@ -187,79 +194,94 @@ export function showUserManagementPanel(apiClient) {
       const studentCount = users.filter(u => u.role === 'student').length;
 
       statsEl.innerHTML = `
-        <div class="stat-item">
-          <span class="stat-value">${adminCount}</span>
-          <span class="stat-label">Admins</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-value">${studentCount}</span>
-          <span class="stat-label">Student Accounts</span>
-        </div>
+        <div class="gd-stat"><span class="gd-stat-label">Admins</span><span class="gd-stat-value">${adminCount}</span></div>
+        <div class="gd-stat"><span class="gd-stat-label">Student Accounts</span><span class="gd-stat-value" style="color:var(--color-brand-600)">${studentCount}</span></div>
       `;
 
       if (users.length === 0) {
-        tableContainer.innerHTML = '<div class="empty-state"><p>No users found.</p></div>';
+        tableContainer.innerHTML = '<div class="empty-message">No users found.</div>';
         return;
       }
 
+      const roleBadge = (role) => {
+        const cls = role === 'admin' ? 'badge-advanced' : 'badge-beginner';
+        return `<span class="badge ${cls}">${ROLE_LABELS[role] || role}</span>`;
+      };
+
       tableContainer.innerHTML = `
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Username</th>
-              <th>Role</th>
-              <th>Linked Student</th>
-              <th>Created</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${users.map(user => `
+        <div class="ep-table-wrap">
+          <table class="ep-table">
+            <thead>
               <tr>
-                <td><strong>${escapeHtml(user.username)}</strong></td>
-                <td><span class="role-badge role-${user.role}">${ROLE_LABELS[user.role] || user.role}</span></td>
-                <td>${user.student_name ? escapeHtml(user.student_name) : '<span class="text-muted">-</span>'}</td>
-                <td>${formatDate(user.created_at)}</td>
-                <td>
-                  <div class="action-btns">
-                    <button class="edit-user-btn small-btn" data-user-id="${user.id}" title="Edit">Edit</button>
-                    ${user.username !== 'admin' ? `
-                      <button class="delete-user-btn small-btn danger-btn" data-user-id="${user.id}" data-username="${escapeHtml(user.username)}" title="Delete">Delete</button>
-                    ` : ''}
-                  </div>
-                </td>
+                <th class="ep-th-grow">User</th>
+                <th style="width:90px">Role</th>
+                <th style="width:140px">Linked Student</th>
+                <th style="width:180px">Actions</th>
               </tr>
-            `).join('')}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              ${users.map(user => `
+                <tr data-user-id="${user.id}" data-username="${escapeHtml(user.username)}">
+                  <td>
+                    <div class="ep-cell-name">${escapeHtml(user.username)}</div>
+                    <div class="ep-cell-muted" style="font-size:12px">${formatDate(user.created_at)}</div>
+                  </td>
+                  <td>${roleBadge(user.role)}</td>
+                  <td>${user.student_name ? `<div class="ep-cell-muted" style="font-size:13px">${escapeHtml(user.student_name)}</div>` : '<div class="ep-cell-muted" style="font-size:12px">—</div>'}</td>
+                  <td>
+                    <div class="ep-actions">
+                      <button class="btn-outline btn-sm" data-action="edit">Edit</button>
+                      ${user.username !== 'admin' ? `
+                        <button class="btn-outline btn-sm ep-more-btn" data-action="more" title="More actions">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                        </button>
+                      ` : ''}
+                    </div>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
       `;
 
-      tableContainer.querySelectorAll('.edit-user-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const userId = btn.dataset.userId;
-          const user = users.find(u => u.id === userId);
-          if (user) {
-            showEditUserDialog(apiClient, user, students, () => renderUsers());
-          }
-        });
-      });
+      tableContainer.querySelectorAll('[data-action]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const row = btn.closest('tr');
+          const userId = row.dataset.userId;
+          const username = row.dataset.username;
+          const action = btn.dataset.action;
 
-      tableContainer.querySelectorAll('.delete-user-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const userId = btn.dataset.userId;
-          const username = btn.dataset.username;
-          if (confirm(`Delete user "${username}"? This cannot be undone.`)) {
-            try {
-              await apiClient.deleteUser(userId);
-              renderUsers();
-            } catch (error) {
-              alert(`Failed to delete user: ${error.message}`);
-            }
+          if (action === 'edit') {
+            const user = users.find(u => u.id === userId);
+            if (user) showEditUserDialog(apiClient, user, students, () => renderUsers());
+          } else if (action === 'more') {
+            document.querySelectorAll('.gd-dropdown').forEach(d => d.remove());
+            const dropdown = document.createElement('div');
+            dropdown.className = 'gd-dropdown';
+            dropdown.innerHTML = `
+              <button class="gd-dd-item gd-dd-danger" data-dd="delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>Delete User</button>
+            `;
+            const rect = btn.getBoundingClientRect();
+            dropdown.style.position = 'fixed';
+            dropdown.style.top = `${rect.bottom + 4}px`;
+            dropdown.style.right = `${window.innerWidth - rect.right}px`;
+            document.body.appendChild(dropdown);
+            const closeDd = () => { dropdown.remove(); document.removeEventListener('click', closeDd); };
+            setTimeout(() => document.addEventListener('click', closeDd), 0);
+            dropdown.querySelector('[data-dd="delete"]').addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              dropdown.remove();
+              if (confirm(`Delete user "${username}"? This cannot be undone.`)) {
+                apiClient.deleteUser(userId).then(() => renderUsers()).catch(err => alert(err.message));
+              }
+            });
           }
         });
       });
     } catch (error) {
-      tableContainer.innerHTML = `<div class="error-message">Failed to load users: ${escapeHtml(error.message)}</div>`;
+      tableContainer.innerHTML = `<div class="error-cell">Failed to load users: ${escapeHtml(error.message)}</div>`;
     }
   }
 
@@ -288,7 +310,12 @@ function showCreateUserDialog(apiClient, onSuccess) {
 
         <div class="form-group">
           <label for="new-password">Password</label>
-          <input type="password" id="new-password" placeholder="Enter a strong password" autocomplete="new-password" required />
+          <div class="password-input-wrap">
+            <input type="password" id="new-password" placeholder="Enter a strong password" autocomplete="new-password" required />
+            <button type="button" class="password-toggle" data-target="new-password" title="Show password">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
           <small>Min 8 characters with uppercase, lowercase, and a number</small>
         </div>
 
@@ -306,6 +333,7 @@ function showCreateUserDialog(apiClient, onSuccess) {
             <option value="">Loading students...</option>
           </select>
           <small>Optional - associate this account with a student record</small>
+          <button type="button" id="create-student-inline" class="btn-outline btn-sm" style="margin-top:8px">+ Create New Student</button>
         </div>
 
         <div id="create-user-error" class="user-dialog-error" style="display: none;"></div>
@@ -335,7 +363,27 @@ function showCreateUserDialog(apiClient, onSuccess) {
     studentLinkGroup.style.display = roleSelect.value === 'student' ? '' : 'none';
   });
 
-  loadStudentsForSelect(apiClient, dialog.querySelector('#new-student-id'));
+  const studentSelect = dialog.querySelector('#new-student-id');
+  loadStudentsForSelect(apiClient, studentSelect);
+
+  // Create new student inline
+  dialog.querySelector('#create-student-inline').addEventListener('click', async () => {
+    const name = prompt('Enter student name:');
+    if (!name || !name.trim()) return;
+    try {
+      const student = await apiClient.createStudent({ name: name.trim(), skill_level: 'beginner' });
+      const option = document.createElement('option');
+      option.value = student.id;
+      option.textContent = student.name;
+      option.selected = true;
+      studentSelect.appendChild(option);
+    } catch (err) {
+      alert(`Failed to create student: ${err.message}`);
+    }
+  });
+
+  // Password toggle
+  setupPasswordToggles(dialog);
 
   const errorEl = dialog.querySelector('#create-user-error');
 
@@ -399,7 +447,12 @@ function showEditUserDialog(apiClient, user, students, onSuccess) {
 
         <div class="form-group">
           <label for="edit-password">New Password</label>
-          <input type="password" id="edit-password" placeholder="Leave empty to keep current" autocomplete="new-password" />
+          <div class="password-input-wrap">
+            <input type="password" id="edit-password" placeholder="Leave empty to keep current" autocomplete="new-password" />
+            <button type="button" class="password-toggle" data-target="edit-password" title="Show password">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
           <small>Leave empty to keep the current password</small>
         </div>
 
@@ -449,6 +502,8 @@ function showEditUserDialog(apiClient, user, students, onSuccess) {
   roleSelect.addEventListener('change', () => {
     studentLinkGroup.style.display = roleSelect.value === 'student' ? '' : 'none';
   });
+
+  setupPasswordToggles(dialog);
 
   const errorEl = dialog.querySelector('#edit-user-error');
 
@@ -509,6 +564,22 @@ async function loadStudentsForSelect(apiClient, selectEl) {
   } catch {
     selectEl.innerHTML = '<option value="">Failed to load students</option>';
   }
+}
+
+/** Attach show/hide toggle to all .password-toggle buttons within a container */
+function setupPasswordToggles(container) {
+  container.querySelectorAll('.password-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const input = container.querySelector(`#${btn.dataset.target}`);
+      if (!input) return;
+      const isPassword = input.type === 'password';
+      input.type = isPassword ? 'text' : 'password';
+      btn.innerHTML = isPassword
+        ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
+        : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+      btn.title = isPassword ? 'Hide password' : 'Show password';
+    });
+  });
 }
 
 function escapeHtml(str) {

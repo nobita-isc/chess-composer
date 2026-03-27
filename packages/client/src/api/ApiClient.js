@@ -375,6 +375,16 @@ export class ApiClient {
   }
 
   /**
+   * Update exercise name
+   * @param {string} id - Exercise ID
+   * @param {string} name - New name
+   */
+  async updateExercise(id, name) {
+    const response = await this.put(`/exercises/${id}`, { name });
+    return response;
+  }
+
+  /**
    * Delete an exercise
    * @param {string} id - Exercise ID
    */
