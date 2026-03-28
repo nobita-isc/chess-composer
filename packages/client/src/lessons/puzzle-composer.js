@@ -465,16 +465,14 @@ function buildComposerHTML(lessonTitle, puzzle, puzzleIndex, puzzleCount, isEdit
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
             </button>
           </div>
-          ${!isEdit ? `
-            <button id="pc-add-puzzle" style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;font-size:12px;font-weight:600;color:#4f46e5;cursor:pointer">+ Add Puzzle</button>
-          ` : ''}
-          ${puzzleCount > 1 && !isEdit ? `
+          <button id="pc-add-puzzle" style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;font-size:12px;font-weight:600;color:#4f46e5;cursor:pointer">+ Add Puzzle</button>
+          ${puzzleCount > 1 ? `
             <button id="pc-delete-puzzle" style="display:flex;align-items:center;gap:4px;padding:8px 12px;background:#fff;border:1px solid #fecaca;border-radius:8px;font-size:12px;color:#dc2626;cursor:pointer" title="Remove this puzzle">&times; Remove</button>
           ` : ''}
         </div>
         <div style="display:flex;gap:12px">
           <button id="pc-cancel" style="padding:10px 20px;border:1px solid #d1d5db;border-radius:8px;background:#fff;font-size:13px;color:#64748b;cursor:pointer">Cancel</button>
-          <button id="pc-save" style="padding:10px 24px;border:none;border-radius:8px;background:#059669;font-size:13px;font-weight:600;color:#fff;cursor:pointer">${isEdit ? 'Update Puzzle' : puzzleCount > 1 ? 'Save All Puzzles' : 'Save Puzzle'}</button>
+          <button id="pc-save" style="padding:10px 24px;border:none;border-radius:8px;background:#059669;font-size:13px;font-weight:600;color:#fff;cursor:pointer">${puzzleCount > 1 ? 'Save All Puzzles' : isEdit ? 'Update Puzzle' : 'Save Puzzle'}</button>
         </div>
       </div>
     </div>
