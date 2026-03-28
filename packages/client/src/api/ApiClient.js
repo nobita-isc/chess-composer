@@ -347,6 +347,30 @@ export class ApiClient {
     return response.data;
   }
 
+  // ==================== Course API ====================
+
+  async getCourses() { return (await this.get('/courses')).data; }
+  async getCourse(id) { return (await this.get(`/courses/${id}`)).data; }
+  async createCourse(data) { return (await this.post('/courses', data)).data; }
+  async updateCourse(id, data) { return await this.put(`/courses/${id}`, data); }
+  async deleteCourse(id) { return await this.delete(`/courses/${id}`); }
+  async getCourseLessons(id) { return (await this.get(`/courses/${id}/lessons`)).data; }
+  async createLesson(courseId, data) { return (await this.post(`/courses/${courseId}/lessons`, data)).data; }
+  async updateLesson(id, data) { return await this.put(`/lessons/${id}`, data); }
+  async deleteLesson(id) { return await this.delete(`/lessons/${id}`); }
+  async getLessonContent(lessonId) { return (await this.get(`/lessons/${lessonId}/content`)).data; }
+  async createContent(lessonId, data) { return (await this.post(`/lessons/${lessonId}/content`, data)).data; }
+  async updateContent(id, data) { return await this.put(`/content/${id}`, data); }
+  async deleteContent(id) { return await this.delete(`/content/${id}`); }
+  async reorderContent(lessonId, orderedIds) { return await this.put(`/lessons/${lessonId}/reorder`, { orderedIds }); }
+  async assignCourse(courseId, studentIds) { return await this.post(`/courses/${courseId}/assign`, { studentIds }); }
+  async getCourseAssignments(id) { return (await this.get(`/courses/${id}/assignments`)).data; }
+  async previewCourse(id) { return (await this.get(`/courses/${id}/preview`)).data; }
+  async getMyCourses() { return (await this.get('/my/courses')).data; }
+  async getMyCourse(id) { return (await this.get(`/my/courses/${id}`)).data; }
+  async markContentComplete(contentId, data = {}) { return await this.put(`/my/content/${contentId}/complete`, data); }
+  async getMyGamification() { return (await this.get('/my/gamification')).data; }
+
   // ==================== Exercise API ====================
 
   /**

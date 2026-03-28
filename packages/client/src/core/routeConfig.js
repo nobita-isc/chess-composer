@@ -41,7 +41,7 @@ export function studentGuard() {
   return authManager.isStudent() ? true : ADMIN_DEFAULT_PATH
 }
 
-export function createAdminRoutes({ renderGenerate, renderExercises, renderReports, renderUsers }) {
+export function createAdminRoutes({ renderGenerate, renderExercises, renderReports, renderUsers, renderCourses }) {
   const guards = [authGuard, adminGuard]
   return [
     {
@@ -60,6 +60,12 @@ export function createAdminRoutes({ renderGenerate, renderExercises, renderRepor
       path: '/reports',
       name: 'reports',
       render: renderReports,
+      guards
+    },
+    {
+      path: '/courses',
+      name: 'courses',
+      render: renderCourses,
       guards
     },
     {
