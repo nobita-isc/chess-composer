@@ -237,7 +237,7 @@ export function openLessonPuzzlePlayer({
         events: { after: handleStudentMove }
       }
     })
-    showFeedback('', '')
+    clearFeedback()
     updateMoveInfo()
   }
 
@@ -245,35 +245,39 @@ export function openLessonPuzzlePlayer({
 
   function showFeedback(type, message) {
     const feedbackEl = overlay.querySelector('#lpp-feedback')
-    if (!feedbackEl) return
+    if (!feedbackEl || !message) return
 
     const colors = {
-      correct: { bg: '#065f46', border: '#10b981', icon: '✓' },
-      wrong: { bg: '#7f1d1d', border: '#ef4444', icon: '✗' },
-      computer: { bg: '#1e3a5f', border: '#3b82f6', icon: '🤖' },
-      complete: { bg: '#065f46', border: '#10b981', icon: '🎉' },
-      '': { bg: 'transparent', border: 'transparent', icon: '' }
+      correct: { bg: '#065f46', border: '#10b981', text: '#a7f3d0', icon: '✓' },
+      wrong: { bg: '#7f1d1d', border: '#ef4444', text: '#fecaca', icon: '✗' },
+      computer: { bg: '#1e3a5f', border: '#60a5fa', text: '#bfdbfe', icon: '🤖' },
+      complete: { bg: '#065f46', border: '#10b981', text: '#a7f3d0', icon: '🎉' }
     }
-    const c = colors[type] || colors['']
+    const c = colors[type] || colors.correct
 
-    feedbackEl.style.cssText = message
-      ? `padding:10px 16px;background:${c.bg};border:1px solid ${c.border};border-radius:8px;margin-top:8px`
-      : 'display:none'
-    feedbackEl.innerHTML = message ? `<span style="margin-right:6px">${c.icon}</span>${escapeHtml(message)}` : ''
+    const entry = document.createElement('div')
+    entry.style.cssText = `padding:10px 14px;background:${c.bg};border:1px solid ${c.border};border-radius:8px;color:${c.text};font-size:13px;line-height:1.4`
+    entry.innerHTML = `<span style="margin-right:6px">${c.icon}</span>${escapeHtml(message)}`
+    feedbackEl.appendChild(entry)
+
+    // Auto-scroll to latest message
+    feedbackEl.scrollTop = feedbackEl.scrollHeight
+  }
+
+  function clearFeedback() {
+    const feedbackEl = overlay.querySelector('#lpp-feedback')
+    if (feedbackEl) feedbackEl.innerHTML = ''
   }
 
   function revealHint() {
     if (solved || moveIndex >= moveSequence.length) return
     const currentMove = moveSequence[moveIndex]
-    if (!currentMove?.hint) {
-      showFeedback('computer', 'No hint available for this move')
-      return
-    }
+    if (!currentMove?.hint) return
     hintRevealed = true
     const hintEl = overlay.querySelector('#lpp-hint-text')
     if (hintEl) {
       hintEl.style.display = 'block'
-      hintEl.textContent = currentMove.hint
+      hintEl.textContent = `💡 ${currentMove.hint}`
     }
   }
 
@@ -337,10 +341,10 @@ export function openLessonPuzzlePlayer({
             </div>
 
             <!-- Hint Area -->
-            <div id="lpp-hint-text" style="display:none;padding:12px 16px;background:#1e3a5f;border:1px solid #3b82f6;border-radius:8px;color:#93c5fd;font-size:13px;margin-bottom:16px"></div>
+            <div id="lpp-hint-text" style="display:none;padding:12px 16px;background:#1e3a5f;border:1px solid #60a5fa;border-radius:8px;color:#bfdbfe;font-size:13px;margin-bottom:12px"></div>
 
-            <!-- Feedback Area -->
-            <div id="lpp-feedback" style="display:none;color:#e2e8f0;font-size:13px"></div>
+            <!-- Move Timeline -->
+            <div id="lpp-feedback" style="display:flex;flex-direction:column;gap:8px"></div>
           </div>
 
           <!-- Challenge Progress -->
