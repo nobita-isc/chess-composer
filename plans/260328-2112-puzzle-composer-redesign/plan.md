@@ -66,12 +66,18 @@ Data format — `puzzle_hints` JSON:
 - **Multi-puzzle mode**: Tabs or list showing all puzzles in the lesson
 
 ### 2. Student Puzzle Player (chess.com style)
-- Full-screen board with dark sidebar
-- Instruction text with teacher avatar
-- "Challenge X/10" progress
-- Hint button reveals per-move hint
-- Video button opens explanation
-- Navigation arrows between puzzles
+- **Full-screen**: dark board (left) + dark sidebar (right)
+- **Sidebar header**: lesson title + back button
+- **Instruction card**: teacher avatar + "Black to Move" badge + instruction text
+- **Challenge progress**: "Challenge 1/5" with progress bar
+- **Two action buttons**: ▶ Video (opens explanation) + 💡 Hint (reveals per-move hint)
+- **Move flow**:
+  1. Student sees instruction → makes move on board
+  2. Correct → show success explanation + computer auto-plays with explanation text
+  3. Wrong → show error, let retry
+  4. All moves done → "Challenge Complete!" + XP earned + auto-advance to next puzzle
+- **Navigation**: ← → arrows between puzzles, progress bar
+- **Bottom toolbar**: share, reset, undo, prev/next
 
 ## Phases
 
