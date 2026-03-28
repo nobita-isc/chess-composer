@@ -132,10 +132,14 @@ Course (e.g., "Learn Every Chess Opening")
 4. **Assign Course** — Select students to assign
 
 ### Student Screens
-1. **My Courses** — Grid of assigned courses with progress bars
-2. **Course Detail** — Lesson list with completion status (like chess.com screenshot)
-3. **Lesson Player** — Video player + puzzle challenges below
-4. **Gamification Dashboard** — XP, streak, badges, leaderboard
+1. **My Courses** — Grid of assigned courses with thumbnail images, progress bars
+2. **Course Detail** — Lesson list with completed/in-progress/locked states
+3. **Lesson Player** — Coursera-style: sidebar with content items (video+puzzles) + main content area
+   - Left sidebar: lesson items with status (✓ completed, ● current, ○ upcoming)
+   - Right area: video player OR puzzle viewer depending on current item
+   - "Mark Complete & Next →" button to progress
+   - XP earned per item completion
+4. **Gamification** — XP, streak, badges shown in header across all student screens
 
 ## Gamification Details
 
