@@ -28,6 +28,8 @@ import lichess from './routes/lichess.js';
 import students from './routes/students.js';
 import exercises from './routes/exercises.js';
 import studentExercises from './routes/student-exercises.js';
+import coursesRoute from './routes/courses.js';
+import lessonContentRoute from './routes/lesson-content.js';
 
 const app = new Hono();
 
@@ -92,6 +94,8 @@ app.route('/api/lichess', lichess);
 app.route('/api/students', students);
 app.route('/api/exercises', exercises);
 app.route('/api/student-exercises', studentExercises);
+app.route('/api/courses', coursesRoute);
+app.route('/api', lessonContentRoute);
 
 // Health check
 app.get('/health', (c) => {
