@@ -9,6 +9,7 @@ import { showGradeDialog } from './GradeDialog.js';
 import { openPrintPreview, openPrintSolutions } from './PrintPreview.js';
 import { openPuzzlePlayer } from './PuzzlePlayer.js';
 import { openExercisePuzzleViewer } from './ExercisePuzzleViewer.js';
+import { showAppConfirm, showAppPrompt } from '../shared/app-dialogs.js';
 
 const SKILL_LEVEL_LABELS = {
   'beginner': 'Beginner',
@@ -200,13 +201,19 @@ export function showExercisePanel(apiClient, getCurrentPuzzles, onPuzzlesUpdated
               case 'assign':
                 await showAssignDialog(exerciseId);
                 break;
-              case 'delete':
-                if (confirm('Delete this exercise?')) {
+              case 'delete': {
+                const confirmed = await showAppConfirm({
+                  title: 'Delete Exercise?',
+                  message: 'This will permanently delete this exercise and all student assignments.',
+                  confirmLabel: 'Delete', confirmColor: 'var(--color-error-500)', icon: 'delete'
+                });
+                if (confirmed) {
                   await apiClient.deleteExercise(exerciseId);
                   showToast('Exercise deleted');
                   renderExercisesTab();
                   renderStats();
                 }
+              }
                 break;
             }
           } catch (error) {
@@ -358,9 +365,12 @@ export function showExercisePanel(apiClient, getCurrentPuzzles, onPuzzlesUpdated
           const studentExerciseId = btn.dataset.id;
           const assignment = assignments.find(a => a.id === studentExerciseId);
 
-          if (!confirm(`Mark ${assignment.student_name}'s exercise as final? They will no longer be able to solve or modify it.`)) {
-            return;
-          }
+          const markConfirmed = await showAppConfirm({
+            title: 'Mark as Final?',
+            message: `${assignment.student_name} will no longer be able to solve or modify this exercise.`,
+            confirmLabel: 'Mark Final', confirmColor: 'var(--color-warning-500)', icon: 'lock'
+          });
+          if (!markConfirmed) return;
 
           try {
             await apiClient.markStudentExerciseAsFinal(studentExerciseId);
@@ -379,9 +389,12 @@ export function showExercisePanel(apiClient, getCurrentPuzzles, onPuzzlesUpdated
           const studentExerciseId = btn.dataset.id;
           const assignment = assignments.find(a => a.id === studentExerciseId);
 
-          if (!confirm(`Reset ${assignment.student_name}'s score to 0? This will clear all puzzle results and hints.`)) {
-            return;
-          }
+          const resetConfirmed = await showAppConfirm({
+            title: 'Reset Score?',
+            message: `This will clear ${assignment.student_name}'s score, puzzle results, and hint usage.`,
+            confirmLabel: 'Reset Score', confirmColor: 'var(--color-error-500)', icon: 'reset'
+          });
+          if (!resetConfirmed) return;
 
           try {
             await apiClient.resetStudentExerciseScore(studentExerciseId);
@@ -720,9 +733,6 @@ export function showExercisePanel(apiClient, getCurrentPuzzles, onPuzzlesUpdated
       case 'exercises':
         renderExercisesTab();
         break;
-      case 'students':
-        renderStudentsTab();
-        break;
       case 'performance':
         renderPerformanceTab();
         break;
@@ -782,7 +792,6 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
 
       <div class="ep-tabs" id="ep-tabs">
         <button class="ep-tab ep-tab-active" data-tab="exercises">Weekly Exercises</button>
-        <button class="ep-tab" data-tab="students">Students</button>
         <button class="ep-tab" data-tab="performance">Performance</button>
       </div>
 
@@ -848,6 +857,13 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
 
       const gradedFraction = (ex) => ex.total_assigned > 0 ? `${ex.total_graded}/${ex.total_assigned}` : '—';
 
+      const exerciseStatus = (ex) => {
+        if (ex.total_assigned === 0) return '<span class="badge badge-theme" style="font-size:11px">No Students</span>';
+        if (ex.total_graded === ex.total_assigned) return '<span class="badge badge-beginner" style="font-size:11px">Complete</span>';
+        if (ex.total_graded > 0) return '<span class="badge badge-intermediate" style="font-size:11px">In Progress</span>';
+        return '<span class="badge badge-advanced" style="font-size:11px">Pending</span>';
+      };
+
       content.innerHTML = `
         <div class="ep-week-banner">
           <span>Current Week: ${escapeHtml(currentWeek.week_label)}</span>
@@ -861,6 +877,7 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
               <thead>
                 <tr>
                   <th class="ep-th-grow">Exercise</th>
+                  <th style="width:90px">Status</th>
                   <th style="width:70px">Puzzles</th>
                   <th style="width:80px">Assigned</th>
                   <th style="width:70px">Graded</th>
@@ -874,6 +891,7 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
                       <div class="ep-cell-name">${escapeHtml(ex.name || ex.week_label)}</div>
                       <div class="ep-cell-muted" style="font-size:12px">${escapeHtml(ex.week_label)}</div>
                     </td>
+                    <td>${exerciseStatus(ex)}</td>
                     <td>${ex.puzzle_count}</td>
                     <td>${ex.total_assigned}</td>
                     <td class="ep-cell-graded">${gradedFraction(ex)}</td>
@@ -947,9 +965,9 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
                       try {
                         if (dd === 'rename') {
                           const currentName = row.querySelector('.ep-cell-name')?.textContent || '';
-                          const newName = prompt('Enter new exercise name:', currentName);
-                          if (newName && newName.trim() && newName.trim() !== currentName) {
-                            await apiClient.updateExercise(exerciseId, newName.trim());
+                          const newName = await showAppPrompt({ title: 'Rename Exercise', defaultValue: currentName, placeholder: 'Exercise name' });
+                          if (newName && newName !== currentName) {
+                            await apiClient.updateExercise(exerciseId, newName);
                             showToast('Exercise renamed');
                             renderExercisesTab();
                           }
@@ -1580,9 +1598,6 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
     switch (activeTab) {
       case 'exercises':
         renderExercisesTab();
-        break;
-      case 'students':
-        renderStudentsTab();
         break;
       case 'performance':
         renderPerformanceTab();

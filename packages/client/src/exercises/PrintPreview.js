@@ -6,6 +6,7 @@
 
 import { Chess } from 'chess.js';
 import { PIECE_IMAGES, generateBoardHTML } from '../puzzles/staticBoard.js';
+import { showAppAlert } from '../shared/app-dialogs.js';
 
 /**
  * Open print preview in a new window
@@ -14,7 +15,7 @@ import { PIECE_IMAGES, generateBoardHTML } from '../puzzles/staticBoard.js';
 export function openPrintPreview(exercise) {
   const printWindow = window.open('', '_blank');
   if (!printWindow) {
-    alert('Please allow popups to open the print preview');
+    showAppAlert({ title: 'Popup Blocked', message: 'Please allow popups to open the print preview.' });
     return;
   }
 
@@ -495,7 +496,7 @@ function generatePrintHTML(exercise) {
 export function openPrintSolutions(exercise) {
   const printWindow = window.open('', '_blank');
   if (!printWindow) {
-    alert('Please allow popups to open the print preview');
+    showAppAlert({ title: 'Popup Blocked', message: 'Please allow popups to open the print preview.' });
     return;
   }
 

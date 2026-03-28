@@ -6,6 +6,7 @@
 
 import { Chess } from 'chess.js';
 import { Chessground } from 'chessground';
+import { showAppAlert } from '../shared/app-dialogs.js';
 
 /**
  * Parse UCI move (e.g., "e2e4") to { from, to, promotion }
@@ -49,7 +50,7 @@ function getLegalMoves(chess) {
 export function openPuzzlePlayer(exercise, options = {}) {
   const puzzles = exercise.puzzles || [];
   if (puzzles.length === 0) {
-    alert('No puzzles in this exercise');
+    showAppAlert({ title: 'No Puzzles', message: 'This exercise has no puzzles.' });
     return;
   }
 

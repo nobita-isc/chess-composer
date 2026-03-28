@@ -3,6 +3,15 @@
  * Admin panel for managing user accounts
  */
 
+import { showAppConfirm, showAppPrompt, showAppAlert } from '../shared/app-dialogs.js'
+import { showStudentDialog } from '../exercises/StudentDialog.js'
+
+const SKILL_LEVEL_LABELS = {
+  'beginner': 'Beginner',
+  'intermediate': 'Intermediate',
+  'advanced': 'Advanced'
+}
+
 const ROLE_LABELS = {
   admin: 'Admin',
   student: 'Student'
@@ -15,55 +24,73 @@ const ROLE_LABELS = {
  * @returns {Function} cleanup function to call when navigating away
  */
 export function renderUsersPage(container, apiClient) {
+  let activeTab = 'users'
+
   container.innerHTML = `
     <div class="page-panel admin-content">
       <div class="main-header main-header-row">
         <div>
           <h1 class="page-title">User Management</h1>
-          <p class="page-subtitle">Manage user accounts and permissions</p>
+          <p class="page-subtitle">Manage user accounts and student profiles</p>
         </div>
-        <button id="create-user-btn" class="generate-btn">+ Create User</button>
+        <button id="header-action-btn" class="generate-btn">+ Create User</button>
       </div>
 
-      <div class="admin-stats" id="user-panel-stats" style="display:flex;gap:12px;margin-bottom:16px"></div>
-
-      <div id="users-table-container">
-        <div class="loading-cell">Loading users...</div>
+      <div class="ep-tabs">
+        <button class="ep-tab ep-tab-active" data-tab="users">Users</button>
+        <button class="ep-tab" data-tab="students">Students</button>
       </div>
+
+      <div id="tab-content"><div class="loading-cell">Loading...</div></div>
     </div>
-  `;
+  `
 
-  container.querySelector('#create-user-btn').addEventListener('click', () => {
-    showCreateUserDialog(apiClient, () => renderUsers());
-  });
+  const headerBtn = container.querySelector('#header-action-btn')
+  const tabContent = container.querySelector('#tab-content')
 
-  const tableContainer = container.querySelector('#users-table-container');
-  const statsEl = container.querySelector('#user-panel-stats');
+  container.querySelectorAll('.ep-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      container.querySelectorAll('.ep-tab').forEach(b => b.classList.remove('ep-tab-active'))
+      btn.classList.add('ep-tab-active')
+      activeTab = btn.dataset.tab
+      headerBtn.textContent = activeTab === 'users' ? '+ Create User' : '+ Add Student'
+      renderActiveTab()
+    })
+  })
 
-  async function renderUsers() {
+  headerBtn.addEventListener('click', async () => {
+    if (activeTab === 'users') {
+      showCreateUserDialog(apiClient, () => renderActiveTab())
+    } else {
+      const result = await showStudentDialog(apiClient)
+      if (result) renderActiveTab()
+    }
+  })
+
+  function renderActiveTab() {
+    if (activeTab === 'users') renderUsersTab()
+    else renderStudentsTab()
+  }
+
+  // ==================== Users Tab ====================
+
+  async function renderUsersTab() {
+    tabContent.innerHTML = '<div class="loading-cell">Loading users...</div>'
     try {
-      const users = await apiClient.getUsers();
-      const students = await apiClient.getStudents();
-
-      const adminCount = users.filter(u => u.role === 'admin').length;
-      const studentCount = users.filter(u => u.role === 'student').length;
-
-      statsEl.innerHTML = `
-        <div class="gd-stat"><span class="gd-stat-label">Admins</span><span class="gd-stat-value">${adminCount}</span></div>
-        <div class="gd-stat"><span class="gd-stat-label">Student Accounts</span><span class="gd-stat-value" style="color:var(--color-brand-600)">${studentCount}</span></div>
-      `;
+      const users = await apiClient.getUsers()
+      const students = await apiClient.getStudents()
 
       if (users.length === 0) {
-        tableContainer.innerHTML = '<div class="empty-message">No users found.</div>';
-        return;
+        tabContent.innerHTML = '<div class="empty-message">No users found.</div>'
+        return
       }
 
       const roleBadge = (role) => {
-        const cls = role === 'admin' ? 'badge-advanced' : 'badge-beginner';
-        return `<span class="badge ${cls}">${ROLE_LABELS[role] || role}</span>`;
-      };
+        const cls = role === 'admin' ? 'badge-advanced' : 'badge-beginner'
+        return `<span class="badge ${cls}">${ROLE_LABELS[role] || role}</span>`
+      }
 
-      tableContainer.innerHTML = `
+      tabContent.innerHTML = `
         <div class="ep-table-wrap">
           <table class="ep-table">
             <thead>
@@ -86,11 +113,7 @@ export function renderUsersPage(container, apiClient) {
                   <td>
                     <div class="ep-actions">
                       <button class="btn-outline btn-sm" data-action="edit">Edit</button>
-                      ${user.username !== 'admin' ? `
-                        <button class="btn-outline btn-sm ep-more-btn" data-action="more" title="More actions">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
-                        </button>
-                      ` : ''}
+                      ${user.username !== 'admin' ? `<button class="btn-outline btn-sm ep-more-btn" data-action="more" title="More"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>` : ''}
                     </div>
                   </td>
                 </tr>
@@ -98,50 +121,144 @@ export function renderUsersPage(container, apiClient) {
             </tbody>
           </table>
         </div>
-      `;
+      `
 
-      tableContainer.querySelectorAll('[data-action]').forEach(btn => {
+      tabContent.querySelectorAll('[data-action]').forEach(btn => {
         btn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          const row = btn.closest('tr');
-          const userId = row.dataset.userId;
-          const username = row.dataset.username;
-          const action = btn.dataset.action;
+          e.stopPropagation()
+          const row = btn.closest('tr')
+          const userId = row.dataset.userId
+          const username = row.dataset.username
+          const action = btn.dataset.action
 
           if (action === 'edit') {
-            const user = users.find(u => u.id === userId);
-            if (user) showEditUserDialog(apiClient, user, students, () => renderUsers());
+            const user = users.find(u => u.id === userId)
+            if (user) showEditUserDialog(apiClient, user, students, () => renderUsersTab())
           } else if (action === 'more') {
-            document.querySelectorAll('.gd-dropdown').forEach(d => d.remove());
-            const dropdown = document.createElement('div');
-            dropdown.className = 'gd-dropdown';
-            dropdown.innerHTML = `
-              <button class="gd-dd-item gd-dd-danger" data-dd="delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>Delete User</button>
-            `;
-            const rect = btn.getBoundingClientRect();
-            dropdown.style.position = 'fixed';
-            dropdown.style.top = `${rect.bottom + 4}px`;
-            dropdown.style.right = `${window.innerWidth - rect.right}px`;
-            document.body.appendChild(dropdown);
-            const closeDd = () => { dropdown.remove(); document.removeEventListener('click', closeDd); };
-            setTimeout(() => document.addEventListener('click', closeDd), 0);
-            dropdown.querySelector('[data-dd="delete"]').addEventListener('click', (ev) => {
-              ev.stopPropagation();
-              dropdown.remove();
-              if (confirm(`Delete user "${username}"? This cannot be undone.`)) {
-                apiClient.deleteUser(userId).then(() => renderUsers()).catch(err => alert(err.message));
+            document.querySelectorAll('.gd-dropdown').forEach(d => d.remove())
+            const dropdown = document.createElement('div')
+            dropdown.className = 'gd-dropdown'
+            dropdown.innerHTML = `<button class="gd-dd-item gd-dd-danger" data-dd="delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>Delete User</button>`
+            const rect = btn.getBoundingClientRect()
+            dropdown.style.position = 'fixed'
+            dropdown.style.top = `${rect.bottom + 4}px`
+            dropdown.style.right = `${window.innerWidth - rect.right}px`
+            document.body.appendChild(dropdown)
+            const closeDd = () => { dropdown.remove(); document.removeEventListener('click', closeDd) }
+            setTimeout(() => document.addEventListener('click', closeDd), 0)
+            dropdown.querySelector('[data-dd="delete"]').addEventListener('click', async (ev) => {
+              ev.stopPropagation()
+              dropdown.remove()
+              const confirmed = await showAppConfirm({ title: 'Delete User?', message: `Delete user "${username}"? This cannot be undone.`, confirmLabel: 'Delete', confirmColor: 'var(--color-error-500)', icon: 'delete' })
+              if (confirmed) {
+                try { await apiClient.deleteUser(userId); renderUsersTab() }
+                catch (err) { showAppAlert({ title: 'Error', message: err.message }) }
               }
-            });
+            })
           }
-        });
-      });
+        })
+      })
     } catch (error) {
-      tableContainer.innerHTML = `<div class="error-cell">Failed to load users: ${escapeHtml(error.message)}</div>`;
+      tabContent.innerHTML = `<div class="error-cell">Failed to load users: ${escapeHtml(error.message)}</div>`
     }
   }
 
-  renderUsers();
-  return () => {};
+  // ==================== Students Tab ====================
+
+  async function renderStudentsTab() {
+    tabContent.innerHTML = '<div class="loading-cell">Loading students...</div>'
+    try {
+      const students = await apiClient.getStudents()
+
+      const skillBadge = (level) => {
+        const cls = level === 'advanced' ? 'badge-advanced' : level === 'intermediate' ? 'badge-intermediate' : 'badge-beginner'
+        return `<span class="badge ${cls}">${SKILL_LEVEL_LABELS[level] || level}</span>`
+      }
+
+      tabContent.innerHTML = `
+        ${students.length === 0 ?
+          '<div class="empty-message">No students yet. Click "+ Add Student" to get started.</div>' :
+          `<div class="ep-table-wrap">
+            <table class="ep-table">
+              <thead>
+                <tr>
+                  <th class="ep-th-grow">Student</th>
+                  <th style="width:100px">Skill</th>
+                  <th style="width:180px">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${students.map(s => `
+                  <tr data-id="${escapeHtml(s.id)}">
+                    <td>
+                      <div class="ep-cell-name">${escapeHtml(s.name)}</div>
+                      <div class="ep-cell-muted" style="font-size:12px">${s.email ? escapeHtml(s.email) : 'No email'}</div>
+                    </td>
+                    <td>${skillBadge(s.skill_level)}</td>
+                    <td>
+                      <div class="ep-actions">
+                        <button class="btn-outline btn-sm" data-action="edit">Edit</button>
+                        <button class="btn-outline btn-sm" data-action="performance">Stats</button>
+                        <button class="btn-outline btn-sm ep-more-btn" data-action="more" title="More"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>
+                      </div>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>`
+        }
+      `
+
+      tabContent.querySelectorAll('.ep-table tbody tr').forEach(row => {
+        row.querySelectorAll('[data-action]').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            e.stopPropagation()
+            const studentId = row.dataset.id
+            const action = btn.dataset.action
+
+            try {
+              if (action === 'edit') {
+                const student = await apiClient.getStudent(studentId)
+                const result = await showStudentDialog(apiClient, student)
+                if (result) renderStudentsTab()
+              } else if (action === 'performance') {
+                showStudentPerformance(apiClient, studentId)
+              } else if (action === 'more') {
+                document.querySelectorAll('.gd-dropdown').forEach(d => d.remove())
+                const dropdown = document.createElement('div')
+                dropdown.className = 'gd-dropdown'
+                dropdown.innerHTML = `<button class="gd-dd-item gd-dd-danger" data-dd="delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>Delete Student</button>`
+                const rect = btn.getBoundingClientRect()
+                dropdown.style.position = 'fixed'
+                dropdown.style.top = `${rect.bottom + 4}px`
+                dropdown.style.right = `${window.innerWidth - rect.right}px`
+                document.body.appendChild(dropdown)
+                const closeDd = () => { dropdown.remove(); document.removeEventListener('click', closeDd) }
+                setTimeout(() => document.addEventListener('click', closeDd), 0)
+                dropdown.querySelector('[data-dd="delete"]').addEventListener('click', async (ev) => {
+                  ev.stopPropagation()
+                  dropdown.remove()
+                  const confirmed = await showAppConfirm({ title: 'Delete Student?', message: 'This will permanently delete this student and all their exercise assignments.', confirmLabel: 'Delete', confirmColor: 'var(--color-error-500)', icon: 'delete' })
+                  if (confirmed) {
+                    try { await apiClient.deleteStudent(studentId); renderStudentsTab() }
+                    catch (err) { showAppAlert({ title: 'Error', message: err.message }) }
+                  }
+                })
+              }
+            } catch (error) {
+              showAppAlert({ title: 'Error', message: error.message })
+            }
+          })
+        })
+      })
+    } catch (error) {
+      tabContent.innerHTML = `<div class="error-cell">Error: ${escapeHtml(error.message)}</div>`
+    }
+  }
+
+  renderActiveTab()
+  return () => {}
 }
 
 export function showUserManagementPanel(apiClient) {
@@ -270,11 +387,21 @@ export function showUserManagementPanel(apiClient) {
             document.body.appendChild(dropdown);
             const closeDd = () => { dropdown.remove(); document.removeEventListener('click', closeDd); };
             setTimeout(() => document.addEventListener('click', closeDd), 0);
-            dropdown.querySelector('[data-dd="delete"]').addEventListener('click', (ev) => {
+            dropdown.querySelector('[data-dd="delete"]').addEventListener('click', async (ev) => {
               ev.stopPropagation();
               dropdown.remove();
-              if (confirm(`Delete user "${username}"? This cannot be undone.`)) {
-                apiClient.deleteUser(userId).then(() => renderUsers()).catch(err => alert(err.message));
+              const confirmed = await showAppConfirm({
+                title: 'Delete User?',
+                message: `Delete user "${username}"? This cannot be undone.`,
+                confirmLabel: 'Delete', confirmColor: 'var(--color-error-500)', icon: 'delete'
+              });
+              if (confirmed) {
+                try {
+                  await apiClient.deleteUser(userId);
+                  renderUsers();
+                } catch (err) {
+                  showAppAlert({ title: 'Error', message: err.message });
+                }
               }
             });
           }
@@ -368,17 +495,17 @@ function showCreateUserDialog(apiClient, onSuccess) {
 
   // Create new student inline
   dialog.querySelector('#create-student-inline').addEventListener('click', async () => {
-    const name = prompt('Enter student name:');
-    if (!name || !name.trim()) return;
+    const name = await showAppPrompt({ title: 'Create New Student', placeholder: 'Enter student name' });
+    if (!name) return;
     try {
-      const student = await apiClient.createStudent({ name: name.trim(), skill_level: 'beginner' });
+      const student = await apiClient.createStudent({ name, skill_level: 'beginner' });
       const option = document.createElement('option');
       option.value = student.id;
       option.textContent = student.name;
       option.selected = true;
       studentSelect.appendChild(option);
     } catch (err) {
-      alert(`Failed to create student: ${err.message}`);
+      showAppAlert({ title: 'Error', message: `Failed to create student: ${err.message}` });
     }
   });
 
@@ -580,6 +707,42 @@ function setupPasswordToggles(container) {
       btn.title = isPassword ? 'Hide password' : 'Show password';
     });
   });
+}
+
+function showStudentPerformance(apiClient, studentId) {
+  const dialog = document.createElement('div')
+  dialog.className = 'pv-overlay'
+  dialog.style.zIndex = '55000'
+  dialog.innerHTML = `<div class="gd-dialog" style="width:500px"><div class="gd-loading" style="padding:40px;text-align:center">Loading...</div></div>`
+  document.body.appendChild(dialog)
+
+  const close = () => dialog.remove()
+  dialog.addEventListener('click', (e) => { if (e.target === dialog) close() })
+
+  apiClient.getStudentPerformance(studentId).then(data => {
+    dialog.querySelector('.gd-dialog').innerHTML = `
+      <div class="gd-header">
+        <span class="gd-title">Performance: ${escapeHtml(data.student.name)}</span>
+        <button class="pv-close-btn" data-action="close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="gd-body">
+        <div class="gd-stats">
+          <div class="gd-stat"><span class="gd-stat-label">Exercises</span><span class="gd-stat-value">${data.performance.total_exercises}</span></div>
+          <div class="gd-stat"><span class="gd-stat-label">Avg Score</span><span class="gd-stat-value" style="color:var(--color-brand-600)">${data.performance.average_score !== null ? data.performance.average_score + '%' : '-'}</span></div>
+          <div class="gd-stat"><span class="gd-stat-label">Puzzles</span><span class="gd-stat-value">${data.performance.total_puzzles_solved}/${data.performance.total_puzzles}</span></div>
+        </div>
+        ${data.performance.history.length === 0 ?
+          '<p style="text-align:center;color:var(--color-gray-400);padding:20px">No graded exercises yet</p>' :
+          `<div class="ep-table-wrap"><table class="ep-table"><thead><tr><th>Week</th><th>Score</th><th>%</th></tr></thead><tbody>
+            ${data.performance.history.map(h => `<tr><td>${escapeHtml(h.week)}</td><td>${h.score}/${h.total}</td><td>${h.percentage}%</td></tr>`).join('')}
+          </tbody></table></div>`}
+      </div>
+      <div class="gd-footer"><button class="btn-outline" data-action="close" style="padding:10px 24px">Close</button></div>
+    `
+    dialog.querySelectorAll('[data-action="close"]').forEach(b => b.addEventListener('click', close))
+  }).catch(err => {
+    dialog.querySelector('.gd-dialog').innerHTML = `<div style="padding:40px;text-align:center;color:var(--color-error-500)">${escapeHtml(err.message)}</div>`
+  })
 }
 
 function escapeHtml(str) {
