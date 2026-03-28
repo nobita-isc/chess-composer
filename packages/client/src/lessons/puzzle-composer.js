@@ -199,7 +199,7 @@ export function openPuzzleComposer({ apiClient, lessonId, lessonTitle, onSave, o
       // Auto-generate titles for untitled puzzles
       puzzles = puzzles.map((p, i) => p.title ? p : { ...p, title: `Challenge ${i + 1}` })
 
-      // Validate all puzzles
+      // Validate all puzzles — FEN + moves
       for (let i = 0; i < puzzles.length; i++) {
         const p = puzzles[i]
         if (!p.puzzle_fen) {
@@ -212,6 +212,13 @@ export function openPuzzleComposer({ apiClient, lessonId, lessonTitle, onSave, o
           currentPuzzleIndex = i
           render()
           overlay.querySelector('#pc-fen-error').textContent = 'Invalid FEN position'
+          return
+        }
+        const moveError = validatePuzzleMoves(p)
+        if (moveError) {
+          currentPuzzleIndex = i
+          render()
+          overlay.querySelector('#pc-save-error').textContent = `Challenge ${i + 1}: ${moveError}`
           return
         }
       }
@@ -283,19 +290,63 @@ export function openPuzzleComposer({ apiClient, lessonId, lessonTitle, onSave, o
       })
     }
 
-    // Prev/Next puzzle navigation
+    // Prev/Next puzzle navigation with move validation
     overlay.querySelector('#pc-prev-puzzle')?.addEventListener('click', () => {
       if (currentPuzzleIndex <= 0) return
-      saveCurrentFormState()
+      validateCurrentPuzzle() // warn but allow navigation
       currentPuzzleIndex--
       render()
     })
     overlay.querySelector('#pc-next-puzzle')?.addEventListener('click', () => {
       if (currentPuzzleIndex >= puzzles.length - 1) return
-      saveCurrentFormState()
+      validateCurrentPuzzle() // warn but allow navigation
       currentPuzzleIndex++
       render()
     })
+  }
+
+  // ==================== Validation ====================
+
+  /**
+   * Validate that all moves in a puzzle's hint sequence are legal from its FEN.
+   * Returns null if valid, or an error string if invalid.
+   */
+  function validatePuzzleMoves(puzzle) {
+    if (!puzzle.puzzle_fen) return null // no FEN = nothing to validate
+    const hints = puzzle.puzzle_hints || []
+    if (hints.length === 0) return null
+
+    try {
+      const tempChess = new Chess(puzzle.puzzle_fen)
+      for (let i = 0; i < hints.length; i++) {
+        const move = hints[i].move
+        if (!move) return `Move ${i + 1} is empty`
+        try {
+          const result = tempChess.move(move)
+          if (!result) return `Move ${i + 1} "${move}" is not legal in this position`
+        } catch {
+          return `Move ${i + 1} "${move}" is not a valid move`
+        }
+      }
+    } catch {
+      return 'Invalid FEN position'
+    }
+    return null
+  }
+
+  /**
+   * Validate current puzzle and show warning. Returns true if valid or user can proceed.
+   */
+  function validateCurrentPuzzle() {
+    saveCurrentFormState()
+    const puzzle = puzzles[currentPuzzleIndex]
+    const error = validatePuzzleMoves(puzzle)
+    if (error) {
+      overlay.querySelector('#pc-save-error').textContent = `Challenge ${currentPuzzleIndex + 1}: ${error}`
+      return false
+    }
+    overlay.querySelector('#pc-save-error').textContent = ''
+    return true
   }
 
   // ==================== State Management ====================
@@ -436,10 +487,12 @@ function buildComposerHTML(lessonTitle, puzzle, puzzleIndex, puzzleCount, isEdit
 
         <!-- Right: Form Panel -->
         <div style="flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:16px">
+          ${puzzleIndex === 0 ? `
           <div>
             <label style="${labelStyle}">Puzzle Title</label>
             <input type="text" id="pc-title" placeholder="Optional — auto-generates as 'Challenge 1', 'Challenge 2'..." style="${inputStyle}">
           </div>
+          ` : `<input type="hidden" id="pc-title" value="">`}
           <div>
             <label style="${labelStyle}">FEN Position</label>
             <input type="text" id="pc-fen" placeholder="rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1" style="${inputStyle};font-family:monospace;font-size:12px">
