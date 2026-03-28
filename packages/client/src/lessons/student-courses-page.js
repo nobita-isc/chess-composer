@@ -21,7 +21,16 @@ export async function renderStudentCourses(contentEl, apiClient) {
   contentEl.innerHTML = '<div class="loading-cell">Loading courses...</div>'
 
   try {
-    const courses = await apiClient.getMyCourses()
+    let courses = []
+    try {
+      courses = await apiClient.getMyCourses()
+    } catch (err) {
+      if (err.message?.includes('Student account required')) {
+        contentEl.innerHTML = '<div class="empty-state"><p>Your user account is not linked to a student profile.</p><p class="empty-hint">Ask your teacher to link your account in User Management.</p></div>'
+        return
+      }
+      throw err
+    }
     let gamification = null
     try { gamification = await apiClient.getMyGamification() } catch {}
 
@@ -67,9 +76,14 @@ export async function renderStudentCourses(contentEl, apiClient) {
       </div>
     `
 
-    // Click card → open course detail
+    // Click card or button → open course detail
     contentEl.querySelectorAll('.course-card').forEach(card => {
-      card.addEventListener('click', () => showCourseDetail(contentEl, apiClient, card.dataset.courseId))
+      card.addEventListener('click', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        const courseId = card.dataset.courseId
+        if (courseId) showCourseDetail(contentEl, apiClient, courseId)
+      })
     })
   } catch (error) {
     contentEl.innerHTML = `<div class="error-cell">Error: ${escapeHtml(error.message)}</div>`
