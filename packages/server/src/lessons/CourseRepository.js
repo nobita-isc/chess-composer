@@ -199,6 +199,10 @@ export class CourseRepository {
     return { success: true }
   }
 
+  resetContentProgress(studentId, contentId) {
+    database.run('DELETE FROM lesson_progress WHERE student_id = ? AND content_id = ?', [studentId, contentId])
+  }
+
   getStudentCourseProgress(studentId, courseId) {
     return database.query(`
       SELECT lc.id as content_id, lc.content_type, lc.title, lc.lesson_id, lc.order_index, lc.xp_reward,

@@ -90,9 +90,12 @@ export function openLessonPlayer(course, options = {}) {
               <span style="font-size:12px;color:#94a3b8">Item ${currentIndex + 1} of ${allItems.length}</span>
             </div>
             ${readOnly ? '<span style="font-size:12px;color:#94a3b8">Preview mode</span>' : `
-              <button id="lp-next" style="display:flex;align-items:center;gap:8px;padding:12px 24px;background:#4f46e5;border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:600;cursor:pointer">
-                ${currentIndex < allItems.length - 1 ? 'Mark Complete & Next →' : 'Complete Lesson ✓'}
-              </button>
+              <div style="display:flex;gap:8px">
+                ${current.completed ? `<button id="lp-reset" style="padding:12px 24px;background:#fff;border:1px solid #d1d5db;border-radius:10px;color:#64748b;font-size:14px;font-weight:500;cursor:pointer">Reset Progress</button>` : ''}
+                <button id="lp-next" style="display:flex;align-items:center;gap:8px;padding:12px 24px;background:${current.completed ? '#059669' : '#4f46e5'};border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:600;cursor:pointer">
+                  ${current.completed ? (currentIndex < allItems.length - 1 ? 'Next →' : '✓ All Done') : (currentIndex < allItems.length - 1 ? 'Mark Complete & Next →' : 'Complete Lesson ✓')}
+                </button>
+              </div>
             `}
           </div>
         </div>
@@ -104,6 +107,15 @@ export function openLessonPlayer(course, options = {}) {
     overlay.querySelectorAll('.lp-item').forEach(btn => {
       btn.addEventListener('click', () => { currentIndex = parseInt(btn.dataset.idx); render() })
     })
+
+    const resetBtn = overlay.querySelector('#lp-reset')
+    if (resetBtn && apiClient) {
+      resetBtn.addEventListener('click', async () => {
+        const item = allItems[currentIndex]
+        try { await apiClient.resetContentProgress(item.id); item.completed = 0 } catch {}
+        render()
+      })
+    }
 
     const nextBtn = overlay.querySelector('#lp-next')
     if (nextBtn && apiClient) {

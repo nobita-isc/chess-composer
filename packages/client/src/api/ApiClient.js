@@ -369,6 +369,7 @@ export class ApiClient {
   async getMyCourses() { return (await this.get('/my/courses')).data; }
   async getMyCourse(id) { return (await this.get(`/my/courses/${id}`)).data; }
   async markContentComplete(contentId, data = {}) { return await this.put(`/my/content/${contentId}/complete`, data); }
+  async resetContentProgress(contentId) { return await this.put(`/my/content/${contentId}/reset`, {}); }
   async getMyGamification() { return (await this.get('/my/gamification')).data; }
 
   // ==================== Exercise API ====================

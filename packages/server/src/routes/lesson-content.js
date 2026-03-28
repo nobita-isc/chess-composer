@@ -205,6 +205,18 @@ lessonContent.put('/my/content/:id/complete', async (c) => {
   }
 })
 
+lessonContent.put('/my/content/:id/reset', async (c) => {
+  try {
+    const user = c.get('user')
+    if (!user?.student_id) return c.json({ success: false, error: 'Student account required' }, 403)
+    const contentId = c.req.param('id')
+    courseRepository.resetContentProgress(user.student_id, contentId)
+    return c.json({ success: true })
+  } catch (error) {
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
+
 lessonContent.get('/my/gamification', (c) => {
   try {
     const user = c.get('user')
