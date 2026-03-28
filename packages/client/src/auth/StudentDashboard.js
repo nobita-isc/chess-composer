@@ -4,7 +4,7 @@
  */
 
 import { authManager } from './AuthManager.js';
-import { openPuzzlePlayer } from '../exercises/PuzzlePlayer.js';
+import { openExercisePuzzleViewer } from '../exercises/ExercisePuzzleViewer.js';
 
 const STATUS_LABELS = {
   'assigned': 'Assigned',
@@ -240,21 +240,9 @@ export function renderStudentDashboard(container, apiClient, { initialTab = 'exe
         throw new Error('Failed to load exercise puzzles');
       }
 
-      const pastDeadline = isPastDeadline(weekEnd);
-      const isLocked = pastDeadline || isFinal;
-
-      // Locked (final or past deadline): read-only review (no moves)
-      // Otherwise: allow solving and saving (studentMode)
-      openPuzzlePlayer(exerciseData, {
-        apiClient,
-        studentMode: !isLocked,
-        reviewMode: isLocked,
-        studentExerciseId: !isLocked ? studentExerciseId : null,
-        existingResults: puzzleResults || null,
-        existingHints: puzzleHints || null,
-        onComplete: () => {
-          renderTab();
-        }
+      // Use modern puzzle viewer for all modes
+      openExercisePuzzleViewer(exerciseData, {
+        onGraded: () => renderTab()
       });
     } catch (error) {
       contentEl.innerHTML = `<div class="error-message">Failed to load exercise: ${escapeHtml(error.message)}</div>`;
