@@ -14,7 +14,10 @@
     "build": "npm run build -w @chess-composer/client",
     "build:db": "node scripts/build-sqlite-db-optimized.js",
     "build:db:test": "node scripts/build-sqlite-db-optimized.js --limit 1000",
-    "start": "npm run start -w @chess-composer/server"
+    "start": "npm run start -w @chess-composer/server",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [
     "chess",
@@ -23,7 +26,9 @@
   ],
   "license": "MIT",
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.2",
     "concurrently": "^8.2.2",
-    "papaparse": "^5.4.1"
+    "papaparse": "^5.4.1",
+    "vitest": "^4.1.2"
   }
 }
