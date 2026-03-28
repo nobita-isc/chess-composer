@@ -121,35 +121,54 @@ export class DatabaseGenerator {
       minPopularity = 85
     } = options;
 
-    // Map theme to Lichess tags
-    let themes = [];
-    if (theme) {
-      const lichessTags = this.toLichessTag(theme);
-      themes = Array.isArray(lichessTags) ? lichessTags : [lichessTags];
+    // Parse theme(s) — supports comma-separated multi-theme
+    const themeList = theme
+      ? (theme.includes(',') ? theme.split(',').map(t => t.trim()).filter(Boolean) : [theme])
+      : [];
+
+    let selected;
+
+    if (themeList.length > 1) {
+      // Multi-theme: distribute evenly across themes, then shuffle
+      const perTheme = Math.ceil(count / themeList.length);
+      const allCandidates = [];
+      const usedIds = new Set();
+
+      for (const t of themeList) {
+        const lichessTags = this.toLichessTag(t);
+        const tags = Array.isArray(lichessTags) ? lichessTags : [lichessTags];
+        let candidates = this.loader.queryPuzzles({ themes: tags, minRating, maxRating, minPopularity, limit: perTheme * 2 });
+        // Deduplicate across themes
+        candidates = candidates.filter(p => !usedIds.has(p.id));
+        const picked = candidates.slice(0, perTheme);
+        picked.forEach(p => usedIds.add(p.id));
+        allCandidates.push(...picked);
+      }
+      // Shuffle the mixed results
+      selected = this.loader.shuffleArray(allCandidates).slice(0, count);
+    } else {
+      // Single theme or no theme
+      let themes = [];
+      if (themeList.length === 1) {
+        const lichessTags = this.toLichessTag(themeList[0]);
+        themes = Array.isArray(lichessTags) ? lichessTags : [lichessTags];
+      }
+
+      let candidates = this.loader.queryPuzzles({ themes, minRating, maxRating, minPopularity, limit: count * 2 });
+
+      // Relax criteria if not enough puzzles
+      if (candidates.length < count) {
+        candidates = this.loader.queryPuzzles({
+          themes,
+          minRating: minRating - 200,
+          maxRating: maxRating + 200,
+          minPopularity: Math.max(70, minPopularity - 15),
+          limit: count * 2
+        });
+      }
+
+      selected = candidates.slice(0, count);
     }
-
-    // Query puzzles
-    let candidates = this.loader.queryPuzzles({
-      themes,
-      minRating,
-      maxRating,
-      minPopularity,
-      limit: count * 2
-    });
-
-    // Relax criteria if not enough puzzles
-    if (candidates.length < count) {
-      candidates = this.loader.queryPuzzles({
-        themes,
-        minRating: minRating - 200,
-        maxRating: maxRating + 200,
-        minPopularity: Math.max(70, minPopularity - 15),
-        limit: count * 2
-      });
-    }
-
-    // Take first N (already randomized)
-    const selected = candidates.slice(0, count);
 
     return selected.map(puzzle => {
       const fenAfterOpponent = this.getFenAfterMove(puzzle.fen, puzzle.opponentMove);

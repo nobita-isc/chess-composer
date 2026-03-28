@@ -10,9 +10,10 @@ import { showReportDialog } from '../reports/ReportDialog.js'
 import {
   formatThemeName as formatThemeNameUtil,
   processPuzzles as processPuzzlesUtil,
-  populateThemeSelect,
+  getThemeDataForMultiSelect,
   buildGenerateParams
 } from '../puzzles/puzzleGeneration.js'
+import { createThemeMultiSelect } from '../shared/theme-multi-select.js'
 
 function escapeHtml(str) {
   if (!str) return ''
@@ -31,6 +32,7 @@ export class ChessQuizComposer {
     this.boardInstances = []
     this.solvedPuzzles = new Set()
     this.apiClient = apiClient
+    this.themeMultiSelect = null
     this.initializeUI()
   }
 
@@ -39,8 +41,11 @@ export class ChessQuizComposer {
       this.showLoading('Connecting to server...')
       const stats = await this.apiClient.getStats()
       await this.populateThemeSelector()
+      // Update label with total count
+      const label = document.querySelector('[for="theme-select-container"], #theme-select-container')?.closest('.control-group')?.querySelector('label')
+      if (label) label.textContent = `Themes (${stats.totalPuzzles.toLocaleString()} puzzles available)`
       this.hideLoading()
-      this.showToast(`Ready! ${stats.totalPuzzles.toLocaleString()} puzzles available.`, 'success')
+      this.showToast(`${stats.totalPuzzles.toLocaleString()} puzzles ready`, 'success')
     } catch (error) {
       this.hideLoading()
       if (error instanceof ApiError && error.status === 0) {
@@ -59,17 +64,22 @@ export class ChessQuizComposer {
   }
 
   async populateThemeSelector() {
-    const themeSelect = document.getElementById('theme-select')
-    if (themeSelect) await populateThemeSelect(themeSelect, this.apiClient)
+    const container = document.getElementById('theme-select-container')
+    if (!container) return
+    try {
+      const themes = await getThemeDataForMultiSelect(this.apiClient)
+      this.themeMultiSelect = createThemeMultiSelect(container, themes)
+    } catch {
+      container.innerHTML = '<span style="color:var(--color-error-500);font-size:13px">Failed to load themes</span>'
+    }
   }
 
   formatThemeName(themeId) { return formatThemeNameUtil(themeId) }
 
   async handleGenerate() {
-    const themeSelect = document.getElementById('theme-select')
     const countInput = document.getElementById('puzzle-count')
     const ratingRangeSelect = document.getElementById('rating-range')
-    const theme = themeSelect.value || null
+    const selectedThemes = this.themeMultiSelect ? this.themeMultiSelect.getSelected() : []
     const count = parseInt(countInput.value)
     const ratingRange = ratingRangeSelect.value
 
@@ -79,13 +89,13 @@ export class ChessQuizComposer {
     }
 
     try {
-      const themeName = theme ? this.formatThemeName(theme) : 'All Themes'
+      const themeName = selectedThemes.length > 0 ? selectedThemes.map(t => this.formatThemeName(t)).join(', ') : 'All Themes'
       const ratingText = ratingRange ? ` (${ratingRange})` : ''
       this.showLoading(`Generating ${count} puzzles for ${themeName}${ratingText}...`)
 
-      const params = buildGenerateParams(theme, ratingRange, count)
+      const params = buildGenerateParams(selectedThemes, ratingRange, count)
       const puzzleData = await this.apiClient.generatePuzzles(params)
-      this.puzzles = processPuzzlesUtil(puzzleData, theme)
+      this.puzzles = processPuzzlesUtil(puzzleData, selectedThemes[0] || null)
       this.solvedPuzzles = new Set()
       this.hideLoading()
       this.renderPuzzles()
@@ -669,14 +679,23 @@ export class ChessQuizComposer {
   }
 
   showToast(message, type = 'info') {
+    const icons = {
+      success: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+      error: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+      info: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+    }
+    const colors = { error: '#dc2626', success: '#059669', info: '#4f46e5' }
+    const bgColors = { error: '#fef2f2', success: '#f0fdf4', info: '#eef2ff' }
+    const borderColors = { error: '#fecaca', success: '#bbf7d0', info: '#c7d2fe' }
+
     const toast = document.createElement('div')
-    toast.className = `toast toast-${type}`
-    toast.textContent = message
-    const bg = type === 'error' ? '#dc2626' : type === 'success' ? '#059669' : '#2563eb'
-    toast.style.cssText = `position:fixed;top:20px;right:20px;background:${bg};color:white;padding:12px 24px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:100000;font-weight:500;font-size:14px;max-width:400px;animation:slideIn 0.3s ease-out;`
+    toast.style.cssText = `position:fixed;top:20px;right:20px;display:flex;align-items:center;gap:10px;background:${bgColors[type]};color:${colors[type]};border:1px solid ${borderColors[type]};padding:12px 20px;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,0.1);z-index:100000;font-weight:500;font-size:14px;max-width:420px;animation:slideIn 0.3s ease-out;`
+    toast.innerHTML = `${icons[type] || icons.info}<span>${escapeHtml(message)}</span>`
     document.body.appendChild(toast)
     setTimeout(() => {
-      toast.style.animation = 'slideOut 0.3s ease-out'
+      toast.style.opacity = '0'
+      toast.style.transform = 'translateX(20px)'
+      toast.style.transition = 'all 0.3s ease-out'
       setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast) }, 300)
     }, 4000)
   }

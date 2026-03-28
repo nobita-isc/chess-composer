@@ -227,13 +227,42 @@ export async function populateThemeSelect(selectEl, apiClient) {
 }
 
 /**
+ * Get theme data formatted for the multi-select component
+ * @param {ApiClient} apiClient
+ * @returns {Promise<Array<{theme: string, count: number, category: string, label: string}>>}
+ */
+export async function getThemeDataForMultiSelect(apiClient) {
+  const stats = await apiClient.getStats();
+  const themeCounts = new Map(stats.themes.map(t => [t.theme, t.count]));
+  const availableThemes = new Set(stats.themes.map(t => t.theme));
+  const result = [];
+
+  Object.entries(THEME_CATEGORIES).forEach(([category, themeIds]) => {
+    themeIds.forEach(id => {
+      if (availableThemes.has(id)) {
+        result.push({ theme: id, count: themeCounts.get(id) || 0, category, label: formatThemeName(id) });
+      }
+    });
+  });
+
+  const categorized = new Set(Object.values(THEME_CATEGORIES).flat());
+  stats.themes.forEach(t => {
+    if (!categorized.has(t.theme)) {
+      result.push({ theme: t.theme, count: t.count, category: 'Other Themes', label: formatThemeName(t.theme) });
+    }
+  });
+
+  return result;
+}
+
+/**
  * Build API parameters from form values
- * @param {string|null} theme - Theme ID or null for all
+ * @param {string|string[]|null} themes - Theme ID(s) or null for all
  * @param {string} ratingRange - Rating range string like "1500-2000" or ""
  * @param {number} count - Number of puzzles
  * @returns {object} Parameters for apiClient.generatePuzzles()
  */
-export function buildGenerateParams(theme, ratingRange, count) {
+export function buildGenerateParams(themes, ratingRange, count) {
   let minRating = 1000;
   let maxRating = 3000;
   if (ratingRange) {
@@ -241,5 +270,12 @@ export function buildGenerateParams(theme, ratingRange, count) {
     minRating = min;
     maxRating = max || 3000;
   }
-  return { theme: theme || null, count, minRating, maxRating, minPopularity: 80 };
+  // Support both single theme (string) and multiple themes (array)
+  let themeValue = null;
+  if (Array.isArray(themes)) {
+    themeValue = themes.length > 0 ? themes.join(',') : null;
+  } else if (themes) {
+    themeValue = themes;
+  }
+  return { theme: themeValue, count, minRating, maxRating, minPopularity: 80 };
 }

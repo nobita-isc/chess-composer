@@ -8,11 +8,12 @@
  */
 
 import {
-  populateThemeSelect,
+  getThemeDataForMultiSelect,
   buildGenerateParams,
   processPuzzles,
   RATING_RANGE_OPTIONS
 } from '../puzzles/puzzleGeneration.js';
+import { createThemeMultiSelect } from '../shared/theme-multi-select.js';
 import { renderPuzzleThumbnail, attachThumbnailZoom } from '../puzzles/staticBoard.js';
 
 /**
@@ -54,6 +55,8 @@ export function showCreateExerciseDialog(apiClient, initialPuzzles, onPuzzlesUpd
 
     // ==================== State: No Puzzles (Generate Form) ====================
 
+    let dlgThemeMultiSelect = null;
+
     const renderGenerateForm = async () => {
       innerEl.innerHTML = `
         <div class="dlg-generate-notice">
@@ -61,10 +64,8 @@ export function showCreateExerciseDialog(apiClient, initialPuzzles, onPuzzlesUpd
         </div>
         <form id="dlg-generate-form" class="inline-generate-form">
           <div class="form-group">
-            <label for="dlg-theme-select">Chess Theme</label>
-            <select id="dlg-theme-select" class="theme-select">
-              <option value="">Loading themes...</option>
-            </select>
+            <label>Chess Themes</label>
+            <div id="dlg-theme-container"></div>
           </div>
           <div class="form-group">
             <label for="dlg-rating-range">Rating Range</label>
@@ -86,13 +87,18 @@ export function showCreateExerciseDialog(apiClient, initialPuzzles, onPuzzlesUpd
         </form>
       `;
 
-      await populateThemeSelect(innerEl.querySelector('#dlg-theme-select'), apiClient);
+      try {
+        const themeData = await getThemeDataForMultiSelect(apiClient);
+        dlgThemeMultiSelect = createThemeMultiSelect(innerEl.querySelector('#dlg-theme-container'), themeData);
+      } catch {
+        innerEl.querySelector('#dlg-theme-container').innerHTML = '<span style="color:var(--color-error-500)">Failed to load themes</span>';
+      }
 
       innerEl.querySelector('.cancel-btn').addEventListener('click', () => closeDialog(null));
 
       innerEl.querySelector('#dlg-generate-form').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const theme = innerEl.querySelector('#dlg-theme-select').value || null;
+        const selectedThemes = dlgThemeMultiSelect ? dlgThemeMultiSelect.getSelected() : [];
         const ratingRange = innerEl.querySelector('#dlg-rating-range').value;
         const count = parseInt(innerEl.querySelector('#dlg-puzzle-count').value);
         const errorEl = innerEl.querySelector('#dlg-gen-error');
@@ -102,7 +108,7 @@ export function showCreateExerciseDialog(apiClient, initialPuzzles, onPuzzlesUpd
           return;
         }
 
-        await runGenerate(theme, ratingRange, count);
+        await runGenerate(selectedThemes, ratingRange, count);
       });
     };
 
@@ -147,13 +153,13 @@ export function showCreateExerciseDialog(apiClient, initialPuzzles, onPuzzlesUpd
 
     // ==================== Generate Action ====================
 
-    const runGenerate = async (theme, ratingRange, count) => {
+    const runGenerate = async (themes, ratingRange, count) => {
       renderGenerating(`Generating ${count} puzzles...`);
       try {
-        const params = buildGenerateParams(theme, ratingRange, count);
+        const params = buildGenerateParams(themes, ratingRange, count);
         const rawPuzzles = await apiClient.generatePuzzles(params);
         if (closed) return;
-        const processed = processPuzzles(rawPuzzles, theme);
+        const processed = processPuzzles(rawPuzzles, Array.isArray(themes) ? themes[0] : themes);
         activePuzzles = processed;
         onPuzzlesUpdated(processed);
         renderExerciseForm(processed);
