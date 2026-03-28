@@ -124,14 +124,29 @@ export function formatThemeName(themeId) {
 /**
  * Process raw puzzle data from the API into the client-side puzzle format
  * @param {object[]} puzzleData - Raw puzzles from apiClient.generatePuzzles()
- * @param {string|null} selectedTheme - The theme filter used for generation
+ * @param {string|string[]|null} selectedThemes - Theme(s) used for generation (string, array, or null)
  * @returns {object[]} Processed puzzles with enriched metadata
  */
-export function processPuzzles(puzzleData, selectedTheme) {
+export function processPuzzles(puzzleData, selectedThemes) {
+  // Normalize to array for matching
+  const themeFilter = Array.isArray(selectedThemes)
+    ? selectedThemes
+    : (selectedThemes ? [selectedThemes] : []);
+
   return puzzleData.map((puzzle, i) => {
     const chess = new Chess(puzzle.fen);
     const sideInPosition = chess.turn();
-    const puzzleTheme = selectedTheme || (puzzle.themes && puzzle.themes[0]) || null;
+
+    // Find the best matching theme: prefer selected theme that appears in puzzle's themes
+    let puzzleTheme = null;
+    const puzzleThemesList = puzzle.themes || [];
+    if (themeFilter.length > 0) {
+      puzzleTheme = themeFilter.find(t =>
+        puzzleThemesList.some(pt => pt.toLowerCase() === t.toLowerCase())
+      ) || themeFilter[0];
+    } else {
+      puzzleTheme = puzzleThemesList[0] || null;
+    }
 
     return {
       id: puzzle.id || `puzzle_${Date.now()}_${i}`,

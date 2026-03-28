@@ -95,7 +95,7 @@ export class ChessQuizComposer {
 
       const params = buildGenerateParams(selectedThemes, ratingRange, count)
       const puzzleData = await this.apiClient.generatePuzzles(params)
-      this.puzzles = processPuzzlesUtil(puzzleData, selectedThemes[0] || null)
+      this.puzzles = processPuzzlesUtil(puzzleData, selectedThemes)
       this.solvedPuzzles = new Set()
       this.hideLoading()
       this.renderPuzzles()

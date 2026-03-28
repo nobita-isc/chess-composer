@@ -159,7 +159,7 @@ export function showCreateExerciseDialog(apiClient, initialPuzzles, onPuzzlesUpd
         const params = buildGenerateParams(themes, ratingRange, count);
         const rawPuzzles = await apiClient.generatePuzzles(params);
         if (closed) return;
-        const processed = processPuzzles(rawPuzzles, Array.isArray(themes) ? themes[0] : themes);
+        const processed = processPuzzles(rawPuzzles, themes);
         activePuzzles = processed;
         onPuzzlesUpdated(processed);
         renderExerciseForm(processed);
