@@ -155,10 +155,11 @@ lessonContent.put('/my/content/:id/complete', async (c) => {
       xp_earned: xpReward
     })
 
-    // Add XP to gamification
+    // Add XP and check badges
     courseRepository.addXP(user.student_id, xpReward)
+    const newBadges = courseRepository.checkAndAwardBadges(user.student_id, body.course_id || null)
 
-    return c.json({ success: true, xp_earned: xpReward })
+    return c.json({ success: true, xp_earned: xpReward, new_badges: newBadges })
   } catch (error) {
     return c.json({ success: false, error: error.message }, 500)
   }

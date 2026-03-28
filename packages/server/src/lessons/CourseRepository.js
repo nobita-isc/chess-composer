@@ -237,6 +237,54 @@ export class CourseRepository {
         [newStreak, longest, today, studentId])
     }
   }
+
+  /**
+   * Check and award badges based on current progress.
+   * @param {string} studentId
+   * @param {string} courseId - optional, to check course-specific badges
+   */
+  checkAndAwardBadges(studentId, courseId = null) {
+    const gam = this.getOrCreateGamification(studentId)
+    const badges = new Set(gam.badges)
+    const initialCount = badges.size
+
+    // Streak badges
+    if (gam.current_streak >= 7) badges.add('streak-7')
+    if (gam.current_streak >= 30) badges.add('streak-30')
+
+    // Check course completion
+    if (courseId) {
+      const progress = this.getStudentCourseProgress(studentId, courseId)
+      if (progress.length > 0 && progress.every(p => p.completed)) {
+        badges.add(`course-${courseId}`)
+        // First course badge
+        if (!gam.badges.includes('first-course')) badges.add('first-course')
+      }
+
+      // Perfect score (all puzzles correct in a lesson)
+      const lessons = database.query('SELECT id FROM lessons WHERE course_id = ?', [courseId])
+      for (const lesson of lessons) {
+        const items = database.query(
+          `SELECT lc.id, lc.content_type, COALESCE(lp.completed, 0) as completed, lp.puzzle_result
+           FROM lesson_content lc
+           LEFT JOIN lesson_progress lp ON lp.content_id = lc.id AND lp.student_id = ?
+           WHERE lc.lesson_id = ?`, [studentId, lesson.id]
+        )
+        const puzzles = items.filter(i => i.content_type === 'puzzle')
+        if (puzzles.length > 0 && puzzles.every(p => p.completed && p.puzzle_result === '1')) {
+          badges.add(`perfect-${lesson.id}`)
+        }
+      }
+    }
+
+    // Save if new badges were earned
+    if (badges.size > initialCount) {
+      database.run('UPDATE student_gamification SET badges = ? WHERE student_id = ?',
+        [JSON.stringify([...badges]), studentId])
+    }
+
+    return [...badges].filter(b => !gam.badges.includes(b)) // return newly earned
+  }
 }
 
 export const courseRepository = new CourseRepository()
