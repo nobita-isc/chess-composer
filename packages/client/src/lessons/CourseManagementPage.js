@@ -5,6 +5,7 @@
 
 import { showAppConfirm, showAppPrompt, showAppAlert } from '../shared/app-dialogs.js'
 import { showLessonContentEditor } from './lesson-content-editor.js'
+import { openLessonPlayer } from './lesson-player.js'
 
 const SKILL_LABELS = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced' }
 const SKILL_BADGE_CLS = { beginner: 'badge-beginner', intermediate: 'badge-intermediate', advanced: 'badge-advanced' }
@@ -105,7 +106,8 @@ export function renderCoursesPage(container, apiClient) {
               } else if (action === 'assign') {
                 showAssignDialog(apiClient, courseId)
               } else if (action === 'preview') {
-                showAppAlert({ title: 'Preview', message: 'Preview mode will open the course as a student would see it. (Coming soon)' })
+                const previewData = await apiClient.previewCourse(courseId)
+                openLessonPlayer(previewData, { readOnly: true })
               } else if (action === 'more') {
                 document.querySelectorAll('.gd-dropdown').forEach(d => d.remove())
                 const dropdown = document.createElement('div')

@@ -77,13 +77,19 @@ export function createAdminRoutes({ renderGenerate, renderExercises, renderRepor
   ]
 }
 
-export function createStudentRoutes({ renderMyExercises, renderPerformance }) {
+export function createStudentRoutes({ renderMyExercises, renderPerformance, renderCourses }) {
   const guards = [authGuard, studentGuard]
   return [
     {
       path: '/my-exercises',
       name: 'my-exercises',
       render: renderMyExercises,
+      guards
+    },
+    {
+      path: '/courses',
+      name: 'courses',
+      render: renderCourses,
       guards
     },
     {

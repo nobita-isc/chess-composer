@@ -3,7 +3,7 @@
  * Student view: browse assigned courses, see progress, open lesson player.
  */
 
-import { openExercisePuzzleViewer } from '../exercises/ExercisePuzzleViewer.js'
+import { openLessonPlayer } from './lesson-player.js'
 
 function escapeHtml(str) {
   if (!str) return ''
@@ -69,21 +69,30 @@ export async function renderStudentCourses(contentEl, apiClient) {
               <div style="height:6px;background:var(--color-gray-200);border-radius:3px;overflow:hidden">
                 <div style="width:${c.progress_pct}%;height:100%;background:${c.progress_pct === 100 ? '#059669' : '#4f46e5'};border-radius:3px"></div>
               </div>
-              <button class="generate-btn" style="width:100%;padding:10px;font-size:13px">${c.progress_pct === 100 ? '✓ Completed' : c.progress_pct > 0 ? 'Continue Learning' : 'Start Course'}</button>
+              <button class="generate-btn course-open-btn" data-cid="${escapeHtml(c.course_id)}" style="width:100%;padding:10px;font-size:13px">${c.progress_pct === 100 ? '✓ Completed' : c.progress_pct > 0 ? 'Continue Learning' : 'Start Course'}</button>
             </div>
           </div>
         `).join('')}
       </div>
     `
 
-    // Click card or button → open course detail
+    // Click card or button → open lesson player directly
+    const openCourse = async (courseId) => {
+      try {
+        const course = await apiClient.getMyCourse(courseId)
+        openLessonPlayer(course, {
+          apiClient,
+          onClose: () => renderStudentCourses(contentEl, apiClient)
+        })
+      } catch (err) {
+        contentEl.innerHTML = `<div class="error-cell">Error: ${escapeHtml(err.message)}</div>`
+      }
+    }
     contentEl.querySelectorAll('.course-card').forEach(card => {
-      card.addEventListener('click', (e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        const courseId = card.dataset.courseId
-        if (courseId) showCourseDetail(contentEl, apiClient, courseId)
-      })
+      card.addEventListener('click', () => { if (card.dataset.courseId) openCourse(card.dataset.courseId) })
+    })
+    contentEl.querySelectorAll('.course-open-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => { e.stopPropagation(); if (btn.dataset.cid) openCourse(btn.dataset.cid) })
     })
   } catch (error) {
     contentEl.innerHTML = `<div class="error-cell">Error: ${escapeHtml(error.message)}</div>`
@@ -95,6 +104,7 @@ async function showCourseDetail(contentEl, apiClient, courseId) {
 
   try {
     const course = await apiClient.getMyCourse(courseId)
+    if (!course) { contentEl.innerHTML = '<div class="error-cell">Course not found</div>'; return }
     const lessons = course.lessons || []
 
     contentEl.innerHTML = `
@@ -139,26 +149,13 @@ async function showCourseDetail(contentEl, apiClient, courseId) {
 
     contentEl.querySelector('#back-to-courses').addEventListener('click', () => renderStudentCourses(contentEl, apiClient))
 
-    // Click lesson item to interact
+    // Click lesson item → open lesson player
     contentEl.querySelectorAll('.lesson-item').forEach(item => {
-      item.addEventListener('click', async () => {
-        const contentId = item.dataset.contentId
-        const type = item.dataset.type
-
-        if (type === 'video') {
-          const url = item.dataset.url
-          if (url) window.open(url, '_blank')
-          await apiClient.markContentComplete(contentId, { xp_earned: 10 })
-          showCourseDetail(contentEl, apiClient, courseId)
-        } else if (type === 'puzzle' && item.dataset.fen) {
-          // Open puzzle viewer with the FEN
-          const puzzle = { fen: item.dataset.fen, moves: item.dataset.moves, themes: '', rating: 0, id: contentId }
-          openExercisePuzzleViewer({ puzzles: [puzzle], name: item.querySelector('[style*="font-weight:500"]')?.textContent || 'Puzzle' })
-          await apiClient.markContentComplete(contentId, { xp_earned: 20 })
-        } else {
-          await apiClient.markContentComplete(contentId, { xp_earned: item.dataset.type === 'quiz' ? 15 : 5 })
-          showCourseDetail(contentEl, apiClient, courseId)
-        }
+      item.addEventListener('click', () => {
+        openLessonPlayer(course, {
+          apiClient,
+          onClose: () => showCourseDetail(contentEl, apiClient, courseId)
+        })
       })
     })
   } catch (error) {

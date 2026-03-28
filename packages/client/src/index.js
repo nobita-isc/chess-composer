@@ -81,6 +81,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderMyExercises: (container) => {
         return renderStudentDashboard(container, apiClient, { initialTab: 'exercises' })
       },
+      renderCourses: (container) => {
+        return renderStudentDashboard(container, apiClient, { initialTab: 'courses' })
+      },
       renderPerformance: (container) => {
         return renderStudentDashboard(container, apiClient, { initialTab: 'performance' })
       }

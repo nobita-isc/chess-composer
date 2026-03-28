@@ -13,6 +13,7 @@
     "chessground": "^9.2.1"
   },
   "devDependencies": {
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "vite-plugin-pwa": "^1.2.0"
   }
 }

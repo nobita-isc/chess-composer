@@ -5,6 +5,13 @@
 import { Hono } from 'hono'
 import { courseRepository } from '../lessons/CourseRepository.js'
 import { requireRole } from '../middleware/roleMiddleware.js'
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const courseUploadsDir = path.join(__dirname, '../../uploads/courses')
+if (!fs.existsSync(courseUploadsDir)) fs.mkdirSync(courseUploadsDir, { recursive: true })
 
 const lessonContent = new Hono()
 
@@ -83,6 +90,39 @@ lessonContent.put('/lessons/:id/reorder', requireRole('admin'), async (c) => {
     if (!Array.isArray(orderedIds)) return c.json({ success: false, error: 'orderedIds array required' }, 400)
     const result = courseRepository.reorderContent(c.req.param('id'), orderedIds)
     return c.json(result)
+  } catch (error) {
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
+
+// ==================== File Upload ====================
+
+lessonContent.post('/content/upload', requireRole('admin'), async (c) => {
+  try {
+    const body = await c.req.parseBody()
+    const file = body['file']
+    if (!file || typeof file === 'string') return c.json({ success: false, error: 'No file uploaded' }, 400)
+
+    const maxSize = 100 * 1024 * 1024
+    const buffer = Buffer.from(await file.arrayBuffer())
+    if (buffer.length > maxSize) return c.json({ success: false, error: 'File too large (max 100MB)' }, 400)
+
+    const ext = path.extname(file.name || '').toLowerCase()
+    const allowed = ['.mp4', '.pdf', '.png', '.jpg', '.jpeg', '.webm']
+    if (!allowed.includes(ext)) return c.json({ success: false, error: `File type ${ext} not allowed` }, 400)
+
+    const filename = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}${ext}`
+    const filePath = path.join(courseUploadsDir, filename)
+    fs.writeFileSync(filePath, buffer)
+
+    return c.json({
+      success: true,
+      data: {
+        file_path: `/uploads/courses/${filename}`,
+        file_name: file.name,
+        file_size: buffer.length
+      }
+    })
   } catch (error) {
     return c.json({ success: false, error: error.message }, 500)
   }

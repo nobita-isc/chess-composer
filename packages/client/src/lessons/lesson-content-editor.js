@@ -148,7 +148,7 @@ export async function showLessonContentEditor(apiClient, lessonId, lessonTitle, 
 
   async function addContent(type) {
     if (type === 'video' || type === 'pdf') {
-      const result = await showUploadContentDialog(type)
+      const result = await showUploadContentDialog(type, apiClient)
       if (!result) return
       await apiClient.createContent(lessonId, result)
     } else if (type === 'puzzle') {
@@ -176,7 +176,7 @@ export async function showLessonContentEditor(apiClient, lessonId, lessonTitle, 
 
 // ==================== Upload Content Dialog (Video URL / Upload File) ====================
 
-function showUploadContentDialog(defaultType = 'video') {
+function showUploadContentDialog(defaultType = 'video', apiClient = null) {
   return new Promise((resolve) => {
     const inputStyle = 'width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;box-sizing:border-box;font-family:inherit'
     const labelStyle = 'display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:6px'
@@ -257,7 +257,7 @@ function showUploadContentDialog(defaultType = 'video') {
       }
 
       // Submit
-      dlg.querySelector('#uc-submit').addEventListener('click', () => {
+      dlg.querySelector('#uc-submit').addEventListener('click', async () => {
         const title = dlg.querySelector('#uc-title').value.trim()
         if (!title) { showAppAlert({ title: 'Required', message: 'Please enter a display title' }); return }
 
@@ -268,9 +268,26 @@ function showUploadContentDialog(defaultType = 'video') {
           resolve({ content_type: 'video', title, video_url: url, xp_reward: 10 })
         } else {
           const file = fileInput?.files?.[0]
-          const contentType = file?.name?.endsWith('.pdf') ? 'pdf' : 'video'
-          dlg.remove()
-          resolve({ content_type: contentType, title, file_path: file?.name || 'uploaded', xp_reward: contentType === 'pdf' ? 5 : 10 })
+          if (!file) { showAppAlert({ title: 'Required', message: 'Please select a file' }); return }
+          // Upload file to server
+          const submitBtn = dlg.querySelector('#uc-submit')
+          submitBtn.textContent = 'Uploading...'
+          submitBtn.disabled = true
+          try {
+            const formData = new FormData()
+            formData.append('file', file)
+            const token = apiClient._authManager?.getAccessToken() || ''
+            const res = await fetch('/api/content/upload', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData })
+            const result = await res.json()
+            if (!result.success) throw new Error(result.error)
+            const contentType = file.name.endsWith('.pdf') ? 'pdf' : 'video'
+            dlg.remove()
+            resolve({ content_type: contentType, title, file_path: result.data.file_path, file_size: result.data.file_size, xp_reward: contentType === 'pdf' ? 5 : 10 })
+          } catch (err) {
+            submitBtn.textContent = 'Add to Lesson'
+            submitBtn.disabled = false
+            showAppAlert({ title: 'Upload Failed', message: err.message })
+          }
         }
       })
     }

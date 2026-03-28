@@ -3,6 +3,11 @@
  * Hono-based REST API with better-sqlite3 database
  */
 
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
@@ -98,6 +103,32 @@ app.route('/api/exercises', exercises);
 app.route('/api/student-exercises', studentExercises);
 app.route('/api/courses', coursesRoute);
 app.route('/api', lessonContentRoute);
+
+// Serve uploaded course files with range request support (for video seeking)
+app.get('/uploads/courses/:filename', (c) => {
+  const filename = c.req.param('filename')
+  const filePath = path.join(__dirname, '../uploads/courses', filename)
+  if (!fs.existsSync(filePath)) return c.json({ error: 'Not found' }, 404)
+  const ext = path.extname(filename).toLowerCase()
+  const mimeTypes = { '.mp4': 'video/mp4', '.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webm': 'video/webm' }
+  const stat = fs.statSync(filePath)
+  const range = c.req.header('Range')
+
+  if (range && (ext === '.mp4' || ext === '.webm')) {
+    const parts = range.replace(/bytes=/, '').split('-')
+    const start = parseInt(parts[0], 10)
+    const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1
+    const chunk = end - start + 1
+    const stream = fs.createReadStream(filePath, { start, end })
+    return new Response(stream, {
+      status: 206,
+      headers: { 'Content-Range': `bytes ${start}-${end}/${stat.size}`, 'Accept-Ranges': 'bytes', 'Content-Length': chunk.toString(), 'Content-Type': mimeTypes[ext] }
+    })
+  }
+
+  const data = fs.readFileSync(filePath)
+  return new Response(data, { headers: { 'Content-Type': mimeTypes[ext] || 'application/octet-stream', 'Accept-Ranges': 'bytes', 'Content-Length': stat.size.toString() } })
+})
 
 // Health check
 app.get('/health', (c) => {
