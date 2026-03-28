@@ -22,10 +22,34 @@ puzzle_hints TEXT         -- JSON: ["Look at the knight", "Nf6 blocks the attack
 puzzle_video_url TEXT     -- optional video explanation for this puzzle
 ```
 
-Each hint corresponds to a move in the solution sequence. If solution is "Nf6 d4 Bb4", hints could be:
-- Move 1 hint: "How can Black block White's attack on f7?"
-- Move 2 hint: "What's Black's best response to d4?"
-- Move 3 hint: "Pin the knight!"
+Moves alternate between student and computer. Each move has a role and explanation:
+
+```
+Solution: Nf6 d4 Bb4 Nxe5 d5
+Move sequence:
+  1. Student plays: Nf6
+     → Hint: "How can Black block White's attack on f7?"
+     → After correct: "Great! Nf6 blocks the threat"
+  2. Computer plays: d4
+     → Explanation: "White pushes in the center to gain space"
+  3. Student plays: Bb4
+     → Hint: "Pin the knight to win material"
+     → After correct: "The pin is devastating"
+  4. Computer plays: Nxe5
+     → Explanation: "White tries to maintain pressure"
+  5. Student plays: d5
+     → Hint: "Counter-attack in the center!"
+```
+
+Data format — `puzzle_hints` JSON:
+```json
+[
+  { "move": "Nf6", "role": "student", "hint": "Block f7 attack", "explanation": "Nf6 blocks the threat" },
+  { "move": "d4", "role": "computer", "explanation": "White pushes for center control" },
+  { "move": "Bb4", "role": "student", "hint": "Pin the knight!", "explanation": "The pin wins material" },
+  ...
+]
+```
 
 ## Admin Screens
 
