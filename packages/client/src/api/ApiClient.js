@@ -338,6 +338,15 @@ export class ApiClient {
     return response.data;
   }
 
+  /**
+   * Get per-theme accuracy analytics for a student
+   * @param {string} id - Student ID
+   */
+  async getStudentThemeAnalytics(id) {
+    const response = await this.get(`/students/${id}/theme-analytics`);
+    return response.data;
+  }
+
   // ==================== Exercise API ====================
 
   /**

@@ -5,6 +5,7 @@
 import { Hono } from 'hono';
 import { studentRepository } from '../students/StudentRepository.js';
 import { exerciseRepository } from '../exercises/ExerciseRepository.js';
+import { themeAnalyticsService } from '../exercises/ThemeAnalyticsService.js';
 
 const students = new Hono();
 
@@ -184,6 +185,33 @@ students.get('/:id/performance', (c) => {
       data: {
         student,
         performance
+      }
+    });
+  } catch (error) {
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+/**
+ * GET /api/students/:id/theme-analytics
+ * Get per-theme accuracy breakdown for a student
+ */
+students.get('/:id/theme-analytics', (c) => {
+  try {
+    const id = c.req.param('id');
+    const student = studentRepository.findById(id);
+
+    if (!student) {
+      return c.json({ success: false, error: 'Student not found' }, 404);
+    }
+
+    const analytics = themeAnalyticsService.getStudentThemeAnalytics(id);
+
+    return c.json({
+      success: true,
+      data: {
+        student: { id: student.id, name: student.name },
+        ...analytics
       }
     });
   } catch (error) {

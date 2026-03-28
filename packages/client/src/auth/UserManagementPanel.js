@@ -713,29 +713,71 @@ function showStudentPerformance(apiClient, studentId) {
   const dialog = document.createElement('div')
   dialog.className = 'pv-overlay'
   dialog.style.zIndex = '55000'
-  dialog.innerHTML = `<div class="gd-dialog" style="width:500px"><div class="gd-loading" style="padding:40px;text-align:center">Loading...</div></div>`
+  dialog.innerHTML = `<div class="gd-dialog" style="width:700px"><div class="gd-loading" style="padding:40px;text-align:center">Loading...</div></div>`
   document.body.appendChild(dialog)
 
   const close = () => dialog.remove()
   dialog.addEventListener('click', (e) => { if (e.target === dialog) close() })
 
-  apiClient.getStudentPerformance(studentId).then(data => {
+  Promise.all([
+    apiClient.getStudentThemeAnalytics(studentId),
+    apiClient.getStudentPerformance(studentId)
+  ]).then(([data, perfData]) => {
+    const { summary, themes } = data
+    const history = perfData.performance?.history || []
+
+    const accuracyBar = (accuracy) => {
+      const color = accuracy < 50 ? '#dc2626' : accuracy < 75 ? '#f59e0b' : '#059669'
+      const bg = accuracy < 50 ? '#fee2e2' : accuracy < 75 ? '#fef3c7' : '#dcfce7'
+      return `<div style="position:relative;height:22px;background:${bg};border-radius:6px;overflow:hidden;flex:1">
+        <div style="width:${accuracy}%;height:100%;background:${color};border-radius:6px"></div>
+        <span style="position:absolute;left:8px;top:3px;font-size:11px;font-weight:600;color:#fff">${accuracy}%</span>
+      </div>`
+    }
+
     dialog.querySelector('.gd-dialog').innerHTML = `
       <div class="gd-header">
         <span class="gd-title">Performance: ${escapeHtml(data.student.name)}</span>
         <button class="pv-close-btn" data-action="close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
-      <div class="gd-body">
+      <div class="gd-body" style="max-height:70vh;overflow-y:auto">
         <div class="gd-stats">
-          <div class="gd-stat"><span class="gd-stat-label">Exercises</span><span class="gd-stat-value">${data.performance.total_exercises}</span></div>
-          <div class="gd-stat"><span class="gd-stat-label">Avg Score</span><span class="gd-stat-value" style="color:var(--color-brand-600)">${data.performance.average_score !== null ? data.performance.average_score + '%' : '-'}</span></div>
-          <div class="gd-stat"><span class="gd-stat-label">Puzzles</span><span class="gd-stat-value">${data.performance.total_puzzles_solved}/${data.performance.total_puzzles}</span></div>
+          <div class="gd-stat"><span class="gd-stat-label">Exercises</span><span class="gd-stat-value">${summary.total_exercises}</span></div>
+          <div class="gd-stat"><span class="gd-stat-label">Avg Score</span><span class="gd-stat-value" style="color:var(--color-brand-600)">${summary.average_score !== null ? summary.average_score + '%' : '-'}</span></div>
+          <div class="gd-stat"><span class="gd-stat-label">Strongest</span><span class="gd-stat-value" style="color:var(--color-success-600);font-size:14px">${summary.strongest ? `${escapeHtml(summary.strongest.theme)} (${summary.strongest.accuracy}%)` : '-'}</span></div>
+          <div class="gd-stat"><span class="gd-stat-label">Weakest</span><span class="gd-stat-value" style="color:var(--color-error-600);font-size:14px">${summary.weakest ? `${escapeHtml(summary.weakest.theme)} (${summary.weakest.accuracy}%)` : '-'}</span></div>
         </div>
-        ${data.performance.history.length === 0 ?
-          '<p style="text-align:center;color:var(--color-gray-400);padding:20px">No graded exercises yet</p>' :
-          `<div class="ep-table-wrap"><table class="ep-table"><thead><tr><th>Week</th><th>Score</th><th>%</th></tr></thead><tbody>
-            ${data.performance.history.map(h => `<tr><td>${escapeHtml(h.week)}</td><td>${h.score}/${h.total}</td><td>${h.percentage}%</td></tr>`).join('')}
-          </tbody></table></div>`}
+        ${themes.length === 0 ?
+          '<p style="text-align:center;color:var(--color-gray-400);padding:20px">No graded exercises with theme data yet</p>' :
+          `<div style="margin-top:8px">
+            <div style="font-weight:700;font-size:15px;color:var(--color-gray-900);margin-bottom:12px">Theme Breakdown</div>
+            <div class="ep-table-wrap"><table class="ep-table"><thead><tr>
+              <th style="width:140px">Theme</th>
+              <th style="width:70px;text-align:center">Tried</th>
+              <th style="width:70px;text-align:center">Correct</th>
+              <th>Accuracy</th>
+            </tr></thead><tbody>
+              ${themes.map(t => `<tr>
+                <td style="font-weight:500">${escapeHtml(t.label)}</td>
+                <td style="text-align:center;color:var(--color-gray-500)">${t.attempted}</td>
+                <td style="text-align:center;color:var(--color-gray-500)">${t.correct}</td>
+                <td>${accuracyBar(t.accuracy)}</td>
+              </tr>`).join('')}
+            </tbody></table></div>
+          </div>`}
+        ${history.length > 0 ? `
+          <div style="margin-top:16px">
+            <div style="font-weight:700;font-size:15px;color:var(--color-gray-900);margin-bottom:12px">Exercise History</div>
+            <div class="ep-table-wrap"><table class="ep-table"><thead><tr>
+              <th>Week</th><th style="width:80px;text-align:center">Score</th><th style="width:80px;text-align:center">%</th>
+            </tr></thead><tbody>
+              ${history.map(h => `<tr>
+                <td>${escapeHtml(h.week)}</td>
+                <td style="text-align:center">${h.score}/${h.total}</td>
+                <td style="text-align:center;font-weight:600;color:${h.percentage >= 75 ? 'var(--color-success-600)' : h.percentage >= 50 ? 'var(--color-warning-500)' : 'var(--color-error-600)'}">${h.percentage}%</td>
+              </tr>`).join('')}
+            </tbody></table></div>
+          </div>` : ''}
       </div>
       <div class="gd-footer"><button class="btn-outline" data-action="close" style="padding:10px 24px">Close</button></div>
     `
