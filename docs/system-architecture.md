@@ -30,7 +30,9 @@ Chess Composer is a distributed single-page application (SPA) with a REST API ba
 │  ├─ students             │
 │  ├─ users                │
 │  ├─ exercises            │
-│  └─ results              │
+│  ├─ results              │
+│  ├─ courses/lessons      │
+│  └─ lesson_content       │
 └──────────────────────────┘
 ```
 
@@ -89,6 +91,12 @@ ExercisePanel renders puzzles
 | GradeDialog.js | Grading interface | ~300 | ✅ |
 | GenerateView.js | Puzzle generation UI | ~683 | ✅ |
 | AdminPanel.js | Admin dashboard (modern UI) | 678 | ✅ |
+| CourseManagementPage.js | Admin course/lesson/content CRUD | 388 | ✅ |
+| lesson-content-editor.js | Inline content editor + puzzle composer | 326 | ✅ |
+| lesson-player.js | Coursera-style student lesson player | 244 | ✅ |
+| lesson-puzzle-player.js | chess.com-style puzzle player (dark theme) | 387 | ✅ |
+| puzzle-composer.js | Full-screen admin puzzle composer | 558 | ✅ |
+| student-courses-page.js | Student course listing page | 164 | ✅ |
 
 ### State Management Pattern
 
@@ -221,7 +229,7 @@ Response formatting
 Client
 ```
 
-### Route Modules (8 total)
+### Route Modules (11 total)
 
 | Module | Endpoints | Methods | Status |
 |--------|-----------|---------|--------|
@@ -234,6 +242,8 @@ Client
 | reports.js | /api/reports/submit, /list, /dismiss | POST, GET, PATCH | ✅ |
 | users.js | /api/users/* (admin only) | CRUD | ✅ |
 | lichess.js | /api/lichess/... | GET (proxy) | ✅ |
+| courses.js | /api/courses/*, /api/courses/:id/lessons, assignments | CRUD | ✅ |
+| lesson-content.js | /api/lesson-content/*, file upload (100MB max), XP lookup | CRUD + POST | ✅ |
 
 ### Service Layer Example
 
@@ -332,12 +342,15 @@ class PuzzleRepository {
 ### Database Migrations
 
 ```
-001_add_source_field.js       → Add source, game_url
-002_add_exercise_tables.js    → Create exercises tables
-003_add_puzzle_results.js     → Track puzzle attempts
-004_add_users_auth.js         → Add users, auth
-005_add_puzzle_hints.js       → Add hint field
-006_add_is_final_flag.js      → Add is_final flag
+001_add_source_field.js           → Add source, game_url
+002_add_exercise_tables.js        → Create exercises tables
+003_add_puzzle_results.js         → Track puzzle attempts
+004_add_users_auth.js             → Add users, auth
+005_add_puzzle_hints.js           → Add hint field
+006_add_is_final_flag.js          → Add is_final flag
+007_add_lessons_platform.js       → courses, lessons, lesson_content, course_assignments, lesson_progress, student_gamification
+008_add_puzzle_composer_fields.js → puzzle_instruction, puzzle_hints, puzzle_video_url on lesson_content
+009_add_puzzle_challenges_field.js → puzzle_challenges (JSON array) on lesson_content
 ```
 
 Run automatically on startup:
@@ -487,6 +500,62 @@ Database: Update student_exercises
          │
          ▼
 Student sees grade in dashboard
+```
+
+### Puzzle Challenges Flow (Lessons Platform)
+
+```
+Admin: Open lesson-content-editor → click "Add Puzzle"
+   │
+   ▼
+puzzle-composer.js (full-screen overlay)
+   │
+   ├─ Admin sets up board position (FEN), moves (UCI)
+   ├─ Per-move: assign hint text + role (student | computer)
+   ├─ Optional: puzzle_instruction, puzzle_video_url
+   ├─ "Add Another" → appends to local challenges array
+   │
+   ▼
+Save: POST /api/lesson-content (or PUT /:id)
+{ content_type: 'puzzle', puzzle_challenges: [...] }
+   │
+   ▼
+CourseRepository.createContent / updateContent
+   │
+   ├─ Column allowlist validation (prevents injecting unknown columns)
+   ├─ JSON serialization: puzzle_challenges → TEXT
+   └─ Stored in lesson_content.puzzle_challenges
+   │
+   ▼
+Student: lesson-player.js loads lesson content
+   │
+   ├─ content_type === 'puzzle' → mount lesson-puzzle-player.js
+   ├─ Deserialize puzzle_challenges JSON
+   ├─ For each challenge in sequence:
+   │  ├─ Render board at puzzle_fen
+   │  ├─ Student moves → validated against puzzle_moves
+   │  ├─ Per-move hints shown if student struggles
+   │  └─ Computer auto-plays opponent moves
+   │
+   ├─ ALL challenges solved → POST /api/lesson-content/:id/complete
+   │  └─ lesson_progress row: completed=1, xp_earned
+   │
+   └─ Gamification: student_gamification.total_xp += xp_reward
+```
+
+**puzzle_challenges JSON schema (per challenge):**
+```json
+{
+  "puzzle_fen": "rnbqkbnr/...",
+  "puzzle_moves": "e2e4 e7e5",
+  "puzzle_instruction": "Find the best move for White",
+  "puzzle_hints": [
+    { "move": "e2e4", "hint": "Control the center", "role": "student" },
+    { "move": "e7e5", "hint": "Black mirrors the pawn", "role": "computer" }
+  ],
+  "puzzle_video_url": "https://...",
+  "xp_reward": 10
+}
 ```
 
 ### Reporting Flow

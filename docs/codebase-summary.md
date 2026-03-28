@@ -2,7 +2,7 @@
 
 Chess Composer is a **monorepo** with 2 npm workspaces (client & server), ~15K LOC total. Client is Vanilla JS SPA (Vite). Server is Node.js REST API (Hono). Both share chess.js dependency.
 
-**Last Updated**: 2026-03-28 (includes recent UI modernization, inline grading, exercise rename)
+**Last Updated**: 2026-03-28 (includes puzzle composer redesign, lessons platform, new lesson modules)
 
 ## Directory Structure
 
@@ -18,6 +18,7 @@ chess_composer/
 │   │   │   ├── core/            # Chess logic, routing
 │   │   │   ├── data/            # Sample puzzles (fallback)
 │   │   │   ├── exercises/       # Puzzle solver, grading, PDF
+│   │   │   ├── lessons/         # Chess lessons platform (courses, puzzles, player)
 │   │   │   ├── puzzles/         # Generation, creation, validation
 │   │   │   ├── reports/         # Admin panel, reporting
 │   │   │   ├── views/           # GenerateView, StudentDashboard
@@ -31,10 +32,11 @@ chess_composer/
 │       │   ├── auth/            # JWT generation, verification
 │       │   ├── database/        # SQLite wrapper, loader, generator
 │       │   ├── exercises/       # Exercise CRUD, PDF generation
+│       │   ├── lessons/         # CourseRepository, lessons platform logic
 │       │   ├── middleware/      # Auth, role checking
 │       │   ├── puzzles/         # Puzzle generation, validation
 │       │   ├── reports/         # Reporting system, blocking
-│       │   ├── routes/          # 8 route modules (API endpoints)
+│       │   ├── routes/          # 11 route modules (API endpoints)
 │       │   ├── shared/          # Move converter, utilities
 │       │   ├── students/        # Student CRUD
 │       │   └── users/           # User management, auth
@@ -50,7 +52,7 @@ chess_composer/
 └── README.md                    # Project overview
 ```
 
-## Client Architecture (~10,311 LOC, 28 files)
+## Client Architecture (~12,378 LOC, 34 files)
 
 ### Entry Point: `src/index.js` (211 LOC)
 - Role-based routing dispatcher
@@ -104,6 +106,20 @@ Handles puzzle solving, grading, PDF export, student management.
 - Dropdown menus with position:fixed to escape overflow
 - Password toggle component on all password inputs
 
+### Lessons Module: `src/lessons/` (6 files, ~2,067 LOC)
+
+Chess lessons platform — courses, lesson content, puzzle challenges, and student player.
+
+**Key components (2026-03-28)**
+- **CourseManagementPage.js** (388 LOC) - Admin UI: create/edit courses, lessons, content items
+- **lesson-content-editor.js** (326 LOC) - Inline content editor; integrates puzzle-composer
+- **lesson-player.js** (244 LOC) - Coursera-style student lesson player with sidebar nav + multi-challenge support
+- **lesson-puzzle-player.js** (387 LOC) - chess.com-style dark-theme puzzle player: interactive solving, per-move hints, computer auto-play, timeline feedback
+- **puzzle-composer.js** (558 LOC) - Full-screen admin puzzle composer: board preview, per-move hint editor, multi-puzzle batch creation, move validation
+- **student-courses-page.js** (164 LOC) - Student course listing and assignment view
+
+**puzzle_challenges architecture**: Multiple puzzles stored as a JSON array in one `lesson_content` row. Each challenge object: `puzzle_fen`, `puzzle_moves`, `puzzle_instruction`, `puzzle_hints[]`, `puzzle_video_url`, `xp_reward`. Student must solve ALL challenges before the item marks complete.
+
 ### Puzzles Module: `src/puzzles/` (4 files, ~1,200 LOC)
 - **CreatePuzzleDialog.js** (785 LOC) - Custom puzzle creation form
   - Could split: FENInput, MovesInput, ValidationDisplay
@@ -154,20 +170,23 @@ Handles puzzle solving, grading, PDF export, student management.
 - Rating range filtering
 - Caching of generated sets
 
-**6 Migrations** (`migrations/001-006.js`)
+**9 Migrations** (`migrations/001-009.js`)
 - 001: Add source field to puzzles
 - 002: Add exercise tables
 - 003: Add puzzle_results table
 - 004: Add users auth table
 - 005: Add puzzle_hints field
 - 006: Add is_final flag
+- 007: Chess lessons platform tables (courses, lessons, lesson_content, course_assignments, lesson_progress, student_gamification)
+- 008: Puzzle composer fields (puzzle_instruction, puzzle_hints, puzzle_video_url) on lesson_content
+- 009: puzzle_challenges column on lesson_content (multi-puzzle JSON array)
 
 ### Auth Module: `src/auth/` (1 file)
 - **AuthService.js** - JWT generation/verification, bcrypt hashing
   - Access token: 15min, refresh token: 7d
   - Password: 10-round bcrypt
 
-### Routes Module: `src/routes/` (8 files, ~1,100 LOC)
+### Routes Module: `src/routes/` (11 files, ~1,400 LOC)
 Each route module registers endpoints for a domain.
 
 **auth.js** - POST /api/auth/login, /refresh, /me
@@ -179,15 +198,14 @@ Each route module registers endpoints for a domain.
 **reports.js** - POST /submit, GET /list, PATCH /dismiss, /stats
 **users.js** - User management (admin only)
 **lichess.js** - Proxy Lichess API (reference puzzles)
-
-**New in 2026-03-28**
-- PUT /api/exercises/:id - Rename exercise (accessible via dropdown menu)
+**courses.js** - CRUD courses, lessons; GET /api/courses, /api/courses/:id, assignments
+**lesson-content.js** - CRUD lesson_content items; file upload (video/PDF 100MB max); XP lookup
 
 ### Middleware: `src/middleware/` (2 files)
 - **authMiddleware.js** - JWT verification, token refresh
 - **roleMiddleware.js** - Role-based access control (requireAdmin, etc.)
 
-### Services & Repositories: `src/*` (8+ files)
+### Services & Repositories: `src/*` (9+ files)
 Domain-specific business logic following repository pattern.
 
 **Auth**: AuthService
@@ -196,6 +214,7 @@ Domain-specific business logic following repository pattern.
 **Exercises**: ExerciseService, ExerciseRepository
 **Students**: StudentRepository
 **Reports**: PuzzleReportManager
+**Lessons**: CourseRepository (courses, lessons, lesson_content, assignments, progress, gamification)
 
 ### Utilities: `src/shared/` (1 file)
 - **MoveConverter.js** - SAN↔UCI conversion for move display
@@ -291,6 +310,74 @@ puzzle_modifications (
   modified_fen TEXT,
   modified_at TIMESTAMP
 )
+
+-- Lessons platform (migration 007-009)
+courses (
+  id TEXT PRIMARY KEY,
+  title TEXT,
+  description TEXT,
+  thumbnail_url TEXT,
+  skill_level TEXT,          -- 'beginner' | 'intermediate' | 'advanced'
+  created_at TEXT,
+  updated_at TEXT
+)
+
+lessons (
+  id TEXT PRIMARY KEY,
+  course_id TEXT,
+  order_index INTEGER,
+  title TEXT,
+  description TEXT,
+  created_at TEXT
+)
+
+lesson_content (
+  id TEXT PRIMARY KEY,
+  lesson_id TEXT,
+  order_index INTEGER,
+  content_type TEXT,         -- 'video' | 'pdf' | 'puzzle' | 'quiz'
+  title TEXT,
+  video_url TEXT,
+  file_path TEXT,
+  file_size INTEGER,
+  duration_min INTEGER,
+  puzzle_id TEXT,
+  puzzle_fen TEXT,
+  puzzle_moves TEXT,
+  quiz_data TEXT,            -- JSON
+  xp_reward INTEGER,
+  puzzle_instruction TEXT,   -- migration 008
+  puzzle_hints TEXT,         -- JSON: per-move hints (student/computer roles) — migration 008
+  puzzle_video_url TEXT,     -- migration 008
+  puzzle_challenges TEXT,    -- JSON array of challenge objects — migration 009
+  created_at TEXT
+)
+
+course_assignments (
+  id TEXT PRIMARY KEY,
+  course_id TEXT,
+  student_id TEXT,
+  assigned_at TEXT
+)
+
+lesson_progress (
+  id TEXT PRIMARY KEY,
+  student_id TEXT,
+  content_id TEXT,
+  completed INTEGER,
+  puzzle_result TEXT,
+  completed_at TEXT,
+  xp_earned INTEGER
+)
+
+student_gamification (
+  student_id TEXT PRIMARY KEY,
+  total_xp INTEGER,
+  current_streak INTEGER,
+  longest_streak INTEGER,
+  last_activity_date TEXT,
+  badges TEXT              -- JSON array
+)
 ```
 
 ## Build Pipeline
@@ -318,6 +405,7 @@ puzzle_modifications (
 | Closure | Client-side state | App object encapsulation |
 | In-memory cache | Theme index | `Map<theme, puzzles[]>` |
 | Fisher-Yates | Random sampling | Puzzle selection |
+| Column allowlist | Safe dynamic UPDATE | CourseRepository.updateContent() |
 
 ## Code Quality
 
@@ -367,26 +455,27 @@ puzzle_modifications (
 
 ## Recent Changes (2026-03-28)
 
-**New Features**
+**New: Chess Lessons Platform**
+- Full lessons platform: courses → lessons → content items (video, PDF, puzzle, quiz)
+- CourseManagementPage.js — admin UI for course/lesson/content CRUD
+- student-courses-page.js — student course listing and assigned courses view
+- lesson-player.js — Coursera-style player with sidebar navigation
+- File upload support (video/PDF, 100MB max)
+- Gamification: XP rewards, streaks, badges (student_gamification table)
+- Course assignments (course_assignments table) with per-content progress tracking
+
+**New: Puzzle Composer Redesign (chess.com-style)**
+- puzzle-composer.js (558 LOC) — full-screen admin composer with board preview, per-move hint editor, multi-puzzle batch creation, move validation
+- lesson-puzzle-player.js (387 LOC) — dark-theme interactive student puzzle player with computer auto-play and timeline feedback
+- lesson-content-editor.js — integrated puzzle composer, removed old inline dialog
+- migrations 008 & 009: puzzle_instruction, puzzle_hints (JSON), puzzle_video_url, puzzle_challenges (JSON) added to lesson_content
+- puzzle_challenges: multiple puzzles per content item stored as JSON array; student completes ALL before item marks done
+- CourseRepository: column allowlist pattern for safe dynamic UPDATE of lesson_content
+
+**Previous UI Modernization**
 - Inline puzzle grading with C/X keyboard shortcuts, auto-advance, auto-save
 - Exercise rename (PUT /api/exercises/:id)
-- Password toggle on login/create user/edit user dialogs
-- Create Student inline in Create User dialog
-- Multiple exercises per week (removed duplicate-week restriction)
-
-**UI Modernization**
-- All tabs now use modern `ep-table` pattern
-- Styled buttons: `btn-outline btn-sm` across all views
-- Dropdown menus with position:fixed to escape overflow
-- Renamed "Chess Quiz" to "Chess Trainer"
-- SVG favicon (queen icon)
-- Fixed GradeDialog z-index stacking
-
-**Bug Fixes**
-- Timezone: getWeekStart/getWeekEnd now use local time formatting (not UTC)
-- has_exercise: updated to support multiple exercises per week (findExercisesByWeek)
-- Empty .form-error no longer shows pink bar
-- Create exercise dialog: sticky footer, scrollable puzzle grid
+- Modern `ep-table` pattern, `btn-outline btn-sm` buttons, fixed-position dropdowns
 
 ## Integration Points
 
