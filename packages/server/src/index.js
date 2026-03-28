@@ -17,6 +17,7 @@ import { migrate as migratePuzzleResults } from './database/migrations/003_add_p
 import { migrate as migrateAuth } from './database/migrations/004_add_users_auth.js';
 import { migrate as migratePuzzleHints } from './database/migrations/005_add_puzzle_hints.js';
 import { migrate as migrateIsFinal } from './database/migrations/006_add_is_final_flag.js';
+import { migrate as migrateLessons } from './database/migrations/007_add_lessons_platform.js';
 
 import { authRequired } from './middleware/authMiddleware.js';
 import auth from './routes/auth.js';
@@ -61,6 +62,7 @@ function initializeServices() {
     migrateAuth(database.db);
     migratePuzzleHints(database.db);
     migrateIsFinal(database.db);
+    migrateLessons(database.db);
     console.log('Migrations completed');
   } catch (error) {
     console.error('Migration error:', error.message);
