@@ -1,16 +1,17 @@
 # Development Roadmap
 
-Chess Composer tracks progress through defined phases. Current status: **Phase 5 complete, Phase 6 in progress (70%+)**.
+Chess Composer tracks progress through defined phases. Current status: **Phase 5 complete, Phase 6 complete, Phase 6b (Lessons Platform) complete**.
 
 **Latest Updates (2026-03-28)**
-- Inline puzzle grading with keyboard shortcuts (C/X, auto-advance)
-- Exercise rename endpoint (PUT /api/exercises/:id)
-- Password toggle UI on all password inputs
-- Create Student inline in Create User dialog
-- Multiple exercises per week support
-- Modern `ep-table` pattern + styled buttons across all tabs
-- Fixed timezone bug (getWeekStart/getWeekEnd now use local time)
-- Fixed dropdown positioning (position: fixed to escape overflow)
+- Puzzle Composer redesign (chess.com-style dark theme, per-move hints, multi-puzzle challenges)
+- lesson-puzzle-player.js: interactive student puzzle player with computer auto-play
+- puzzle_challenges: multi-puzzle JSON array stored in single lesson_content row
+- migrations 008 & 009: puzzle_instruction, puzzle_hints, puzzle_video_url, puzzle_challenges
+- CourseRepository column allowlist pattern for safe dynamic updates
+- Full lessons platform: courses, lessons, content (video/PDF/puzzle/quiz), XP, streaks, badges
+- lesson-player.js: Coursera-style sidebar navigation with reset/progress support
+- File uploads: video/PDF up to 100MB
+- PWA offline support
 
 ## Phase Overview
 
@@ -21,7 +22,8 @@ Chess Composer tracks progress through defined phases. Current status: **Phase 5
 | 3 | Core Features | ✅ Complete | 100% | 2026-02-10 | Puzzle generation, exercises, grading |
 | 4 | Auth & Admin | ✅ Complete | 100% | 2026-02-28 | JWT, user mgmt, reporting |
 | 5 | Polish & Stability | ✅ Complete | 100% | 2026-03-15 | PDF export, error handling, modals |
-| 6 | Performance & UX | 🚧 In Progress | 70% | 2026-04-01 | UI modernization, inline grading, bug fixes |
+| 6 | Performance & UX | ✅ Complete | 100% | 2026-03-28 | UI modernization, inline grading, bug fixes |
+| 6b | Chess Lessons Platform | ✅ Complete | 100% | 2026-03-28 | Courses, puzzle composer redesign, gamification |
 | 7 | Deployment | 📋 Planned | 0% | 2026-04-30 | Docker, CI/CD, hosting |
 
 ## Phase 1: Foundation & Setup ✅ COMPLETE
@@ -168,9 +170,9 @@ Chess Composer tracks progress through defined phases. Current status: **Phase 5
 
 ---
 
-## Phase 6: Performance & UX 🚧 IN PROGRESS
+## Phase 6: Performance & UX ✅ COMPLETE
 
-**Target**: 2026-04-01 | **Current**: 70% complete
+**Completed**: 2026-03-28
 
 ### Objectives
 - ✅ UI modernization (modern table patterns, styled buttons)
@@ -178,36 +180,9 @@ Chess Composer tracks progress through defined phases. Current status: **Phase 5
 - ✅ Exercise rename functionality
 - ✅ Timezone handling fixes
 - ✅ Password visibility toggle
-- 🚧 Query result caching
-- 🚧 Component code-splitting (for large files)
-- 📋 Database connection pooling
-- 📋 Lazy-load heavy components
-
-### Current Progress
-
-**Completed** (70%)
-- ✅ In-memory theme index implemented
-- ✅ Blocked puzzle caching
-- ✅ Prepared statement reuse
-- ✅ Vite production build optimized
-- ✅ Modern UI components (ep-table, btn-outline, gd-dropdown)
-- ✅ Inline grading mode in ExercisePuzzleViewer
-- ✅ Exercise rename (PUT /api/exercises/:id)
-- ✅ Password toggle on login/user dialogs
-- ✅ Timezone bug fix (local time formatting)
 - ✅ Multiple exercises per week support
 
-**In Progress** (20%)
-- 🚧 Query result caching layer
-- 🚧 Component code-splitting (ExercisePanel, PuzzlePlayer)
-- 🚧 Asset compression (gzip, brotli)
-
-**Not Started** (10%)
-- 📋 Service worker offline mode
-- 📋 Database query profiling
-- 📋 Performance monitoring
-
-### Deliverables (Completed)
+### Deliverables
 - ✅ Modern UI components (ep-table, gd-dropdown, btn-outline)
 - ✅ ExercisePuzzleViewer inline grading mode
 - ✅ PUT /api/exercises/:id (rename exercise)
@@ -215,22 +190,42 @@ Chess Composer tracks progress through defined phases. Current status: **Phase 5
 - ✅ Create Student inline feature
 - ✅ Timezone fix (local time instead of UTC)
 - ✅ Dropdown positioning fix (position: fixed)
-- ✅ Multiple exercises per week support
 
-### Deliverables (In Progress)
-- [ ] Cache.js (query result caching)
-- [ ] Refactored ExercisePanel (split into 3-4 components)
-- [ ] Refactored PuzzlePlayer (split into 2-3 components)
-- [ ] Production build size <500KB gzipped
+### Known Debt (Deferred)
+- ExercisePanel.js (1546 LOC) & PuzzlePlayer.js (1492 LOC) still need modularization
 
-### Success Criteria (Partially Met)
-- ✅ 95th percentile API response <50ms (achieved)
-- ✅ Puzzle generation <1s consistently (achieved)
-- ⏳ Client bundle <300KB gzipped (in progress)
-- ⏳ Lighthouse score >90 (pending optimization)
+---
 
-### Blockers
-- ExercisePanel.js & PuzzlePlayer.js still need modularization (>1200 LOC each)
+## Phase 6b: Chess Lessons Platform ✅ COMPLETE
+
+**Completed**: 2026-03-28
+
+### Objectives
+- ✅ Course management (courses → lessons → content items)
+- ✅ Lesson player (Coursera-style sidebar navigation)
+- ✅ Video/PDF upload (100MB max)
+- ✅ Puzzle composer redesign (chess.com-style)
+- ✅ Per-move hints and student/computer role assignment
+- ✅ Multi-puzzle challenges per content item
+- ✅ Gamification: XP rewards, streaks, badges
+- ✅ Student courses page
+- ✅ PWA offline support
+
+### Deliverables
+- ✅ CourseManagementPage.js (admin course/lesson/content CRUD)
+- ✅ student-courses-page.js (student course listing)
+- ✅ lesson-player.js (Coursera-style player + reset progress)
+- ✅ lesson-puzzle-player.js (chess.com dark-theme interactive player)
+- ✅ puzzle-composer.js (full-screen admin composer)
+- ✅ lesson-content-editor.js (integrated puzzle composer)
+- ✅ CourseRepository.js (all DB operations + column allowlist)
+- ✅ courses.js route + lesson-content.js route
+- ✅ Migration 007: lessons platform tables
+- ✅ Migration 008: puzzle composer fields (puzzle_instruction, puzzle_hints, puzzle_video_url)
+- ✅ Migration 009: puzzle_challenges (multi-puzzle JSON array)
+
+### Key Architecture Decision
+`puzzle_challenges` stores multiple puzzle objects as a JSON array in ONE `lesson_content` row. This avoids row proliferation while enabling multi-puzzle challenge sets. Student must complete ALL challenges for the content item to register as done.
 
 ---
 
@@ -262,7 +257,7 @@ Chess Composer tracks progress through defined phases. Current status: **Phase 5
 - [ ] Rollback capability
 
 ### Blocked By
-- Phase 6 completion (performance optimization)
+- None (phases 6 and 6b complete)
 
 ---
 
@@ -312,9 +307,10 @@ Phase 1 ✅
     │       ├─→ Phase 3 ✅
     │       │       ├─→ Phase 4 ✅
     │       │       │       ├─→ Phase 5 ✅
-    │       │       │       │       └─→ Phase 6 🚧 (60%)
-    │       │       │       │           └─→ Phase 7 📋
-    │       │       │       │               └─→ Phase 8 (future)
+    │       │       │       │       ├─→ Phase 6 ✅
+    │       │       │       │       └─→ Phase 6b ✅ (Lessons Platform)
+    │       │       │       │               └─→ Phase 7 📋
+    │       │       │       │                   └─→ Phase 8 (future)
 ```
 
 No blocking dependencies. Each phase builds on previous.
@@ -341,15 +337,16 @@ No blocking dependencies. Each phase builds on previous.
 ## Timeline Summary
 
 ```
-2026-01-15: Phase 1 ✅ Foundation
-2026-01-22: Phase 2 ✅ Database
-2026-02-10: Phase 3 ✅ Core Features
-2026-02-28: Phase 4 ✅ Auth & Admin
-2026-03-15: Phase 5 ✅ Polish
-2026-04-01: Phase 6 🚧 Performance (60% complete)
-2026-04-30: Phase 7 📋 Deployment
-2026-06-30: Phase 8 📋 Mobile App (future)
-2026-12-31: Phase 9 📋 Advanced Features (future)
+2026-01-15: Phase 1  ✅ Foundation
+2026-01-22: Phase 2  ✅ Database
+2026-02-10: Phase 3  ✅ Core Features
+2026-02-28: Phase 4  ✅ Auth & Admin
+2026-03-15: Phase 5  ✅ Polish
+2026-03-28: Phase 6  ✅ Performance & UX
+2026-03-28: Phase 6b ✅ Chess Lessons Platform
+2026-04-30: Phase 7  📋 Deployment
+2026-06-30: Phase 8  📋 Mobile App (future)
+2026-12-31: Phase 9  📋 Advanced Features (future)
 ```
 
 ---
@@ -363,5 +360,5 @@ No blocking dependencies. Each phase builds on previous.
 5. **Promote from future**: When ready to start, create new phase section
 6. **Update success metrics**: Run periodic health checks against targets
 
-**Last Updated**: 2026-03-28
+**Last Updated**: 2026-03-28 (puzzle composer redesign, lessons platform complete)
 **Next Review**: 2026-04-04

@@ -34,12 +34,12 @@ Course (e.g., "Learn Every Chess Opening")
 
 | # | Phase | Status | Effort |
 |---|-------|--------|--------|
-| 1 | Database Schema + Migration | Pending | Medium |
-| 2 | API Endpoints | Pending | Medium |
-| 3 | Admin: Course Management UI | Pending | Large |
-| 4 | Admin: Lesson Editor + Content Composer | Pending | Large |
-| 5 | Student: Course Browser + Lesson Player | Pending | Large |
-| 6 | Gamification System | Pending | Medium |
+| 1 | Database Schema + Migration | ✅ Done | Medium |
+| 2 | API Endpoints | ✅ Done | Medium |
+| 3 | Admin: Course Management UI | ✅ Done | Large |
+| 4 | Admin: Lesson Editor + Content Composer | ✅ Done | Large |
+| 5 | Student: Course Browser + Lesson Player | ✅ Done | Large |
+| 6 | Gamification System | ✅ Done | Medium |
 
 ## Database Schema
 

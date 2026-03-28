@@ -11,6 +11,7 @@ import { authManager } from './auth/AuthManager.js'
 import { renderLoginView } from './auth/LoginView.js'
 import { renderStudentDashboard } from './auth/StudentDashboard.js'
 import { renderUsersPage } from './auth/UserManagementPanel.js'
+import { renderCoursesPage } from './lessons/CourseManagementPage.js'
 import { HashRouter } from './core/HashRouter.js'
 import {
   createAdminRoutes,
@@ -79,6 +80,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const studentRoutes = createStudentRoutes({
       renderMyExercises: (container) => {
         return renderStudentDashboard(container, apiClient, { initialTab: 'exercises' })
+      },
+      renderCourses: (container) => {
+        return renderStudentDashboard(container, apiClient, { initialTab: 'courses' })
       },
       renderPerformance: (container) => {
         return renderStudentDashboard(container, apiClient, { initialTab: 'performance' })
@@ -158,6 +162,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       )
     },
     renderReports: (container) => renderAdminPage(container, apiClient),
+    renderCourses: (container) => renderCoursesPage(container, apiClient),
     renderUsers: (container) => renderUsersPage(container, apiClient)
   })
 
@@ -199,6 +204,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const navMap = {
     'nav-generate': '/generate',
     'exercises-btn': '/exercises',
+    'nav-courses': '/courses',
     'admin-btn': '/reports',
     'users-btn': '/users'
   }

@@ -40,7 +40,11 @@
       "Read(//tmp/**)",
       "Bash(ls:*)",
       "Bash(/dev/null:*)",
-      "Bash(find packages/client/src packages/server/src -name *.js -exec wc -l {} +)"
+      "Bash(find packages/client/src packages/server/src -name *.js -exec wc -l {} +)",
+      "Bash(npx vitest:*)",
+      "Bash(tee plans/reports/test-coverage-260328-1914-final.txt)",
+      "Bash(sqlite3 packages/server/data/puzzles.db 'PRAGMA table_info\\(lesson_content\\)')",
+      "Bash(node .claude/scripts/validate-docs.cjs docs/)"
     ]
   }
 }

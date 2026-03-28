@@ -29,7 +29,9 @@ Chess Composer follows consistent patterns for code organization, error handling
 **Last refactored**: 2026-03-28
 - ExercisePanel & AdminPanel: Modern UI patterns added (ep-table, gd-dropdown)
 - PuzzlePlayer: Compatible with new grading mode
-- Small optimizations: password toggle, inline create
+- lesson-puzzle-player.js (387 LOC): chess.com-style puzzle player
+- puzzle-composer.js (558 LOC): full-screen admin composer
+- CourseRepository.js: column allowlist for dynamic UPDATE
 
 ### Directory Structure
 
@@ -40,6 +42,7 @@ Chess Composer follows consistent patterns for code organization, error handling
 ├── core/             # Routing, chess engine
 ├── data/             # Fallback sample data
 ├── exercises/        # Puzzle solving, grading, PDF
+├── lessons/          # Courses, lesson player, puzzle composer
 ├── puzzles/          # Generation, creation, validation
 ├── reports/          # Admin, reporting
 └── views/            # Page-level components
@@ -50,10 +53,11 @@ Chess Composer follows consistent patterns for code organization, error handling
 ├── auth/             # JWT, password hashing
 ├── database/         # SQLite wrapper, migrations
 ├── exercises/        # Exercise logic, PDF generation
+├── lessons/          # CourseRepository, lessons business logic
 ├── middleware/       # Auth, role checking
 ├── puzzles/          # Generation, validation
 ├── reports/          # Reporting system
-├── routes/           # API endpoints (8 modules)
+├── routes/           # API endpoints (11 modules)
 ├── shared/           # Utilities, converters
 ├── students/         # Student management
 └── users/            # User management, auth
@@ -357,6 +361,44 @@ class CreateExerciseDialog {
   }
 }
 ```
+
+### Column Allowlist Pattern (Dynamic Updates)
+
+When building dynamic SQL UPDATE statements from user-supplied data, always validate against an explicit allowlist of permitted column names. This prevents injection of unexpected columns.
+
+```javascript
+// ✅ GOOD: Column allowlist for dynamic UPDATE (see CourseRepository.updateContent)
+updateContent(id, data) {
+  const allowedColumns = new Set([
+    'order_index', 'content_type', 'title', 'video_url', 'file_path',
+    'puzzle_fen', 'puzzle_moves', 'puzzle_instruction', 'puzzle_hints',
+    'puzzle_video_url', 'puzzle_challenges', 'xp_reward'
+  ])
+  const jsonFields = new Set(['quiz_data', 'puzzle_hints', 'puzzle_challenges'])
+
+  const fields = []
+  const values = []
+  for (const [key, val] of Object.entries(data)) {
+    if (!allowedColumns.has(key)) continue   // skip unknown columns
+    const serialized = jsonFields.has(key) && typeof val !== 'string'
+      ? JSON.stringify(val)
+      : val
+    fields.push(`${key} = ?`)
+    values.push(serialized)
+  }
+  if (fields.length === 0) return { success: true }
+  values.push(id)
+  return database.run(`UPDATE lesson_content SET ${fields.join(', ')} WHERE id = ?`, values)
+}
+
+// ❌ WRONG: Blindly trusting keys from request body
+for (const [key, val] of Object.entries(req.body)) {
+  fields.push(`${key} = ?`)  // SQL injection / unintended columns!
+  values.push(val)
+}
+```
+
+**When to use**: Any repository method that builds a dynamic SET clause from caller-supplied data objects.
 
 ### Database Transaction Pattern
 

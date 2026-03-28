@@ -1,0 +1,75 @@
+
+ RUN  v4.1.2 /Users/nobita_isc/projects/chess_composer
+      Coverage enabled with v8
+
+
+ Test Files  17 passed (17)
+      Tests  244 passed (244)
+   Start at  19:14:54
+   Duration  5.98s (transform 654ms, setup 0ms, import 1.95s, tests 6.28s, environment 1ms)
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |   15.62 |    17.36 |   18.76 |   16.06 |                   
+ src               |       0 |        0 |       0 |       0 |                   
+  index.js         |       0 |        0 |       0 |       0 | 35-131            
+ src/auth          |     100 |    97.05 |     100 |     100 |                   
+  AuthService.js   |     100 |    97.05 |     100 |     100 | 15                
+ src/database      |    65.4 |    54.03 |      66 |   68.05 |                   
+  ...eGenerator.js |   69.23 |    55.38 |   70.58 |   71.13 | ...32,256,271-345 
+  ...baseLoader.js |   70.14 |       58 |    64.7 |   74.13 | ...,87,91,168-199 
+  ...teDatabase.js |   54.54 |    47.82 |    62.5 |   57.37 | ...42-183,197-200 
+ ...ase/migrations |       0 |        0 |       0 |       0 |                   
+  ...urce_field.js |       0 |        0 |       0 |       0 | 8-31              
+  ...ise_tables.js |       0 |      100 |       0 |       0 | 10-64             
+  ...le_results.js |       0 |        0 |       0 |       0 | 9-18              
+  ...users_auth.js |       0 |        0 |       0 |       0 | 9-54              
+  ...zzle_hints.js |       0 |        0 |       0 |       0 | 8-17              
+  ...final_flag.js |       0 |        0 |       0 |       0 | 7-16              
+  ...s_platform.js |       0 |      100 |       0 |       0 | 8-105             
+ src/exercises     |    8.02 |     8.79 |    7.46 |    8.68 |                   
+  ...Repository.js |    1.12 |        0 |       0 |    1.14 | 14-388            
+  ...iseService.js |   33.68 |    28.07 |   29.41 |    34.4 | 95,114-323        
+  PdfGenerator.js  |       0 |        0 |       0 |       0 | 10-461            
+  ...icsService.js |       0 |        0 |       0 |       0 | 8-154             
+ src/lessons       |       0 |        0 |       0 |       0 |                   
+  ...Repository.js |       0 |        0 |       0 |       0 | 9-290             
+ src/middleware    |     100 |      100 |     100 |     100 |                   
+  ...Middleware.js |     100 |      100 |     100 |     100 |                   
+  ...Middleware.js |     100 |      100 |     100 |     100 |                   
+ src/puzzles       |       0 |        0 |       0 |       0 |                   
+  ...ionService.js |       0 |        0 |       0 |       0 | 17-163            
+  ...Repository.js |       0 |        0 |       0 |       0 | 15-118            
+ ...les/validation |   38.75 |    47.61 |      75 |   38.75 |                   
+  ...eValidator.js |   38.75 |    47.61 |      75 |   38.75 | 107-207           
+ src/reports       |       0 |        0 |       0 |       0 |                   
+  ...ortManager.js |       0 |        0 |       0 |       0 | 12-341            
+ src/routes        |       0 |        0 |       0 |       0 |                   
+  auth.js          |       0 |        0 |       0 |       0 | 12-57             
+  courses.js       |       0 |        0 |       0 |       0 | 9-124             
+  exercises.js     |       0 |        0 |       0 |       0 | 14-224            
+  ...on-content.js |       0 |        0 |       0 |       0 | 9-175             
+  lichess.js       |       0 |        0 |       0 |       0 | 8-84              
+  puzzles.js       |       0 |        0 |       0 |       0 | 10-193            
+  reports.js       |       0 |        0 |       0 |       0 | 8-122             
+  ...-exercises.js |       0 |        0 |       0 |       0 | 13-306            
+  students.js      |       0 |        0 |       0 |       0 | 10-218            
+  themes.js        |       0 |      100 |       0 |       0 | 8-57              
+  users.js         |       0 |        0 |       0 |       0 | 14-86             
+ src/shared        |    92.3 |       70 |     100 |   91.89 |                   
+  MoveConverter.js |    92.3 |       70 |     100 |   91.89 | 22,62,109         
+ src/students      |    3.57 |        0 |       0 |    3.57 |                   
+  ...Repository.js |    3.57 |        0 |       0 |    3.57 | 14-147            
+ src/users         |       0 |        0 |       0 |       0 |                   
+  ...Repository.js |       0 |        0 |       0 |       0 | 10-137            
+  UserService.js   |       0 |        0 |       0 |       0 | 10-151            
+-------------------|---------|----------|---------|---------|-------------------
+
+=============================== Coverage summary ===============================
+Statements   : 15.62% ( 324/2074 )
+Branches     : 17.36% ( 187/1077 )
+Functions    : 18.76% ( 61/325 )
+Lines        : 16.06% ( 314/1954 )
+================================================================================
