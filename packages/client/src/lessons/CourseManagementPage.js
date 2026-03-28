@@ -285,7 +285,7 @@ async function showLessonManager(apiClient, courseId, onClose) {
           const lessonRow = btn.closest('[data-lesson-id]')
           const lessonId = lessonRow.dataset.lessonId
           const lessonTitle = freshLessons.find(l => l.id === lessonId)?.title || 'Lesson'
-          showLessonContentEditor(apiClient, lessonId, lessonTitle, () => render())
+          showLessonContentEditor(apiClient, lessonId, lessonTitle, () => render(), course.title)
         })
       })
     }
