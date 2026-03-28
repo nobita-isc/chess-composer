@@ -181,6 +181,9 @@ export function openPuzzleComposer({ apiClient, lessonId, lessonTitle, onSave, o
       // Save current form state first
       saveCurrentFormState()
 
+      // Auto-generate titles for untitled puzzles
+      puzzles = puzzles.map((p, i) => p.title ? p : { ...p, title: `Challenge ${i + 1}` })
+
       // Validate all puzzles
       for (let i = 0; i < puzzles.length; i++) {
         const p = puzzles[i]
@@ -188,12 +191,6 @@ export function openPuzzleComposer({ apiClient, lessonId, lessonTitle, onSave, o
           currentPuzzleIndex = i
           render()
           overlay.querySelector('#pc-fen-error').textContent = 'FEN position is required'
-          return
-        }
-        if (!p.title) {
-          currentPuzzleIndex = i
-          render()
-          overlay.querySelector('#pc-save-error').textContent = 'Title is required'
           return
         }
         try { new Chess(p.puzzle_fen) } catch {
@@ -413,7 +410,7 @@ function buildComposerHTML(lessonTitle, puzzle, puzzleIndex, puzzleCount, isEdit
         <div style="flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:16px">
           <div>
             <label style="${labelStyle}">Puzzle Title</label>
-            <input type="text" id="pc-title" placeholder="e.g. Italian Game Pin Tactic" style="${inputStyle}">
+            <input type="text" id="pc-title" placeholder="Optional — auto-generates as 'Challenge 1', 'Challenge 2'..." style="${inputStyle}">
           </div>
           <div>
             <label style="${labelStyle}">FEN Position</label>
