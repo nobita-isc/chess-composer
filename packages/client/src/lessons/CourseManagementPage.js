@@ -211,11 +211,18 @@ function showCreateCourseDialog(apiClient, onSuccess, existing = null) {
 async function showLessonManager(apiClient, courseId, onClose) {
   const dialog = document.createElement('div')
   dialog.className = 'pv-overlay'
-  dialog.style.zIndex = '55000'
-  dialog.innerHTML = `<div class="gd-dialog" style="width:700px"><div class="gd-loading" style="padding:40px;text-align:center">Loading...</div></div>`
+  dialog.style.cssText = 'z-index:50000;background:var(--color-bg-base);align-items:stretch;justify-content:stretch'
+  dialog.innerHTML = `
+    <div style="width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden">
+      <div id="lm-header" style="flex-shrink:0;padding:16px 32px;border-bottom:1px solid var(--color-gray-200);background:#fff;display:flex;justify-content:space-between;align-items:center"></div>
+      <div id="lm-body" style="flex:1;overflow-y:auto;padding:32px;background:#f8fafc">
+        <div class="loading-cell">Loading...</div>
+      </div>
+    </div>
+  `
   document.body.appendChild(dialog)
-  const close = () => { dialog.remove(); onClose() }
-  dialog.addEventListener('click', (e) => { if (e.target === dialog) close() })
+  document.body.style.overflow = 'hidden'
+  const close = () => { document.body.style.overflow = ''; dialog.remove(); onClose() }
 
   try {
     const course = await apiClient.getCourse(courseId)
@@ -223,35 +230,41 @@ async function showLessonManager(apiClient, courseId, onClose) {
 
     async function render() {
       const freshLessons = (await apiClient.getCourse(courseId)).lessons || []
-      dialog.querySelector('.gd-dialog').innerHTML = `
-        <div class="gd-header">
-          <span class="gd-title">Lessons: ${escapeHtml(course.title)}</span>
-          <button class="pv-close-btn" data-action="close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-        </div>
-        <div class="gd-body">
-          <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
-            <button class="generate-btn" id="add-lesson-btn" style="font-size:13px;padding:8px 16px">+ Add Lesson</button>
+
+      dialog.querySelector('#lm-header').innerHTML = `
+        <div style="display:flex;align-items:center;gap:16px">
+          <button data-action="close" style="display:flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;color:var(--color-brand-600);font-size:13px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            Back to Courses
+          </button>
+          <div style="width:1px;height:24px;background:var(--color-gray-200)"></div>
+          <div>
+            <div style="font-size:18px;font-weight:700;color:var(--color-gray-900)">Lessons: ${escapeHtml(course.title)}</div>
+            <div style="font-size:12px;color:var(--color-gray-400)">${freshLessons.length} lesson${freshLessons.length !== 1 ? 's' : ''}</div>
           </div>
-          ${freshLessons.length === 0 ? '<div class="empty-message">No lessons yet</div>' :
-            `<div style="display:flex;flex-direction:column;gap:8px">
-              ${freshLessons.map((l, i) => `
-                <div class="gd-row" data-lesson-id="${escapeHtml(l.id)}" style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--color-gray-200);border-radius:10px">
-                  <span style="width:28px;height:28px;border-radius:14px;background:var(--color-brand-50);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--color-brand-600)">${i + 1}</span>
-                  <div style="flex:1">
-                    <div style="font-weight:500;font-size:14px">${escapeHtml(l.title)}</div>
-                    <div style="font-size:11px;color:var(--color-gray-400)">${l.content_count || 0} content items</div>
-                  </div>
-                  <div class="ep-actions">
-                    <button class="btn-outline btn-sm" data-action="edit-lesson">Edit</button>
-                    <button class="btn-outline btn-sm" data-action="content">Content</button>
-                    <button class="btn-outline btn-sm gd-dd-danger" data-action="delete-lesson" style="color:var(--color-error-600)">Delete</button>
-                  </div>
-                </div>
-              `).join('')}
-            </div>`}
         </div>
-        <div class="gd-footer"><button class="btn-outline" data-action="close" style="padding:10px 24px">Close</button></div>
+        <button class="generate-btn" id="add-lesson-btn" style="font-size:13px;padding:8px 16px">+ Add Lesson</button>
       `
+
+      const bodyEl = dialog.querySelector('#lm-body')
+      bodyEl.innerHTML = freshLessons.length === 0
+        ? `<div style="text-align:center;padding:80px 40px"><div style="font-size:48px;margin-bottom:16px">📖</div><div style="font-size:18px;font-weight:600;color:var(--color-gray-900);margin-bottom:8px">No lessons yet</div><div style="font-size:14px;color:var(--color-gray-400)">Click "+ Add Lesson" to start building your course.</div></div>`
+        : `<div style="max-width:800px;margin:0 auto;display:flex;flex-direction:column;gap:12px">
+            ${freshLessons.map((l, i) => `
+              <div data-lesson-id="${escapeHtml(l.id)}" style="display:flex;align-items:center;gap:16px;padding:20px;background:#fff;border:1px solid var(--color-gray-200);border-radius:12px">
+                <span style="width:36px;height:36px;border-radius:10px;background:var(--color-brand-50);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--color-brand-600)">${i + 1}</span>
+                <div style="flex:1">
+                  <div style="font-weight:600;font-size:15px;color:var(--color-gray-900)">${escapeHtml(l.title)}</div>
+                  <div style="font-size:12px;color:var(--color-gray-400);margin-top:2px">${l.content_count || 0} content items</div>
+                </div>
+                <div style="display:flex;gap:8px">
+                  <button class="btn-outline btn-sm" data-action="edit-lesson">Edit</button>
+                  <button class="btn-outline btn-sm" data-action="content" style="color:var(--color-brand-600);border-color:var(--color-brand-200)">Content</button>
+                  <button class="btn-outline btn-sm" data-action="delete-lesson" style="color:var(--color-error-600);border-color:var(--color-error-200)">Delete</button>
+                </div>
+              </div>
+            `).join('')}
+          </div>`
 
       dialog.querySelectorAll('[data-action="close"]').forEach(b => b.addEventListener('click', close))
 
