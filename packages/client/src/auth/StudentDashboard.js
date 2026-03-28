@@ -262,9 +262,12 @@ export function renderStudentDashboard(container, apiClient, { initialTab = 'exe
   }
 
   async function renderPerformanceTab() {
-    const performance = await apiClient.getStudentPerformance(studentId);
+    const [performance, themeData] = await Promise.all([
+      apiClient.getStudentPerformance(studentId),
+      apiClient.getStudentThemeAnalytics(studentId).catch(() => null)
+    ]);
 
-    if (!performance || !performance.history || performance.history.length === 0) {
+    if ((!performance || !performance.history || performance.history.length === 0) && !themeData?.themes?.length) {
       contentEl.innerHTML = `
         <div class="empty-state">
           <p>No graded exercises yet.</p>
@@ -274,28 +277,62 @@ export function renderStudentDashboard(container, apiClient, { initialTab = 'exe
       return;
     }
 
-    const avgScore = performance.average_score != null
+    const summary = themeData?.summary || {};
+    const themes = themeData?.themes || [];
+    const avgScore = performance?.average_score != null
       ? `${Math.round(performance.average_score)}%`
-      : 'N/A';
+      : (summary.average_score != null ? `${summary.average_score}%` : 'N/A');
+
+    const accuracyBar = (accuracy) => {
+      const color = accuracy < 50 ? '#dc2626' : accuracy < 75 ? '#f59e0b' : '#059669';
+      const bg = accuracy < 50 ? '#fee2e2' : accuracy < 75 ? '#fef3c7' : '#dcfce7';
+      return `<div style="position:relative;height:20px;background:${bg};border-radius:6px;overflow:hidden;flex:1">
+        <div style="width:${accuracy}%;height:100%;background:${color};border-radius:6px"></div>
+        <span style="position:absolute;left:8px;top:2px;font-size:11px;font-weight:600;color:#fff">${accuracy}%</span>
+      </div>`;
+    };
 
     contentEl.innerHTML = `
       <div class="sd-stats-row">
         <div class="sd-stat-card">
           <span class="sd-stat-label">Completed</span>
-          <span class="sd-stat-value">${performance.total_exercises || 0}</span>
+          <span class="sd-stat-value">${summary.total_exercises || performance?.total_exercises || 0}</span>
         </div>
         <div class="sd-stat-card">
           <span class="sd-stat-label">Avg Score</span>
           <span class="sd-stat-value sd-stat-primary">${avgScore}</span>
         </div>
         <div class="sd-stat-card">
-          <span class="sd-stat-label">Solved</span>
-          <span class="sd-stat-value">${performance.total_correct || 0}/${performance.total_puzzles || 0}</span>
+          <span class="sd-stat-label">Strongest</span>
+          <span class="sd-stat-value" style="font-size:14px;color:var(--color-success-600)">${summary.strongest ? `${escapeHtml(summary.strongest.theme)} (${summary.strongest.accuracy}%)` : '-'}</span>
+        </div>
+        <div class="sd-stat-card">
+          <span class="sd-stat-label">Weakest</span>
+          <span class="sd-stat-value" style="font-size:14px;color:var(--color-error-600)">${summary.weakest ? `${escapeHtml(summary.weakest.theme)} (${summary.weakest.accuracy}%)` : '-'}</span>
         </div>
       </div>
 
+      ${themes.length > 0 ? `
       <div class="sd-history-card">
-        <h3 class="sd-history-title">Score History</h3>
+        <h3 class="sd-history-title">Theme Breakdown</h3>
+        <div class="ep-table-wrap"><table class="ep-table"><thead><tr>
+          <th style="width:140px">Theme</th>
+          <th style="width:60px;text-align:center">Tried</th>
+          <th style="width:60px;text-align:center">Correct</th>
+          <th>Accuracy</th>
+        </tr></thead><tbody>
+          ${themes.map(t => `<tr>
+            <td style="font-weight:500">${escapeHtml(t.label)}</td>
+            <td style="text-align:center;color:var(--color-gray-500)">${t.attempted}</td>
+            <td style="text-align:center;color:var(--color-gray-500)">${t.correct}</td>
+            <td>${accuracyBar(t.accuracy)}</td>
+          </tr>`).join('')}
+        </tbody></table></div>
+      </div>` : ''}
+
+      ${performance?.history?.length > 0 ? `
+      <div class="sd-history-card">
+        <h3 class="sd-history-title">Exercise History</h3>
         <div class="sd-history-table">
           ${performance.history.map(h => {
             const pct = h.total_puzzles > 0 ? Math.round((h.score / h.total_puzzles) * 100) : 0;
@@ -314,7 +351,7 @@ export function renderStudentDashboard(container, apiClient, { initialTab = 'exe
             `;
           }).join('')}
         </div>
-      </div>
+      </div>` : ''}
     `;
   }
 
