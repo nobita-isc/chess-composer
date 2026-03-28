@@ -73,8 +73,23 @@ export function openPuzzleComposer({ apiClient, lessonId, lessonTitle, onSave, o
   let chess = new Chess()
   const isEdit = !!existingContent
 
-  // Multi-puzzle state: array of puzzle data objects
-  let puzzles = isEdit ? [contentToPuzzleData(existingContent)] : [createBlankPuzzle()]
+  // Multi-puzzle state: load from puzzle_challenges if available, else single puzzle
+  let puzzles = [createBlankPuzzle()]
+  if (isEdit && existingContent) {
+    if (existingContent.puzzle_challenges) {
+      try {
+        const parsed = typeof existingContent.puzzle_challenges === 'string'
+          ? JSON.parse(existingContent.puzzle_challenges) : existingContent.puzzle_challenges
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          puzzles = parsed.map(ch => contentToPuzzleData(ch))
+        } else {
+          puzzles = [contentToPuzzleData(existingContent)]
+        }
+      } catch { puzzles = [contentToPuzzleData(existingContent)] }
+    } else {
+      puzzles = [contentToPuzzleData(existingContent)]
+    }
+  }
   let currentPuzzleIndex = 0
 
   const overlay = document.createElement('div')
@@ -206,26 +221,39 @@ export function openPuzzleComposer({ apiClient, lessonId, lessonTitle, onSave, o
       saveBtn.disabled = true
 
       try {
-        for (const p of puzzles) {
-          const data = {
-            title: p.title,
-            puzzle_fen: p.puzzle_fen,
-            puzzle_moves: (p.puzzle_hints || []).map(m => m.move).filter(Boolean).join(' ') || p.puzzle_moves,
-            puzzle_instruction: p.puzzle_instruction || null,
-            puzzle_hints: p.puzzle_hints?.length > 0 ? JSON.stringify(p.puzzle_hints) : null,
-            puzzle_video_url: p.puzzle_video_url || null,
-            xp_reward: p.xp_reward || 20
-          }
-          if (isEdit && p.id) {
-            await apiClient.updateContent(p.id, data)
-          } else {
-            await apiClient.createContent(lessonId, { content_type: 'puzzle', ...data })
-          }
+        // Build challenges array — each puzzle becomes one challenge
+        const challenges = puzzles.map(p => ({
+          title: p.title,
+          puzzle_fen: p.puzzle_fen,
+          puzzle_moves: (p.puzzle_hints || []).map(m => m.move).filter(Boolean).join(' ') || p.puzzle_moves,
+          puzzle_instruction: p.puzzle_instruction || null,
+          puzzle_hints: p.puzzle_hints || [],
+          puzzle_video_url: p.puzzle_video_url || null,
+          xp_reward: p.xp_reward || 20
+        }))
+
+        // Use first puzzle's data for the top-level fields (backward compat)
+        const first = challenges[0]
+        const data = {
+          title: first.title,
+          puzzle_fen: first.puzzle_fen,
+          puzzle_moves: first.puzzle_moves,
+          puzzle_instruction: first.puzzle_instruction,
+          puzzle_hints: first.puzzle_hints?.length > 0 ? JSON.stringify(first.puzzle_hints) : null,
+          puzzle_video_url: first.puzzle_video_url,
+          puzzle_challenges: JSON.stringify(challenges),
+          xp_reward: challenges.reduce((sum, c) => sum + (c.xp_reward || 20), 0)
+        }
+
+        if (isEdit && existingContent?.id) {
+          await apiClient.updateContent(existingContent.id, data)
+        } else {
+          await apiClient.createContent(lessonId, { content_type: 'puzzle', ...data })
         }
         onSave?.()
         close()
       } catch (err) {
-        saveBtn.textContent = isEdit ? 'Update Puzzle' : 'Save All Puzzles'
+        saveBtn.textContent = puzzles.length > 1 ? 'Save All Puzzles' : isEdit ? 'Update Puzzle' : 'Save Puzzle'
         saveBtn.disabled = false
         overlay.querySelector('#pc-save-error').textContent = err.message
       }

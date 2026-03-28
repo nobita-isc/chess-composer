@@ -106,13 +106,14 @@ export class CourseRepository {
     const maxOrder = database.queryOne('SELECT MAX(order_index) as m FROM lesson_content WHERE lesson_id = ?', [lessonId])
     const orderIndex = data.order_index ?? ((maxOrder?.m ?? -1) + 1)
     const hintsJson = data.puzzle_hints ? (typeof data.puzzle_hints === 'string' ? data.puzzle_hints : JSON.stringify(data.puzzle_hints)) : null
+    const challengesJson = data.puzzle_challenges ? (typeof data.puzzle_challenges === 'string' ? data.puzzle_challenges : JSON.stringify(data.puzzle_challenges)) : null
     database.run(
-      `INSERT INTO lesson_content (id, lesson_id, order_index, content_type, title, video_url, file_path, file_size, duration_min, puzzle_id, puzzle_fen, puzzle_moves, quiz_data, xp_reward, puzzle_instruction, puzzle_hints, puzzle_video_url, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO lesson_content (id, lesson_id, order_index, content_type, title, video_url, file_path, file_size, duration_min, puzzle_id, puzzle_fen, puzzle_moves, quiz_data, xp_reward, puzzle_instruction, puzzle_hints, puzzle_video_url, puzzle_challenges, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, lessonId, orderIndex, data.content_type, data.title, data.video_url || null, data.file_path || null,
        data.file_size || null, data.duration_min || null, data.puzzle_id || null, data.puzzle_fen || null,
        data.puzzle_moves || null, data.quiz_data ? JSON.stringify(data.quiz_data) : null, data.xp_reward || 10,
-       data.puzzle_instruction || null, hintsJson, data.puzzle_video_url || null, now]
+       data.puzzle_instruction || null, hintsJson, data.puzzle_video_url || null, challengesJson, now]
     )
     return { success: true, data: { id, lesson_id: lessonId, order_index: orderIndex } }
   }
@@ -129,9 +130,9 @@ export class CourseRepository {
     const allowedColumns = new Set([
       'order_index', 'content_type', 'title', 'video_url', 'file_path', 'file_size',
       'duration_min', 'puzzle_id', 'puzzle_fen', 'puzzle_moves', 'quiz_data', 'xp_reward',
-      'puzzle_instruction', 'puzzle_hints', 'puzzle_video_url'
+      'puzzle_instruction', 'puzzle_hints', 'puzzle_video_url', 'puzzle_challenges'
     ])
-    const jsonFields = new Set(['quiz_data', 'puzzle_hints'])
+    const jsonFields = new Set(['quiz_data', 'puzzle_hints', 'puzzle_challenges'])
     const fields = []
     const values = []
     for (const [key, val] of Object.entries(data)) {

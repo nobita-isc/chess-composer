@@ -113,44 +113,48 @@ export function openLessonPlayer(course, options = {}) {
     const solveBtn = overlay.querySelector('#lp-solve')
     if (solveBtn) {
       solveBtn.addEventListener('click', () => {
-        const puzzleItems = allItems.filter(i => i.content_type === 'puzzle')
-        const puzzleIdx = parseInt(solveBtn.dataset.puzzleIdx)
-        const puzzleTotal = parseInt(solveBtn.dataset.puzzleTotal)
         const currentItem = allItems[currentIndex]
 
-        openLessonPuzzlePlayer({
-          item: currentItem,
-          courseTitle: course.title,
-          challengeIndex: puzzleIdx,
-          totalChallenges: puzzleTotal,
-          onComplete: async () => {
-            if (apiClient && !readOnly) {
-              try {
-                await apiClient.markContentComplete(currentItem.id, { xp_earned: currentItem.xp_reward || 20, course_id: course.id })
-                currentItem.completed = 1
-              } catch {}
+        // Parse challenges: multi-challenge or single-puzzle fallback
+        let challenges = []
+        if (currentItem.puzzle_challenges) {
+          try {
+            const parsed = typeof currentItem.puzzle_challenges === 'string'
+              ? JSON.parse(currentItem.puzzle_challenges) : currentItem.puzzle_challenges
+            if (Array.isArray(parsed) && parsed.length > 0) challenges = parsed
+          } catch { /* fallback below */ }
+        }
+        if (challenges.length === 0) {
+          challenges = [currentItem] // single-puzzle fallback
+        }
+
+        let challengeIdx = 0
+
+        function openChallenge(idx) {
+          openLessonPuzzlePlayer({
+            item: challenges[idx],
+            courseTitle: course.title,
+            challengeIndex: idx,
+            totalChallenges: challenges.length,
+            onComplete: async () => {
+              if (apiClient && !readOnly && idx === challenges.length - 1) {
+                try {
+                  await apiClient.markContentComplete(currentItem.id, { xp_earned: currentItem.xp_reward || 20, course_id: course.id })
+                  currentItem.completed = 1
+                } catch {}
+              }
+            },
+            onClose: () => render(),
+            onNext: () => {
+              if (idx < challenges.length - 1) openChallenge(idx + 1)
+            },
+            onPrev: () => {
+              if (idx > 0) openChallenge(idx - 1)
             }
-          },
-          onClose: () => render(),
-          onNext: () => {
-            // Find next puzzle item
-            const nextPuzzle = puzzleItems[puzzleIdx + 1]
-            if (nextPuzzle) {
-              currentIndex = allItems.findIndex(i => i.id === nextPuzzle.id)
-              render()
-              // Auto-open next puzzle
-              setTimeout(() => overlay.querySelector('#lp-solve')?.click(), 100)
-            }
-          },
-          onPrev: () => {
-            const prevPuzzle = puzzleItems[puzzleIdx - 1]
-            if (prevPuzzle) {
-              currentIndex = allItems.findIndex(i => i.id === prevPuzzle.id)
-              render()
-              setTimeout(() => overlay.querySelector('#lp-solve')?.click(), 100)
-            }
-          }
-        })
+          })
+        }
+
+        openChallenge(challengeIdx)
       })
     }
 
@@ -198,14 +202,19 @@ export function openLessonPlayer(course, options = {}) {
       `
     }
     if (item.content_type === 'puzzle') {
-      const puzzleItems = allItems.filter(i => i.content_type === 'puzzle')
-      const puzzleIdx = puzzleItems.findIndex(p => p.id === item.id)
+      let challengeCount = 1
+      if (item.puzzle_challenges) {
+        try {
+          const parsed = typeof item.puzzle_challenges === 'string' ? JSON.parse(item.puzzle_challenges) : item.puzzle_challenges
+          if (Array.isArray(parsed)) challengeCount = parsed.length
+        } catch { /* */ }
+      }
       return `
         <div style="display:flex;align-items:center;justify-content:center;padding:60px 32px;flex-direction:column;gap:20px">
           <div style="font-size:20px;font-weight:700;color:#1e293b">${escapeHtml(item.title)}</div>
           ${item.puzzle_instruction ? `<div style="font-size:14px;color:#64748b;max-width:500px;text-align:center;line-height:1.5">${escapeHtml(item.puzzle_instruction)}</div>` : ''}
-          <div style="padding:20px;background:#f8fafc;border-radius:12px;font-family:monospace;font-size:12px;color:#64748b;max-width:500px;word-break:break-all">${escapeHtml(item.puzzle_fen || 'No FEN')}</div>
-          <button id="lp-solve" data-puzzle-idx="${puzzleIdx}" data-puzzle-total="${puzzleItems.length}" style="padding:12px 32px;background:#059669;border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:600;cursor:pointer">Play Challenge</button>
+          ${challengeCount > 1 ? `<div style="font-size:13px;color:#6366f1;font-weight:600">${challengeCount} challenges</div>` : ''}
+          <button id="lp-solve" style="padding:12px 32px;background:#059669;border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:600;cursor:pointer">Play Challenge${challengeCount > 1 ? 's' : ''}</button>
         </div>
       `
     }

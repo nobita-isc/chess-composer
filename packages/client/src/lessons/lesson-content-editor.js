@@ -143,8 +143,15 @@ export async function showLessonContentEditor(apiClient, lessonId, lessonTitle, 
     if (item.content_type === 'video') return item.video_url || item.file_path || 'No URL set'
     if (item.content_type === 'pdf') return item.file_path || 'No file uploaded'
     if (item.content_type === 'puzzle') {
-      if (item.puzzle_instruction) return item.puzzle_instruction.substring(0, 60) + (item.puzzle_instruction.length > 60 ? '...' : '')
-      return item.puzzle_fen ? `FEN: ${item.puzzle_fen.substring(0, 40)}...` : 'No FEN set'
+      let prefix = ''
+      if (item.puzzle_challenges) {
+        try {
+          const ch = typeof item.puzzle_challenges === 'string' ? JSON.parse(item.puzzle_challenges) : item.puzzle_challenges
+          if (Array.isArray(ch) && ch.length > 1) prefix = `${ch.length} challenges — `
+        } catch { /* */ }
+      }
+      if (item.puzzle_instruction) return prefix + item.puzzle_instruction.substring(0, 50) + (item.puzzle_instruction.length > 50 ? '...' : '')
+      return prefix + (item.puzzle_fen ? `FEN: ${item.puzzle_fen.substring(0, 40)}...` : 'No FEN set')
     }
     if (item.content_type === 'quiz') return item.quiz_data ? `${JSON.parse(item.quiz_data).length} questions` : 'No questions'
     return ''
