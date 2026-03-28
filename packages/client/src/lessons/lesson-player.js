@@ -20,7 +20,7 @@ export function openLessonPlayer(course, options = {}) {
   const { apiClient, readOnly = false, onClose } = options
   const lessons = course.lessons || []
   const allItems = []
-  lessons.forEach(l => (l.content || []).forEach(item => allItems.push({ ...item, lessonTitle: l.title })))
+  lessons.forEach(l => (l.content || []).forEach(item => { item.lessonTitle = l.title; allItems.push(item) }))
 
   if (allItems.length === 0) return
 
