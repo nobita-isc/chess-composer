@@ -5,6 +5,7 @@
  */
 
 import { openExercisePuzzleViewer } from '../exercises/ExercisePuzzleViewer.js'
+import { openLessonPuzzlePlayer } from './lesson-puzzle-player.js'
 
 function escapeHtml(str) {
   if (!str) return ''
@@ -108,6 +109,51 @@ export function openLessonPlayer(course, options = {}) {
       btn.addEventListener('click', () => { currentIndex = parseInt(btn.dataset.idx); render() })
     })
 
+    // Puzzle player button
+    const solveBtn = overlay.querySelector('#lp-solve')
+    if (solveBtn) {
+      solveBtn.addEventListener('click', () => {
+        const puzzleItems = allItems.filter(i => i.content_type === 'puzzle')
+        const puzzleIdx = parseInt(solveBtn.dataset.puzzleIdx)
+        const puzzleTotal = parseInt(solveBtn.dataset.puzzleTotal)
+        const currentItem = allItems[currentIndex]
+
+        openLessonPuzzlePlayer({
+          item: currentItem,
+          courseTitle: course.title,
+          challengeIndex: puzzleIdx,
+          totalChallenges: puzzleTotal,
+          onComplete: async () => {
+            if (apiClient && !readOnly) {
+              try {
+                await apiClient.markContentComplete(currentItem.id, { xp_earned: currentItem.xp_reward || 20, course_id: course.id })
+                currentItem.completed = 1
+              } catch {}
+            }
+          },
+          onClose: () => render(),
+          onNext: () => {
+            // Find next puzzle item
+            const nextPuzzle = puzzleItems[puzzleIdx + 1]
+            if (nextPuzzle) {
+              currentIndex = allItems.findIndex(i => i.id === nextPuzzle.id)
+              render()
+              // Auto-open next puzzle
+              setTimeout(() => overlay.querySelector('#lp-solve')?.click(), 100)
+            }
+          },
+          onPrev: () => {
+            const prevPuzzle = puzzleItems[puzzleIdx - 1]
+            if (prevPuzzle) {
+              currentIndex = allItems.findIndex(i => i.id === prevPuzzle.id)
+              render()
+              setTimeout(() => overlay.querySelector('#lp-solve')?.click(), 100)
+            }
+          }
+        })
+      })
+    }
+
     const resetBtn = overlay.querySelector('#lp-reset')
     if (resetBtn && apiClient) {
       resetBtn.addEventListener('click', async () => {
@@ -152,11 +198,14 @@ export function openLessonPlayer(course, options = {}) {
       `
     }
     if (item.content_type === 'puzzle') {
+      const puzzleItems = allItems.filter(i => i.content_type === 'puzzle')
+      const puzzleIdx = puzzleItems.findIndex(p => p.id === item.id)
       return `
         <div style="display:flex;align-items:center;justify-content:center;padding:60px 32px;flex-direction:column;gap:20px">
           <div style="font-size:20px;font-weight:700;color:#1e293b">${escapeHtml(item.title)}</div>
+          ${item.puzzle_instruction ? `<div style="font-size:14px;color:#64748b;max-width:500px;text-align:center;line-height:1.5">${escapeHtml(item.puzzle_instruction)}</div>` : ''}
           <div style="padding:20px;background:#f8fafc;border-radius:12px;font-family:monospace;font-size:12px;color:#64748b;max-width:500px;word-break:break-all">${escapeHtml(item.puzzle_fen || 'No FEN')}</div>
-          <button id="lp-solve" style="padding:12px 32px;background:#059669;border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:600;cursor:pointer">Open Puzzle Viewer</button>
+          <button id="lp-solve" data-puzzle-idx="${puzzleIdx}" data-puzzle-total="${puzzleItems.length}" style="padding:12px 32px;background:#059669;border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:600;cursor:pointer">Play Challenge</button>
         </div>
       `
     }

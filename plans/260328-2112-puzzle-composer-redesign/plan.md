@@ -83,8 +83,8 @@ Data format — `puzzle_hints` JSON:
 
 | # | Phase | Status | Effort |
 |---|-------|--------|--------|
-| 1 | DB migration + API updates | Pending | Small |
-| 2 | Full-screen Puzzle Composer (admin) | Pending | Large |
-| 3 | Student Puzzle Player redesign | Pending | Large |
+| 1 | DB migration + API updates | Complete | Small |
+| 2 | Full-screen Puzzle Composer (admin) | Complete | Large |
+| 3 | Student Puzzle Player redesign | Complete | Large |
 
 ## Design first — confirm on Pencil before implementation.

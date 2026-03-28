@@ -186,9 +186,10 @@ lessonContent.put('/my/content/:id/complete', async (c) => {
     const body = await c.req.json()
     const contentId = c.req.param('id')
 
-    // Get content item for XP
-    const content = courseRepository.findContentByLesson ? null : null // lookup via direct query
-    const xpReward = body.xp_earned || 10
+    // Get content item for authoritative XP value
+    const content = courseRepository.findContentById(contentId)
+    if (!content) return c.json({ success: false, error: 'Content not found' }, 404)
+    const xpReward = content.xp_reward || 10
 
     courseRepository.markContentComplete(user.student_id, contentId, {
       puzzle_result: body.puzzle_result || null,
