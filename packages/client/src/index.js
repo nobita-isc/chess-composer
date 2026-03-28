@@ -22,6 +22,7 @@ import {
   LOGIN_PATH
 } from './core/routeConfig.js'
 import { ChessQuizComposer } from './views/GenerateView.js'
+import { initSyncManager } from './shared/sync-manager.js'
 
 function escapeHtmlAttr(str) {
   if (!str) return ''
@@ -30,6 +31,9 @@ function escapeHtmlAttr(str) {
 
 document.addEventListener('DOMContentLoaded', async () => {
   apiClient.setAuthManager(authManager)
+
+  // Initialize offline sync manager
+  initSyncManager(() => authManager.getAccessToken())
 
   // Unauthenticated: show login
   if (!authManager.isAuthenticated()) {
