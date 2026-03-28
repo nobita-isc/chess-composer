@@ -4,6 +4,7 @@
  */
 
 import { showAppConfirm, showAppPrompt, showAppAlert } from '../shared/app-dialogs.js'
+import { showLessonContentEditor } from './lesson-content-editor.js'
 
 const SKILL_LABELS = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced' }
 const SKILL_BADGE_CLS = { beginner: 'badge-beginner', intermediate: 'badge-intermediate', advanced: 'badge-advanced' }
@@ -281,8 +282,10 @@ async function showLessonManager(apiClient, courseId, onClose) {
 
       dialog.querySelectorAll('[data-action="content"]').forEach(btn => {
         btn.addEventListener('click', () => {
-          const lessonId = btn.closest('[data-lesson-id]').dataset.lessonId
-          showAppAlert({ title: 'Content Editor', message: 'Lesson content editor coming in Phase 4.' })
+          const lessonRow = btn.closest('[data-lesson-id]')
+          const lessonId = lessonRow.dataset.lessonId
+          const lessonTitle = freshLessons.find(l => l.id === lessonId)?.title || 'Lesson'
+          showLessonContentEditor(apiClient, lessonId, lessonTitle, () => render())
         })
       })
     }
