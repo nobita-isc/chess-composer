@@ -50,3 +50,7 @@ data_sources/
 *.db
 *.db-shm
 *.db-wal
+
+# Design exports & uploads
+designs/images/
+packages/server/uploads/
