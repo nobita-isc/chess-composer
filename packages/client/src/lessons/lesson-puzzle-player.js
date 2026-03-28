@@ -270,15 +270,19 @@ export function openLessonPuzzlePlayer({
   }
 
   function revealHint() {
-    if (solved || moveIndex >= moveSequence.length) return
+    if (solved || hintRevealed || moveIndex >= moveSequence.length) return
     const currentMove = moveSequence[moveIndex]
     if (!currentMove?.hint) return
     hintRevealed = true
-    const hintEl = overlay.querySelector('#lpp-hint-text')
-    if (hintEl) {
-      hintEl.style.display = 'block'
-      hintEl.textContent = `💡 ${currentMove.hint}`
-    }
+
+    // Append hint as a timeline entry instead of a separate element
+    const feedbackEl = overlay.querySelector('#lpp-feedback')
+    if (!feedbackEl) return
+    const entry = document.createElement('div')
+    entry.style.cssText = 'padding:10px 14px;background:#1e3a5f;border:1px solid #60a5fa;border-radius:8px;color:#bfdbfe;font-size:13px;line-height:1.4'
+    entry.innerHTML = `<span style="margin-right:6px">💡</span>${escapeHtml(currentMove.hint)}`
+    feedbackEl.appendChild(entry)
+    feedbackEl.scrollTop = feedbackEl.scrollHeight
   }
 
   function openVideo() {
@@ -287,10 +291,9 @@ export function openLessonPuzzlePlayer({
   }
 
   function updateMoveInfo() {
-    const hintEl = overlay.querySelector('#lpp-hint-text')
-    if (hintEl) {
-      hintEl.style.display = 'none'
-      hintEl.textContent = ''
+    // Reset hint state for next move (hints are in timeline, no separate element)
+    if (hintRevealed) {
+      hintRevealed = false
     }
   }
 
@@ -339,9 +342,6 @@ export function openLessonPuzzlePlayer({
             <div style="padding:16px;background:#2d2d4a;border-radius:10px;margin-bottom:16px">
               <div style="font-size:14px;color:#e2e8f0;line-height:1.5">${escapeHtml(instruction)}</div>
             </div>
-
-            <!-- Hint Area -->
-            <div id="lpp-hint-text" style="display:none;padding:12px 16px;background:#1e3a5f;border:1px solid #60a5fa;border-radius:8px;color:#bfdbfe;font-size:13px;margin-bottom:12px"></div>
 
             <!-- Move Timeline -->
             <div id="lpp-feedback" style="display:flex;flex-direction:column;gap:8px"></div>
