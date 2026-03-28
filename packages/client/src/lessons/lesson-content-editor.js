@@ -147,21 +147,14 @@ export async function showLessonContentEditor(apiClient, lessonId, lessonTitle, 
   }
 
   async function addContent(type) {
-    if (type === 'video') {
-      const url = await showAppPrompt({ title: 'Add Video', message: 'Paste YouTube or video URL', placeholder: 'https://youtube.com/watch?v=...' })
-      if (!url) return
-      const title = await showAppPrompt({ title: 'Video Title', placeholder: 'Introduction to the opening' }) || 'Video'
-      await apiClient.createContent(lessonId, { content_type: 'video', title, video_url: url, xp_reward: 10 })
-    } else if (type === 'pdf') {
-      const title = await showAppPrompt({ title: 'Add PDF', message: 'Enter PDF title (file upload coming soon)', placeholder: 'Study guide' })
-      if (!title) return
-      await apiClient.createContent(lessonId, { content_type: 'pdf', title, xp_reward: 5 })
+    if (type === 'video' || type === 'pdf') {
+      const result = await showUploadContentDialog(type)
+      if (!result) return
+      await apiClient.createContent(lessonId, result)
     } else if (type === 'puzzle') {
-      const fen = await showAppPrompt({ title: 'Add Puzzle', message: 'Paste FEN position', placeholder: 'rnbqkbnr/pppppppp/8/8/...' })
-      if (!fen) return
-      const moves = await showAppPrompt({ title: 'Solution Moves', message: 'Enter solution in UCI format', placeholder: 'e2e4 e7e5' }) || ''
-      const title = await showAppPrompt({ title: 'Puzzle Title', placeholder: 'Find the pin' }) || 'Puzzle'
-      await apiClient.createContent(lessonId, { content_type: 'puzzle', title, puzzle_fen: fen, puzzle_moves: moves, xp_reward: 20 })
+      const result = await showPuzzleImportDialog()
+      if (!result) return
+      await apiClient.createContent(lessonId, result)
     } else if (type === 'quiz') {
       const title = await showAppPrompt({ title: 'Add Quiz', placeholder: 'Knowledge check' }) || 'Quiz'
       await apiClient.createContent(lessonId, { content_type: 'quiz', title, quiz_data: [], xp_reward: 15 })
@@ -179,4 +172,176 @@ export async function showLessonContentEditor(apiClient, lessonId, lessonTitle, 
   }
 
   render()
+}
+
+// ==================== Upload Content Dialog (Video URL / Upload File) ====================
+
+function showUploadContentDialog(defaultType = 'video') {
+  return new Promise((resolve) => {
+    const inputStyle = 'width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;box-sizing:border-box;font-family:inherit'
+    const labelStyle = 'display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:6px'
+    let activeTab = defaultType === 'pdf' ? 'upload' : 'url'
+
+    const dlg = document.createElement('div')
+    dlg.className = 'pv-overlay'
+    dlg.style.zIndex = '60000'
+
+    function renderDialog() {
+      dlg.innerHTML = `
+        <div style="width:500px;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,0.2);display:flex;flex-direction:column;overflow:hidden">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:20px 24px;border-bottom:1px solid #e2e8f0">
+            <span style="font-size:18px;font-weight:700;color:#1e293b">Upload Content</span>
+            <button data-action="close" style="width:32px;height:32px;border-radius:8px;background:#f1f5f9;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
+            <div style="display:flex;background:#f1f5f9;border-radius:10px;padding:4px;gap:4px">
+              <button data-tab="url" style="flex:1;height:36px;border:none;border-radius:8px;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;${activeTab === 'url' ? 'background:#fff;font-weight:600;color:#4f46e5;box-shadow:0 1px 4px rgba(0,0,0,0.07)' : 'background:transparent;color:#94a3b8'}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                Video URL
+              </button>
+              <button data-tab="upload" style="flex:1;height:36px;border:none;border-radius:8px;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;${activeTab === 'upload' ? 'background:#fff;font-weight:600;color:#4f46e5;box-shadow:0 1px 4px rgba(0,0,0,0.07)' : 'background:transparent;color:#94a3b8'}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Upload File
+              </button>
+            </div>
+            ${activeTab === 'url' ? `
+              <div><label style="${labelStyle}">YouTube / Vimeo URL</label><input type="text" id="uc-url" placeholder="https://youtube.com/watch?v=..." style="${inputStyle}"></div>
+              <div style="height:180px;background:#f1f5f9;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px">Video preview will appear here</div>
+            ` : `
+              <div><label style="${labelStyle}">Upload Video, PDF, or Image</label>
+                <div id="uc-dropzone" style="height:140px;border:1.5px dashed #c7d2fe;border-radius:12px;background:#faf5ff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <span style="font-size:14px;font-weight:500;color:#7c3aed">Drop files here or click to browse</span>
+                  <span style="font-size:11px;color:#94a3b8">MP4, PDF, PNG, JPG — Max 100MB</span>
+                  <input type="file" id="uc-file" accept=".mp4,.pdf,.png,.jpg,.jpeg" style="display:none">
+                </div>
+                <div id="uc-file-info" style="display:none;margin-top:8px;padding:8px 12px;background:#f0fdf4;border-radius:8px;font-size:12px;color:#059669"></div>
+              </div>
+            `}
+            <div><label style="${labelStyle}">Display Title</label><input type="text" id="uc-title" placeholder="Introduction to the Italian Game" style="${inputStyle}"></div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:12px;padding:16px 24px;border-top:1px solid #e2e8f0">
+            <button data-action="close" style="padding:10px 20px;border:1px solid #d1d5db;border-radius:8px;background:#fff;font-size:13px;color:#64748b;cursor:pointer">Cancel</button>
+            <button id="uc-submit" style="padding:10px 20px;border:none;border-radius:8px;background:#4f46e5;font-size:13px;font-weight:600;color:#fff;cursor:pointer">Add to Lesson</button>
+          </div>
+        </div>
+      `
+
+      // Tab switching
+      dlg.querySelectorAll('[data-tab]').forEach(btn => {
+        btn.addEventListener('click', () => { activeTab = btn.dataset.tab; renderDialog() })
+      })
+
+      // Close
+      dlg.querySelectorAll('[data-action="close"]').forEach(b => b.addEventListener('click', () => { dlg.remove(); resolve(null) }))
+      dlg.addEventListener('click', (e) => { if (e.target === dlg) { dlg.remove(); resolve(null) } })
+
+      // File upload dropzone
+      const dropzone = dlg.querySelector('#uc-dropzone')
+      const fileInput = dlg.querySelector('#uc-file')
+      if (dropzone && fileInput) {
+        dropzone.addEventListener('click', () => fileInput.click())
+        fileInput.addEventListener('change', () => {
+          const file = fileInput.files[0]
+          if (file) {
+            const info = dlg.querySelector('#uc-file-info')
+            info.style.display = 'block'
+            info.textContent = `Selected: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)`
+            if (!dlg.querySelector('#uc-title').value) {
+              dlg.querySelector('#uc-title').value = file.name.replace(/\.[^.]+$/, '')
+            }
+          }
+        })
+      }
+
+      // Submit
+      dlg.querySelector('#uc-submit').addEventListener('click', () => {
+        const title = dlg.querySelector('#uc-title').value.trim()
+        if (!title) { showAppAlert({ title: 'Required', message: 'Please enter a display title' }); return }
+
+        if (activeTab === 'url') {
+          const url = dlg.querySelector('#uc-url').value.trim()
+          if (!url) { showAppAlert({ title: 'Required', message: 'Please enter a video URL' }); return }
+          dlg.remove()
+          resolve({ content_type: 'video', title, video_url: url, xp_reward: 10 })
+        } else {
+          const file = fileInput?.files?.[0]
+          const contentType = file?.name?.endsWith('.pdf') ? 'pdf' : 'video'
+          dlg.remove()
+          resolve({ content_type: contentType, title, file_path: file?.name || 'uploaded', xp_reward: contentType === 'pdf' ? 5 : 10 })
+        }
+      })
+    }
+
+    document.body.appendChild(dlg)
+    renderDialog()
+  })
+}
+
+// ==================== Puzzle Import Dialog (From FEN / Screenshot / Database) ====================
+
+function showPuzzleImportDialog() {
+  return new Promise((resolve) => {
+    const inputStyle = 'width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;box-sizing:border-box;font-family:inherit'
+    const labelStyle = 'display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:6px'
+
+    const dlg = document.createElement('div')
+    dlg.className = 'pv-overlay'
+    dlg.style.zIndex = '60000'
+    dlg.innerHTML = `
+      <div style="width:600px;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,0.2);display:flex;flex-direction:column;overflow:hidden;max-height:90vh">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:20px 24px;border-bottom:1px solid #e2e8f0">
+          <span style="font-size:18px;font-weight:700;color:#1e293b">Add Puzzles to Lesson</span>
+          <button data-action="close" style="width:32px;height:32px;border-radius:8px;background:#f1f5f9;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div style="padding:24px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;flex:1">
+          <div style="display:flex;background:#f1f5f9;border-radius:10px;padding:4px;gap:4px">
+            <button style="flex:1;height:36px;border:none;border-radius:8px;font-size:12px;cursor:pointer;background:#fff;font-weight:600;color:#059669;box-shadow:0 1px 4px rgba(0,0,0,0.07);display:flex;align-items:center;justify-content:center;gap:4px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> From FEN
+            </button>
+            <button style="flex:1;height:36px;border:none;border-radius:8px;font-size:12px;cursor:pointer;background:transparent;color:#94a3b8;display:flex;align-items:center;justify-content:center;gap:4px">From Screenshot</button>
+            <button style="flex:1;height:36px;border:none;border-radius:8px;font-size:12px;cursor:pointer;background:transparent;color:#94a3b8;display:flex;align-items:center;justify-content:center;gap:4px">From Database</button>
+          </div>
+          <div><label style="${labelStyle}">FEN Position</label><input type="text" id="pz-fen" placeholder="rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1" style="${inputStyle};font-family:monospace;font-size:12px"></div>
+          <div style="height:200px;background:#f1f5f9;border-radius:12px;display:flex;align-items:center;justify-content:center;gap:16px;padding:16px">
+            <div style="width:180px;height:180px;background:#d4a76a;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px">Board Preview</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="font-size:14px;font-weight:600;color:#1e293b">White to move</div>
+              <div style="font-size:12px;color:#64748b">Rating: 1400</div>
+              <div style="font-size:12px;color:#64748b">Themes: pin, italian</div>
+            </div>
+          </div>
+          <div><label style="${labelStyle}">Solution Moves (SAN notation)</label><input type="text" id="pz-moves" placeholder="Bb5 a6 Ba4 Nf6 O-O" style="${inputStyle};font-family:monospace;font-size:12px"></div>
+          <div style="display:flex;gap:12px">
+            <div style="flex:1"><label style="${labelStyle}">Puzzle Title</label><input type="text" id="pz-title" placeholder="Italian Game Pin Tactic" style="${inputStyle}"></div>
+            <div style="width:120px"><label style="${labelStyle}">Rating</label><input type="number" id="pz-rating" value="1400" style="${inputStyle}"></div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-top:1px solid #e2e8f0">
+          <span style="font-size:12px;font-weight:500;color:#059669">1 puzzle ready</span>
+          <div style="display:flex;gap:12px">
+            <button data-action="close" style="padding:10px 20px;border:1px solid #d1d5db;border-radius:8px;background:#fff;font-size:13px;color:#64748b;cursor:pointer">Cancel</button>
+            <button id="pz-submit" style="padding:10px 20px;border:none;border-radius:8px;background:#059669;font-size:13px;font-weight:600;color:#fff;cursor:pointer">Add Puzzle</button>
+          </div>
+        </div>
+      </div>
+    `
+
+    document.body.appendChild(dlg)
+    dlg.querySelectorAll('[data-action="close"]').forEach(b => b.addEventListener('click', () => { dlg.remove(); resolve(null) }))
+    dlg.addEventListener('click', (e) => { if (e.target === dlg) { dlg.remove(); resolve(null) } })
+
+    dlg.querySelector('#pz-submit').addEventListener('click', () => {
+      const fen = dlg.querySelector('#pz-fen').value.trim()
+      const moves = dlg.querySelector('#pz-moves').value.trim()
+      const title = dlg.querySelector('#pz-title').value.trim() || 'Puzzle'
+      if (!fen) { showAppAlert({ title: 'Required', message: 'Please enter a FEN position' }); return }
+      dlg.remove()
+      resolve({ content_type: 'puzzle', title, puzzle_fen: fen, puzzle_moves: moves, xp_reward: 20 })
+    })
+  })
 }
