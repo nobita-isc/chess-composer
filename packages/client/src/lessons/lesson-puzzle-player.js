@@ -36,7 +36,7 @@ function getLegalMoves(chess) {
  */
 export function openLessonPuzzlePlayer({
   item, courseTitle, challengeIndex, totalChallenges,
-  onComplete, onClose, onNext, onPrev
+  solvedCount = 0, onComplete, onClose, onNext, onPrev
 }) {
   let chess = new Chess()
   let boardInstance = null
@@ -216,7 +216,8 @@ export function openLessonPuzzlePlayer({
   function completePuzzle() {
     solved = true
     boardInstance.set({ movable: { dests: new Map() } })
-    showFeedback('complete', 'Challenge Complete!')
+    const allDone = (solvedCount + 1) >= totalChallenges
+    showFeedback('complete', allDone ? 'All Challenges Complete!' : `Challenge Complete! (${solvedCount + 1}/${totalChallenges})`)
     updateProgressBar()
     onComplete?.()
   }
@@ -299,9 +300,12 @@ export function openLessonPuzzlePlayer({
 
   function updateProgressBar() {
     const bar = overlay.querySelector('#lpp-progress-fill')
-    if (bar) {
-      bar.style.width = '100%'
-    }
+    const label = overlay.querySelector('#lpp-progress-label')
+    // Current challenge is now solved, so add 1 to solvedCount
+    const newSolved = solvedCount + 1
+    const pct = totalChallenges > 0 ? Math.round((newSolved / totalChallenges) * 100) : 100
+    if (bar) bar.style.width = `${pct}%`
+    if (label) label.textContent = `${pct}%`
   }
 
   // ==================== HTML ====================
@@ -310,7 +314,7 @@ export function openLessonPuzzlePlayer({
     const turnLabel = playerColor === 'w' ? 'White to Move' : 'Black to Move'
     const instruction = item.puzzle_instruction || item.title || 'Solve the puzzle'
     const hasVideo = !!item.puzzle_video_url
-    const progressPct = totalChallenges > 0 ? Math.round(((challengeIndex) / totalChallenges) * 100) : 0
+    const progressPct = totalChallenges > 0 ? Math.round((solvedCount / totalChallenges) * 100) : 0
 
     return `
       <div style="width:100%;height:100%;display:flex;overflow:hidden">
@@ -351,7 +355,7 @@ export function openLessonPuzzlePlayer({
           <div style="padding:12px 20px;border-top:1px solid #2d2d4a">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
               <span style="font-size:12px;font-weight:600;color:#94a3b8">Challenge ${challengeIndex + 1} / ${totalChallenges}</span>
-              <span style="font-size:11px;color:#64748b">${progressPct}%</span>
+              <span id="lpp-progress-label" style="font-size:11px;color:#64748b">${progressPct}%</span>
             </div>
             <div style="height:4px;background:#2d2d4a;border-radius:2px;overflow:hidden">
               <div id="lpp-progress-fill" style="width:${progressPct}%;height:100%;background:#818cf8;border-radius:2px;transition:width 0.3s"></div>

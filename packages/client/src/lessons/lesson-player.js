@@ -128,7 +128,8 @@ export function openLessonPlayer(course, options = {}) {
           challenges = [currentItem] // single-puzzle fallback
         }
 
-        let challengeIdx = 0
+        // Track which challenges are solved
+        const solved = new Set()
 
         function openChallenge(idx) {
           openLessonPuzzlePlayer({
@@ -136,8 +137,11 @@ export function openLessonPlayer(course, options = {}) {
             courseTitle: course.title,
             challengeIndex: idx,
             totalChallenges: challenges.length,
+            solvedCount: solved.size,
             onComplete: async () => {
-              if (apiClient && !readOnly && idx === challenges.length - 1) {
+              solved.add(idx)
+              // Only mark content complete when ALL challenges are solved
+              if (apiClient && !readOnly && solved.size === challenges.length) {
                 try {
                   await apiClient.markContentComplete(currentItem.id, { xp_earned: currentItem.xp_reward || 20, course_id: course.id })
                   currentItem.completed = 1
@@ -154,7 +158,7 @@ export function openLessonPlayer(course, options = {}) {
           })
         }
 
-        openChallenge(challengeIdx)
+        openChallenge(0)
       })
     }
 
