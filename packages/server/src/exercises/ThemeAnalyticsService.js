@@ -51,28 +51,35 @@ export class ThemeAnalyticsService {
       return { summary: { total_exercises: 0, average_score: null, strongest: null, weakest: null }, themes: [] }
     }
 
-    // Only assignments with puzzle_results can contribute to theme breakdown
-    const withResults = assignments.filter(a => a.puzzle_results)
-
-    // Collect all puzzle IDs from assignments with results
+    // Collect all puzzle IDs from all graded assignments
     const allPuzzleIds = new Set()
-    for (const a of withResults) {
+    for (const a of assignments) {
       a.puzzle_ids.split(',').forEach(id => allPuzzleIds.add(id.trim()))
     }
 
     // Batch fetch puzzle themes
     const puzzleThemes = this._getPuzzleThemes([...allPuzzleIds])
 
-    // Accumulate per-theme stats (only from assignments with puzzle_results)
+    // Accumulate per-theme stats
     const themeStats = new Map()
 
-    for (const a of withResults) {
+    for (const a of assignments) {
       const puzzleIds = a.puzzle_ids.split(',').map(id => id.trim())
-      const results = a.puzzle_results.split(',').map(r => r.trim())
+
+      // Use actual puzzle_results if available, otherwise synthesize from score
+      let results
+      if (a.puzzle_results) {
+        results = a.puzzle_results.split(',').map(r => r.trim())
+      } else if (a.score !== null && a.total_puzzles > 0) {
+        // Synthesize: distribute correct answers across puzzles
+        results = puzzleIds.map((_, i) => i < a.score ? '1' : '0')
+      } else {
+        continue // skip if no grading data at all
+      }
 
       for (let i = 0; i < puzzleIds.length && i < results.length; i++) {
         const result = results[i]
-        if (result !== '1' && result !== '0') continue // skip ungraded
+        if (result !== '1' && result !== '0') continue
 
         const themes = puzzleThemes.get(puzzleIds[i])
         if (!themes) continue
