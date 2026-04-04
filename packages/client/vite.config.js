@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   root: '.',
   publicDir: 'public',
   build: {
@@ -9,7 +9,8 @@ export default defineConfig({
     assetsDir: 'assets',
   },
   plugins: [
-    VitePWA({
+    // Disable PWA in development — service worker caching breaks HMR
+    mode !== 'development' && VitePWA({
       registerType: 'autoUpdate',
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg}'],
@@ -29,7 +30,7 @@ export default defineConfig({
       manifest: false,
       includeAssets: ['favicon.svg']
     })
-  ],
+  ].filter(Boolean),
   server: {
     port: 3000,
     open: true,
@@ -47,4 +48,4 @@ export default defineConfig({
       }
     }
   }
-});
+}));
