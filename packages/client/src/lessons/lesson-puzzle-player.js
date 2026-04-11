@@ -6,21 +6,7 @@
 
 import { Chess } from 'chess.js'
 import { Chessground } from 'chessground'
-
-function escapeHtml(str) {
-  if (!str) return ''
-  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
-
-/** Get legal moves as Map for Chessground */
-function getLegalMoves(chess) {
-  const dests = new Map()
-  for (const move of chess.moves({ verbose: true })) {
-    if (!dests.has(move.from)) dests.set(move.from, [])
-    dests.get(move.from).push(move.to)
-  }
-  return dests
-}
+import { getLegalMoves, escapeHtml } from '../shared/chess-puzzle-utils.js'
 
 /**
  * Open an interactive puzzle challenge within the lesson player.
@@ -123,6 +109,7 @@ export function openLessonPuzzlePlayer({
     if (!result) {
       // Invalid move - reset board
       boardInstance.set({ fen: chess.fen(), turnColor: chess.turn() === 'w' ? 'white' : 'black' })
+      boardInstance.state.dom.bounds.clear()
       return
     }
 
@@ -149,6 +136,7 @@ export function openLessonPuzzlePlayer({
           events: { after: handleStudentMove }
         }
       })
+      boardInstance.state.dom.bounds.clear()
       showFeedback('wrong', 'Not quite. Try again!')
     }
   }
@@ -203,6 +191,7 @@ export function openLessonPuzzlePlayer({
         events: { after: handleStudentMove }
       }
     })
+    boardInstance.state.dom.bounds.clear()
   }
 
   function updateBoard() {
@@ -211,11 +200,13 @@ export function openLessonPuzzlePlayer({
       lastMove: undefined,
       movable: { dests: new Map() }
     })
+    boardInstance.state.dom.bounds.clear()
   }
 
   function completePuzzle() {
     solved = true
     boardInstance.set({ movable: { dests: new Map() } })
+    boardInstance.state.dom.bounds.clear()
     const allDone = (solvedCount + 1) >= totalChallenges
     showFeedback('complete', allDone ? 'All Challenges Complete!' : `Challenge Complete! (${solvedCount + 1}/${totalChallenges})`)
     updateProgressBar()
@@ -238,6 +229,7 @@ export function openLessonPuzzlePlayer({
         events: { after: handleStudentMove }
       }
     })
+    boardInstance.state.dom.bounds.clear()
     clearFeedback()
     updateMoveInfo()
   }
