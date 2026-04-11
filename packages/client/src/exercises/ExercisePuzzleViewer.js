@@ -128,7 +128,8 @@ function _openViewer(puzzles, title, puzzleIndex, gradingCtx = null) {
     isComplete: false,
     moveLog: [],
     boardInstance: null,
-    orientation: solverColor
+    orientation: solverColor,
+    playerColor: solverColor
   }
 
   document.body.style.overflow = 'hidden'
@@ -251,7 +252,8 @@ function _openViewer(puzzles, title, puzzleIndex, gradingCtx = null) {
       draggable: { enabled: true, showGhost: true },
       animation: { enabled: true, duration: 200 },
       highlight: { lastMove: true, check: true },
-      selectable: { enabled: true }
+      selectable: { enabled: true },
+      premovable: { enabled: false }
     })
 
     state._moveHandler = moveHandler
@@ -366,6 +368,37 @@ function _openViewer(puzzles, title, puzzleIndex, gradingCtx = null) {
   }
 }
 
+/**
+ * TEMPORARY FIX: Destroy and re-create the Chessground board to ensure clean state.
+ * Chessground's set() corrupts internal interaction state after multiple updates,
+ * causing pieces to become unselectable despite correct state values.
+ * TODO: Refactor to a shared puzzle board component (PuzzlePlayer, ExercisePuzzleViewer,
+ * lesson-puzzle-player all duplicate board logic). The shared component should
+ * properly handle Chessground lifecycle without needing full re-creation.
+ */
+function _recreateBoard(state) {
+  const boardEl = state.boardInstance.state.dom.elements.wrap
+  state.boardInstance.destroy()
+  state.boardInstance = Chessground(boardEl, {
+    fen: state.chess.fen(),
+    orientation: state.orientation,
+    coordinates: true,
+    turnColor: state.playerColor,
+    check: state.chess.inCheck(),
+    movable: {
+      free: false,
+      color: state.isComplete ? undefined : state.playerColor,
+      dests: state.isComplete ? new Map() : getDestinationMap(state.chess),
+      events: { after: state._moveHandler }
+    },
+    draggable: { enabled: true, showGhost: true },
+    animation: { enabled: true, duration: 200 },
+    highlight: { lastMove: true, check: true },
+    selectable: { enabled: true },
+    premovable: { enabled: false }
+  })
+}
+
 function _autoPlayOpponent(puzzle, state, overlay) {
   const moveSAN = puzzle.solutionLine[0]
   try {
@@ -373,7 +406,8 @@ function _autoPlayOpponent(puzzle, state, overlay) {
     if (!move) return
     state.currentMoveIndex = 1
     state.moveLog.push({ moveNum: 1, white: move.san, black: null, whiteType: 'opponent', blackType: null })
-    _updateBoard(state)
+
+    _recreateBoard(state)
     _renderMoves(state, overlay)
   } catch { /* skip */ }
 }
@@ -391,15 +425,17 @@ function _handleMove(puzzle, state, source, target, overlay) {
     state.currentMoveIndex++
     _logMove(state, move.san, 'correct')
     _renderMoves(state, overlay)
-    _updateBoard(state)
 
     if (state.currentMoveIndex >= solutionLine.length) {
       state.isComplete = true
-      state.boardInstance.set({ movable: { color: undefined } })
+      _recreateBoard(state)
       _showStatus(overlay, 'success', 'Puzzle Solved!', 'Great work! You found the correct sequence.')
       _hideActions(overlay, ['hint', 'solution'])
       return
     }
+
+    // Disable interaction while waiting for opponent
+    state.boardInstance.set({ movable: { dests: new Map() } })
 
     setTimeout(() => {
       const oppMove = solutionLine[state.currentMoveIndex]
@@ -409,11 +445,13 @@ function _handleMove(puzzle, state, source, target, overlay) {
           state.currentMoveIndex++
           _logMove(state, opp.san, 'opponent')
           _renderMoves(state, overlay)
-          _updateBoard(state)
+
+          // Re-create board to ensure clean Chessground interaction state
+          _recreateBoard(state)
 
           if (state.currentMoveIndex >= solutionLine.length) {
             state.isComplete = true
-            state.boardInstance.set({ movable: { color: undefined } })
+            _recreateBoard(state)
             _showStatus(overlay, 'success', 'Puzzle Solved!', 'Great work! You found the correct sequence.')
             _hideActions(overlay, ['hint', 'solution'])
           }
@@ -422,29 +460,13 @@ function _handleMove(puzzle, state, source, target, overlay) {
     }, 500)
   } else {
     state.chess.undo()
-    _updateBoard(state)
+    _recreateBoard(state)
     _showStatus(overlay, 'error', 'Wrong move!', `${move.san} is not the best move here. Try again.`)
     setTimeout(() => {
       const statusEl = overlay.querySelector('#epv-status')
       if (statusEl?.classList.contains('pv-status-error')) statusEl.style.display = 'none'
     }, 3000)
   }
-}
-
-function _updateBoard(state) {
-  const newColor = state.chess.turn() === 'w' ? 'white' : 'black'
-  state.boardInstance.set({
-    fen: state.chess.fen(),
-    turnColor: newColor,
-    check: state.chess.inCheck(),
-    movable: {
-      free: false,
-      color: state.isComplete ? undefined : newColor,
-      dests: state.isComplete ? new Map() : getDestinationMap(state.chess),
-      showDests: true,
-      events: { after: state._moveHandler }
-    }
-  })
 }
 
 function _logMove(state, san, type) {
