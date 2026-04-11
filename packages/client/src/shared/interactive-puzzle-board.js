@@ -40,6 +40,7 @@ export class InteractivePuzzleBoard {
     this._opponentDelay = config.opponentMoveDelay ?? 500
     this._initialDelay = config.initialDelay ?? 600
     this._animDuration = config.animationDuration ?? 200
+    this._timers = []
 
     // Determine player color: opponent moves first, so player is whoever moves second
     const fenTurn = this._chess.turn()
@@ -51,12 +52,14 @@ export class InteractivePuzzleBoard {
   init() {
     this._createBoard()
     if (this._solutionMoves.length > 0) {
-      setTimeout(() => this._playFirstOpponentMove(), this._initialDelay)
+      this._schedule(() => this._playFirstOpponentMove(), this._initialDelay)
     }
   }
 
-  /** Destroy Chessground instance and clean up */
+  /** Destroy Chessground instance and clean up pending timers */
   destroy() {
+    this._timers.forEach(clearTimeout)
+    this._timers = []
     if (this._board) {
       this._board.destroy()
       this._board = null
@@ -71,14 +74,17 @@ export class InteractivePuzzleBoard {
     this.destroy()
     this._createBoard()
     if (this._solutionMoves.length > 0) {
-      setTimeout(() => this._playFirstOpponentMove(), this._initialDelay)
+      this._schedule(() => this._playFirstOpponentMove(), this._initialDelay)
     }
   }
 
   /** Flip board orientation */
   flip() {
     this._orientation = this._orientation === 'white' ? 'black' : 'white'
-    if (this._board) this._board.set({ orientation: this._orientation })
+    if (this._board) {
+      this._board.set({ orientation: this._orientation })
+      this._board.state.dom.bounds.clear()
+    }
   }
 
   /** Get current state (read-only snapshot) */
@@ -106,6 +112,15 @@ export class InteractivePuzzleBoard {
   getChess() { return this._chess }
 
   // ---- Private methods ----
+
+  /** Schedule a timer and track it for cleanup on destroy/reset */
+  _schedule(fn, delay) {
+    const id = setTimeout(() => {
+      this._timers = this._timers.filter(t => t !== id)
+      fn()
+    }, delay)
+    this._timers.push(id)
+  }
 
   /** Create a fresh Chessground instance with current chess.js state */
   _createBoard() {
@@ -152,10 +167,10 @@ export class InteractivePuzzleBoard {
     const expectedUci = this._solutionMoves[this._moveIndex]
     const expected = parseUciMove(expectedUci)
 
-    // Try the move in chess.js
+    // Try the move in chess.js (use solution's promotion piece for under-promotion support)
     let move
     try {
-      move = this._chess.move({ from, to, promotion: 'q' })
+      move = this._chess.move({ from, to, promotion: expected?.promotion || 'q' })
     } catch { return }
     if (!move) return
 
@@ -178,7 +193,7 @@ export class InteractivePuzzleBoard {
       this._board.state.dom.bounds.clear()
 
       // Play opponent's response after delay
-      setTimeout(() => this._playOpponentMove(), this._opponentDelay)
+      this._schedule(() => this._playOpponentMove(), this._opponentDelay)
     } else {
       // Wrong move — undo and restore board
       this._chess.undo()
