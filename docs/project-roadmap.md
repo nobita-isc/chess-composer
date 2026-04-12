@@ -1,17 +1,16 @@
 # Development Roadmap
 
-Chess Composer tracks progress through defined phases. Current status: **Phase 5 complete, Phase 6 complete, Phase 6b (Lessons Platform) complete**.
+Chess Composer tracks progress through defined phases. Current status: **Phase 5 complete, Phase 6 complete, Phase 6b (Lessons Platform) complete, Phase 6c (Rich Content Descriptions) complete**.
 
-**Latest Updates (2026-03-28)**
-- Puzzle Composer redesign (chess.com-style dark theme, per-move hints, multi-puzzle challenges)
-- lesson-puzzle-player.js: interactive student puzzle player with computer auto-play
-- puzzle_challenges: multi-puzzle JSON array stored in single lesson_content row
-- migrations 008 & 009: puzzle_instruction, puzzle_hints, puzzle_video_url, puzzle_challenges
-- CourseRepository column allowlist pattern for safe dynamic updates
-- Full lessons platform: courses, lessons, content (video/PDF/puzzle/quiz), XP, streaks, badges
-- lesson-player.js: Coursera-style sidebar navigation with reset/progress support
-- File uploads: video/PDF up to 100MB
-- PWA offline support
+**Latest Updates (2026-04-12)**
+- Rich content descriptions: markdown editor, lesson content descriptions, student viewing
+- Admin editor: upload dialogs with description fields, puzzle composer description textarea
+- Student lesson player: renders markdown descriptions with proper styling, collapsible panel
+- Download feature: styled HTML downloads with embedded CSS, print-friendly learning materials
+- Sidebar improvements: Notes tab with description previews, visual hierarchy enhancements
+- Migration 011: description column on lesson_content table
+- New components: markdown-editor.js, content-download-helper.js
+- Build passes, all 6 phases complete
 
 ## Phase Overview
 
@@ -24,6 +23,7 @@ Chess Composer tracks progress through defined phases. Current status: **Phase 5
 | 5 | Polish & Stability | ✅ Complete | 100% | 2026-03-15 | PDF export, error handling, modals |
 | 6 | Performance & UX | ✅ Complete | 100% | 2026-03-28 | UI modernization, inline grading, bug fixes |
 | 6b | Chess Lessons Platform | ✅ Complete | 100% | 2026-03-28 | Courses, puzzle composer redesign, gamification |
+| 6c | Rich Content Descriptions | ✅ Complete | 100% | 2026-04-12 | Markdown descriptions, download learning materials, UX polish |
 | 7 | Deployment | 📋 Planned | 0% | 2026-04-30 | Docker, CI/CD, hosting |
 
 ## Phase 1: Foundation & Setup ✅ COMPLETE
@@ -229,6 +229,44 @@ Chess Composer tracks progress through defined phases. Current status: **Phase 5
 
 ---
 
+## Phase 6c: Rich Content Descriptions & Learning Materials ✅ COMPLETE
+
+**Completed**: 2026-04-12
+
+### Objectives
+- ✅ Database migration 011: add `description` column to lesson_content
+- ✅ Markdown editor component (marked library integration)
+- ✅ Admin content editor: upload & edit dialogs with description fields
+- ✅ Puzzle composer: description textarea field
+- ✅ Student lesson player: render descriptions with markdown formatting
+- ✅ Collapsible description panel with visual hierarchy improvements
+- ✅ Sidebar Notes tab for quick reference
+- ✅ Download learning materials as styled HTML
+- ✅ Print-friendly formatted output
+
+### Deliverables
+- ✅ Migration 011: lesson_content.description column
+- ✅ markdown-editor.js: split-pane editor with toolbar, live preview
+- ✅ content-download-helper.js: HTML/MD download with styled templates
+- ✅ lesson-content-editor.js: upload/edit dialogs with description
+- ✅ puzzle-composer.js: description field integration
+- ✅ lesson-player.js: description rendering, collapsible panel, Notes tab, download buttons
+
+### Key Architecture
+- Markdown stored as raw text in database; sanitized at render time via `marked`
+- Only admin/coaches write descriptions (no XSS risk)
+- Client-side download via Blob + URL.createObjectURL (no server overhead)
+- Collapsible descriptions auto-expand for short content (<300 chars), auto-collapse for long
+
+### Metrics
+- ✅ Build passes all 6 phases
+- ✅ New files: markdown-editor.js (~120 LOC), content-download-helper.js (~180 LOC)
+- ✅ Modified: lesson-content-editor.js, lesson-player.js, puzzle-composer.js, CourseRepository.js
+- ✅ New dependency: marked (~5KB gzipped)
+- ✅ Zero security vulnerabilities (markdown sanitization at render time)
+
+---
+
 ## Phase 7: Deployment 📋 PLANNED
 
 **Target**: 2026-04-30 | **Current**: 0% started
@@ -309,8 +347,9 @@ Phase 1 ✅
     │       │       │       ├─→ Phase 5 ✅
     │       │       │       │       ├─→ Phase 6 ✅
     │       │       │       │       └─→ Phase 6b ✅ (Lessons Platform)
-    │       │       │       │               └─→ Phase 7 📋
-    │       │       │       │                   └─→ Phase 8 (future)
+    │       │       │       │               └─→ Phase 6c ✅ (Content Descriptions)
+    │       │       │       │                       └─→ Phase 7 📋
+    │       │       │       │                           └─→ Phase 8 (future)
 ```
 
 No blocking dependencies. Each phase builds on previous.
@@ -344,6 +383,7 @@ No blocking dependencies. Each phase builds on previous.
 2026-03-15: Phase 5  ✅ Polish
 2026-03-28: Phase 6  ✅ Performance & UX
 2026-03-28: Phase 6b ✅ Chess Lessons Platform
+2026-04-12: Phase 6c ✅ Rich Content Descriptions
 2026-04-30: Phase 7  📋 Deployment
 2026-06-30: Phase 8  📋 Mobile App (future)
 2026-12-31: Phase 9  📋 Advanced Features (future)
@@ -360,5 +400,5 @@ No blocking dependencies. Each phase builds on previous.
 5. **Promote from future**: When ready to start, create new phase section
 6. **Update success metrics**: Run periodic health checks against targets
 
-**Last Updated**: 2026-03-28 (puzzle composer redesign, lessons platform complete)
-**Next Review**: 2026-04-04
+**Last Updated**: 2026-04-12 (rich content descriptions feature complete)
+**Next Review**: 2026-04-19

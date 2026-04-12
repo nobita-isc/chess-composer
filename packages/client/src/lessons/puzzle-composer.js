@@ -36,7 +36,7 @@ function parseMoveSequence(movesStr, chess) {
 
 /** Create a blank puzzle data object */
 function createBlankPuzzle() {
-  return { title: '', puzzle_fen: '', puzzle_moves: '', puzzle_instruction: '', puzzle_hints: [], puzzle_video_url: '', xp_reward: 20 }
+  return { title: '', puzzle_fen: '', puzzle_moves: '', puzzle_instruction: '', description: '', puzzle_hints: [], puzzle_video_url: '', xp_reward: 20 }
 }
 
 /** Extract puzzle data from an existing content item */
@@ -53,7 +53,7 @@ function contentToPuzzleData(content) {
   }
   return {
     title: content.title || '', puzzle_fen: content.puzzle_fen || '', puzzle_moves: content.puzzle_moves || '',
-    puzzle_instruction: content.puzzle_instruction || '', puzzle_hints: hints,
+    puzzle_instruction: content.puzzle_instruction || '', description: content.description || '', puzzle_hints: hints,
     puzzle_video_url: content.puzzle_video_url || '', xp_reward: content.xp_reward || 20, id: content.id
   }
 }
@@ -249,6 +249,7 @@ export function openPuzzleComposer({ apiClient, lessonId, lessonTitle, onSave, o
           puzzle_hints: first.puzzle_hints?.length > 0 ? JSON.stringify(first.puzzle_hints) : null,
           puzzle_video_url: first.puzzle_video_url,
           puzzle_challenges: JSON.stringify(challenges),
+          description: puzzles[0].description || null,
           xp_reward: challenges.reduce((sum, c) => sum + (c.xp_reward || 20), 0)
         }
 
@@ -365,6 +366,7 @@ export function openPuzzleComposer({ apiClient, lessonId, lessonTitle, onSave, o
         puzzle_fen: el.querySelector('#pc-fen')?.value?.trim() || '',
         puzzle_moves: el.querySelector('#pc-moves')?.value?.trim() || '',
         puzzle_instruction: el.querySelector('#pc-instruction')?.value?.trim() || '',
+        description: el.querySelector('#pc-description')?.value?.trim() || '',
         puzzle_video_url: el.querySelector('#pc-video-url')?.value?.trim() || '',
         xp_reward: parseInt(el.querySelector('#pc-xp')?.value) || 20
       }
@@ -377,6 +379,7 @@ export function openPuzzleComposer({ apiClient, lessonId, lessonTitle, onSave, o
     el.querySelector('#pc-fen').value = puzzle.puzzle_fen || ''
     el.querySelector('#pc-moves').value = puzzle.puzzle_moves || ''
     el.querySelector('#pc-instruction').value = puzzle.puzzle_instruction || ''
+    el.querySelector('#pc-description').value = puzzle.description || ''
     el.querySelector('#pc-video-url').value = puzzle.puzzle_video_url || ''
     el.querySelector('#pc-xp').value = puzzle.xp_reward || 20
   }
@@ -501,6 +504,10 @@ function buildComposerHTML(lessonTitle, puzzle, puzzleIndex, puzzleCount, isEdit
           <div>
             <label style="${labelStyle}">Instruction to Students</label>
             <textarea id="pc-instruction" rows="2" placeholder="White's threat to f7 is ineffective. How should Black defend?" style="${inputStyle};resize:vertical"></textarea>
+          </div>
+          <div>
+            <label style="${labelStyle}">Description (for students)</label>
+            <textarea id="pc-description" rows="3" placeholder="Detailed explanation about this chess concept..." style="${inputStyle};resize:vertical"></textarea>
           </div>
           <div style="display:flex;gap:12px;align-items:flex-end">
             <div style="flex:1">

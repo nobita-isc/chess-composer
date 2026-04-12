@@ -56,6 +56,9 @@ lessonContent.post('/lessons/:id/content', requireRole('admin'), async (c) => {
     if (!data.title?.trim()) return c.json({ success: false, error: 'title required' }, 400)
     const valid = ['video', 'pdf', 'puzzle', 'quiz']
     if (!valid.includes(data.content_type)) return c.json({ success: false, error: `content_type must be: ${valid.join(', ')}` }, 400)
+    if (data.description && typeof data.description === 'string' && data.description.length > 10000) {
+      return c.json({ success: false, error: 'Description too long (max 10,000 characters)' }, 400)
+    }
     const result = courseRepository.createContent(c.req.param('id'), { ...data, title: data.title.trim() })
     return c.json({ success: true, data: result.data }, 201)
   } catch (error) {
@@ -66,6 +69,9 @@ lessonContent.post('/lessons/:id/content', requireRole('admin'), async (c) => {
 lessonContent.put('/content/:id', requireRole('admin'), async (c) => {
   try {
     const data = await c.req.json()
+    if (data.description && typeof data.description === 'string' && data.description.length > 10000) {
+      return c.json({ success: false, error: 'Description too long (max 10,000 characters)' }, 400)
+    }
     const result = courseRepository.updateContent(c.req.param('id'), data)
     if (!result.success) return c.json(result, 404)
     return c.json({ success: true })

@@ -6,6 +6,7 @@
 
 import { showAppConfirm, showAppPrompt, showAppAlert } from '../shared/app-dialogs.js'
 import { openPuzzleComposer } from './puzzle-composer.js'
+import { createMarkdownEditor } from '../shared/markdown-editor.js'
 
 function escapeHtml(str) {
   if (!str) return ''
@@ -125,7 +126,8 @@ export async function showLessonContentEditor(apiClient, lessonId, lessonTitle, 
         </div>
         <div style="flex:1;min-width:0">
           <div style="font-size:15px;font-weight:600;color:var(--color-gray-900);margin-bottom:4px">${escapeHtml(item.title)}</div>
-          <div style="font-size:12px;color:var(--color-gray-400);margin-bottom:8px">${escapeHtml(detail)}</div>
+          <div style="font-size:12px;color:var(--color-gray-400);margin-bottom:${item.description ? '4px' : '8px'}">${escapeHtml(detail)}</div>
+          ${item.description ? `<div style="font-size:11px;color:#94a3b8;margin-bottom:8px;font-style:italic">${escapeHtml(item.description.replace(/[#*_\[\]()]/g, '').substring(0, 80))}${item.description.length > 80 ? '...' : ''}</div>` : ''}
           <div style="display:flex;gap:8px;align-items:center">
             <span style="padding:2px 8px;background:${c.badge};border-radius:10px;font-size:11px;font-weight:500;color:${c.text}">+${item.xp_reward} XP</span>
             <span style="font-size:11px;color:var(--color-gray-400)">Item ${index + 1} of ${total}</span>
@@ -191,9 +193,9 @@ export async function showLessonContentEditor(apiClient, lessonId, lessonTitle, 
       })
       return
     }
-    const newTitle = await showAppPrompt({ title: `Edit ${TYPE_CONFIG[item.content_type]?.label || 'Content'}`, defaultValue: item.title, placeholder: 'Title' })
-    if (newTitle && newTitle !== item.title) {
-      await apiClient.updateContent(contentId, { title: newTitle })
+    const result = await showEditContentDialog(item)
+    if (result) {
+      await apiClient.updateContent(contentId, result)
       render()
     }
   }
@@ -208,12 +210,22 @@ function showUploadContentDialog(defaultType = 'video', apiClient = null) {
     const inputStyle = 'width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;box-sizing:border-box;font-family:inherit'
     const labelStyle = 'display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:6px'
     let activeTab = defaultType === 'pdf' ? 'upload' : 'url'
+    let descriptionEditor = null
+    let savedDescription = ''
 
     const dlg = document.createElement('div')
     dlg.className = 'pv-overlay'
     dlg.style.zIndex = '60000'
 
+    const closeDlg = () => { descriptionEditor?.destroy(); dlg.remove(); resolve(null) }
+
     function renderDialog() {
+      // Preserve description before re-render
+      if (descriptionEditor) {
+        savedDescription = descriptionEditor.getValue() || ''
+        descriptionEditor.destroy()
+        descriptionEditor = null
+      }
       dlg.innerHTML = `
         <div style="width:500px;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,0.2);display:flex;flex-direction:column;overflow:hidden">
           <div style="display:flex;justify-content:space-between;align-items:center;padding:20px 24px;border-bottom:1px solid #e2e8f0">
@@ -248,6 +260,7 @@ function showUploadContentDialog(defaultType = 'video', apiClient = null) {
               </div>
             `}
             <div><label style="${labelStyle}">Display Title</label><input type="text" id="uc-title" placeholder="Introduction to the Italian Game" style="${inputStyle}"></div>
+            <div><label style="${labelStyle}">Description (Markdown) — optional</label><div id="uc-description-editor"></div></div>
           </div>
           <div style="display:flex;justify-content:flex-end;gap:12px;padding:16px 24px;border-top:1px solid #e2e8f0">
             <button data-action="close" style="padding:10px 20px;border:1px solid #d1d5db;border-radius:8px;background:#fff;font-size:13px;color:#64748b;cursor:pointer">Cancel</button>
@@ -256,14 +269,23 @@ function showUploadContentDialog(defaultType = 'video', apiClient = null) {
         </div>
       `
 
+      // Init markdown editor for description
+      const descEditorEl = dlg.querySelector('#uc-description-editor')
+      if (descEditorEl) {
+        descriptionEditor = createMarkdownEditor(descEditorEl, {
+          value: savedDescription,
+          placeholder: 'Describe this content for students...', height: 150
+        })
+      }
+
       // Tab switching
       dlg.querySelectorAll('[data-tab]').forEach(btn => {
         btn.addEventListener('click', () => { activeTab = btn.dataset.tab; renderDialog() })
       })
 
       // Close
-      dlg.querySelectorAll('[data-action="close"]').forEach(b => b.addEventListener('click', () => { dlg.remove(); resolve(null) }))
-      dlg.addEventListener('click', (e) => { if (e.target === dlg) { dlg.remove(); resolve(null) } })
+      dlg.querySelectorAll('[data-action="close"]').forEach(b => b.addEventListener('click', closeDlg))
+      dlg.addEventListener('click', (e) => { if (e.target === dlg) closeDlg() })
 
       // File upload dropzone
       const dropzone = dlg.querySelector('#uc-dropzone')
@@ -291,8 +313,9 @@ function showUploadContentDialog(defaultType = 'video', apiClient = null) {
         if (activeTab === 'url') {
           const url = dlg.querySelector('#uc-url').value.trim()
           if (!url) { showAppAlert({ title: 'Required', message: 'Please enter a video URL' }); return }
+          const description = descriptionEditor?.getValue()?.trim() || null
           dlg.remove()
-          resolve({ content_type: 'video', title, video_url: url, xp_reward: 10 })
+          resolve({ content_type: 'video', title, video_url: url, description, xp_reward: 10 })
         } else {
           const file = fileInput?.files?.[0]
           if (!file) { showAppAlert({ title: 'Required', message: 'Please select a file' }); return }
@@ -308,8 +331,9 @@ function showUploadContentDialog(defaultType = 'video', apiClient = null) {
             const result = await res.json()
             if (!result.success) throw new Error(result.error)
             const contentType = file.name.endsWith('.pdf') ? 'pdf' : 'video'
+            const description = descriptionEditor?.getValue()?.trim() || null
             dlg.remove()
-            resolve({ content_type: contentType, title, file_path: result.data.file_path, file_size: result.data.file_size, xp_reward: contentType === 'pdf' ? 5 : 10 })
+            resolve({ content_type: contentType, title, file_path: result.data.file_path, file_size: result.data.file_size, description, xp_reward: contentType === 'pdf' ? 5 : 10 })
           } catch (err) {
             submitBtn.textContent = 'Add to Lesson'
             submitBtn.disabled = false
@@ -321,6 +345,63 @@ function showUploadContentDialog(defaultType = 'video', apiClient = null) {
 
     document.body.appendChild(dlg)
     renderDialog()
+  })
+}
+
+// ==================== Edit Content Dialog (Title + Description) ====================
+
+function showEditContentDialog(item) {
+  return new Promise((resolve) => {
+    const inputStyle = 'width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;box-sizing:border-box;font-family:inherit'
+    const labelStyle = 'display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:6px'
+    const typeLabel = TYPE_CONFIG[item.content_type]?.label || 'Content'
+
+    const dlg = document.createElement('div')
+    dlg.className = 'pv-overlay'
+    dlg.style.zIndex = '60000'
+    dlg.innerHTML = `
+      <div style="width:560px;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,0.2);display:flex;flex-direction:column;overflow:hidden;max-height:90vh">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:20px 24px;border-bottom:1px solid #e2e8f0">
+          <span style="font-size:18px;font-weight:700;color:#1e293b">Edit ${escapeHtml(typeLabel)}</span>
+          <button data-action="close" style="width:32px;height:32px;border-radius:8px;background:#f1f5f9;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div style="padding:24px;display:flex;flex-direction:column;gap:16px;overflow-y:auto">
+          <div><label style="${labelStyle}">Title</label><input type="text" id="ec-title" value="${escapeHtml(item.title)}" style="${inputStyle}"></div>
+          <div><label style="${labelStyle}">Description (Markdown)</label><div id="ec-description-editor"></div></div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:12px;padding:16px 24px;border-top:1px solid #e2e8f0">
+          <button data-action="close" style="padding:10px 20px;border:1px solid #d1d5db;border-radius:8px;background:#fff;font-size:13px;color:#64748b;cursor:pointer">Cancel</button>
+          <button id="ec-save" style="padding:10px 20px;border:none;border-radius:8px;background:#4f46e5;font-size:13px;font-weight:600;color:#fff;cursor:pointer">Save</button>
+        </div>
+      </div>
+    `
+
+    document.body.appendChild(dlg)
+
+    // Init markdown editor
+    const editorContainer = dlg.querySelector('#ec-description-editor')
+    const descEditor = createMarkdownEditor(editorContainer, {
+      value: item.description || '',
+      placeholder: 'Describe this content for students...',
+      height: 200
+    })
+
+    // Close handlers
+    const closeDlg = () => { descEditor.destroy(); dlg.remove(); resolve(null) }
+    dlg.querySelectorAll('[data-action="close"]').forEach(b => b.addEventListener('click', closeDlg))
+    dlg.addEventListener('click', (e) => { if (e.target === dlg) closeDlg() })
+
+    // Save
+    dlg.querySelector('#ec-save').addEventListener('click', () => {
+      const title = dlg.querySelector('#ec-title').value.trim()
+      if (!title) return
+      const description = descEditor.getValue().trim() || null
+      descEditor.destroy()
+      dlg.remove()
+      resolve({ title, description })
+    })
   })
 }
 

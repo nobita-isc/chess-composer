@@ -2,7 +2,7 @@
 
 Chess Composer is a **monorepo** with 2 npm workspaces (client & server), ~15K LOC total. Client is Vanilla JS SPA (Vite). Server is Node.js REST API (Hono). Both share chess.js dependency.
 
-**Last Updated**: 2026-03-28 (includes puzzle composer redesign, lessons platform, new lesson modules)
+**Last Updated**: 2026-04-12 (includes rich content descriptions, markdown editor, download feature)
 
 ## Directory Structure
 
@@ -106,19 +106,27 @@ Handles puzzle solving, grading, PDF export, student management.
 - Dropdown menus with position:fixed to escape overflow
 - Password toggle component on all password inputs
 
-### Lessons Module: `src/lessons/` (6 files, ~2,067 LOC)
+### Lessons Module: `src/lessons/` (6 files, ~2,200 LOC)
 
-Chess lessons platform — courses, lesson content, puzzle challenges, and student player.
+Chess lessons platform — courses, lesson content, puzzle challenges, and student player with rich markdown descriptions.
 
-**Key components (2026-03-28)**
+**Key components (2026-04-12)**
 - **CourseManagementPage.js** (388 LOC) - Admin UI: create/edit courses, lessons, content items
-- **lesson-content-editor.js** (326 LOC) - Inline content editor; integrates puzzle-composer
-- **lesson-player.js** (244 LOC) - Coursera-style student lesson player with sidebar nav + multi-challenge support
+- **lesson-content-editor.js** (370 LOC) - Inline content editor with markdown description support; integrates puzzle-composer, upload dialogs
+- **lesson-player.js** (320 LOC) - Coursera-style student lesson player: sidebar nav, description rendering, collapsible panels, Notes tab, download buttons
 - **lesson-puzzle-player.js** (387 LOC) - chess.com-style dark-theme puzzle player: interactive solving, per-move hints, computer auto-play, timeline feedback
-- **puzzle-composer.js** (558 LOC) - Full-screen admin puzzle composer: board preview, per-move hint editor, multi-puzzle batch creation, move validation
+- **puzzle-composer.js** (580 LOC) - Full-screen admin puzzle composer: board preview, per-move hint editor, multi-puzzle batch creation, move validation, description field
 - **student-courses-page.js** (164 LOC) - Student course listing and assignment view
 
-**puzzle_challenges architecture**: Multiple puzzles stored as a JSON array in one `lesson_content` row. Each challenge object: `puzzle_fen`, `puzzle_moves`, `puzzle_instruction`, `puzzle_hints[]`, `puzzle_video_url`, `xp_reward`. Student must solve ALL challenges before the item marks complete.
+**New: Rich content descriptions**
+- Markdown descriptions on all content types (video, PDF, puzzle)
+- Integrated markdown editor in upload and edit dialogs
+- Student-facing description rendering with proper typography
+- Collapsible description panel (auto-collapse for long content >300 chars)
+- Download descriptions as styled HTML or markdown files
+- Notes sidebar tab for quick reference
+
+**puzzle_challenges architecture**: Multiple puzzles stored as a JSON array in one `lesson_content` row. Each challenge object: `puzzle_fen`, `puzzle_moves`, `puzzle_instruction`, `puzzle_hints[]`, `puzzle_video_url`, `description`, `xp_reward`. Student must solve ALL challenges before the item marks complete.
 
 ### Puzzles Module: `src/puzzles/` (4 files, ~1,200 LOC)
 - **CreatePuzzleDialog.js** (785 LOC) - Custom puzzle creation form
@@ -170,7 +178,7 @@ Chess lessons platform — courses, lesson content, puzzle challenges, and stude
 - Rating range filtering
 - Caching of generated sets
 
-**9 Migrations** (`migrations/001-009.js`)
+**11 Migrations** (`migrations/001-011.js`)
 - 001: Add source field to puzzles
 - 002: Add exercise tables
 - 003: Add puzzle_results table
@@ -180,6 +188,8 @@ Chess lessons platform — courses, lesson content, puzzle challenges, and stude
 - 007: Chess lessons platform tables (courses, lessons, lesson_content, course_assignments, lesson_progress, student_gamification)
 - 008: Puzzle composer fields (puzzle_instruction, puzzle_hints, puzzle_video_url) on lesson_content
 - 009: puzzle_challenges column on lesson_content (multi-puzzle JSON array)
+- 010: Add avg_rating column (if used by grading)
+- 011: Add description column on lesson_content (rich markdown descriptions)
 
 ### Auth Module: `src/auth/` (1 file)
 - **AuthService.js** - JWT generation/verification, bcrypt hashing
@@ -216,8 +226,10 @@ Domain-specific business logic following repository pattern.
 **Reports**: PuzzleReportManager
 **Lessons**: CourseRepository (courses, lessons, lesson_content, assignments, progress, gamification)
 
-### Utilities: `src/shared/` (1 file)
+### Shared Module: `src/shared/` (3 files)
 - **MoveConverter.js** - SAN↔UCI conversion for move display
+- **markdown-editor.js** (~120 LOC) - Split-pane markdown editor with live preview, toolbar buttons
+- **content-download-helper.js** (~180 LOC) - Export descriptions as styled HTML or markdown, includes print-friendly CSS
 
 ### PDF Generation: `src/exercises/PdfGenerator.js`
 - pdfkit-based exercise and gradesheet generation
@@ -350,6 +362,7 @@ lesson_content (
   puzzle_hints TEXT,         -- JSON: per-move hints (student/computer roles) — migration 008
   puzzle_video_url TEXT,     -- migration 008
   puzzle_challenges TEXT,    -- JSON array of challenge objects — migration 009
+  description TEXT,          -- migration 011: markdown content descriptions for students
   created_at TEXT
 )
 
@@ -433,6 +446,7 @@ student_gamification (
 | **Server** | bcrypt | 6.0.0 | Password hashing |
 | **Server** | jsonwebtoken | 9.0.3 | JWT tokens |
 | **Server** | pdfkit | 0.15.0 | PDF generation |
+| **Client** | marked | (latest) | Markdown parsing (~5KB gz) |
 | **Build** | Node.js | 22+ | Runtime |
 | **Monorepo** | npm workspaces | - | Package management |
 
@@ -453,29 +467,31 @@ student_gamification (
 - Memory footprint: ~500MB (theme index + in-memory cache)
 - Inline grading: instant (no server roundtrip until save)
 
-## Recent Changes (2026-03-28)
+## Recent Changes (2026-04-12)
 
-**New: Chess Lessons Platform**
+**New: Rich Content Descriptions & Learning Materials**
+- markdown-editor.js (120 LOC) — split-pane editor with live preview, toolbar (bold, italic, headers, lists, links)
+- content-download-helper.js (180 LOC) — export descriptions as styled HTML or markdown with print-friendly CSS
+- lesson-content-editor.js — upload/edit dialogs now include markdown editor for descriptions
+- lesson-player.js — renders descriptions with proper typography, collapsible panels, Notes sidebar tab
+- puzzle-composer.js — added description field to puzzle composer form
+- CourseRepository — description field added to createContent() and updateContent() allowlist
+- Migration 011 — description TEXT column on lesson_content
+- Student-facing download: styled HTML learning materials via "Download Notes" button
+- Visual hierarchy: type badges, clearer titles, better spacing
+
+**Previous: Chess Lessons Platform & Puzzle Composer Redesign**
 - Full lessons platform: courses → lessons → content items (video, PDF, puzzle, quiz)
-- CourseManagementPage.js — admin UI for course/lesson/content CRUD
-- student-courses-page.js — student course listing and assigned courses view
-- lesson-player.js — Coursera-style player with sidebar navigation
-- File upload support (video/PDF, 100MB max)
-- Gamification: XP rewards, streaks, badges (student_gamification table)
-- Course assignments (course_assignments table) with per-content progress tracking
+- Puzzle composer (chess.com-style) with multi-puzzle challenges
+- Student puzzle player with interactive solving and timeline feedback
+- Gamification: XP rewards, streaks, badges
+- File uploads: video/PDF up to 100MB
+- migrations 008 & 009: puzzle composer fields and puzzle_challenges JSON array
 
-**New: Puzzle Composer Redesign (chess.com-style)**
-- puzzle-composer.js (558 LOC) — full-screen admin composer with board preview, per-move hint editor, multi-puzzle batch creation, move validation
-- lesson-puzzle-player.js (387 LOC) — dark-theme interactive student puzzle player with computer auto-play and timeline feedback
-- lesson-content-editor.js — integrated puzzle composer, removed old inline dialog
-- migrations 008 & 009: puzzle_instruction, puzzle_hints (JSON), puzzle_video_url, puzzle_challenges (JSON) added to lesson_content
-- puzzle_challenges: multiple puzzles per content item stored as JSON array; student completes ALL before item marks done
-- CourseRepository: column allowlist pattern for safe dynamic UPDATE of lesson_content
-
-**Previous UI Modernization**
-- Inline puzzle grading with C/X keyboard shortcuts, auto-advance, auto-save
+**Previous: UI Modernization & Polish**
+- Inline puzzle grading with C/X keyboard shortcuts
 - Exercise rename (PUT /api/exercises/:id)
-- Modern `ep-table` pattern, `btn-outline btn-sm` buttons, fixed-position dropdowns
+- Modern UI patterns (ep-table, btn-outline, fixed-position dropdowns)
 
 ## Integration Points
 
