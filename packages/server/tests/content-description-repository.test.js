@@ -102,6 +102,21 @@ afterAll(() => db.close())
 describe('Content Description — Repository', () => {
   const repo = () => createRepo(db)
 
+  describe('Migration 011: description column', () => {
+    it('lesson_content table has description column', () => {
+      const columns = db.prepare('PRAGMA table_info(lesson_content)').all()
+      const descCol = columns.find(c => c.name === 'description')
+      expect(descCol).toBeTruthy()
+      expect(descCol.type).toBe('TEXT')
+      expect(descCol.notnull).toBe(0) // nullable
+    })
+
+    it('migration is idempotent (re-running does not throw)', async () => {
+      const { migrate } = await import('../../server/src/database/migrations/011_add_content_description.js')
+      expect(() => migrate(db)).not.toThrow()
+    })
+  })
+
   describe('createContent with description', () => {
     it('stores markdown description', () => {
       const r = repo()
