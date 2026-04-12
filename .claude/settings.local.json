@@ -44,7 +44,23 @@
       "Bash(npx vitest:*)",
       "Bash(tee plans/reports/test-coverage-260328-1914-final.txt)",
       "Bash(sqlite3 packages/server/data/puzzles.db 'PRAGMA table_info\\(lesson_content\\)')",
-      "Bash(node .claude/scripts/validate-docs.cjs docs/)"
+      "Bash(node .claude/scripts/validate-docs.cjs docs/)",
+      "Bash(git -C /Users/nobita_isc/projects/chess_composer log --oneline --all --grep=\"hmr\\\\|hot\\\\|reload\" -i)",
+      "Bash(npx --prefix packages/client vite build --mode development)",
+      "Bash(node /Users/nobita_isc/projects/chess_composer/.claude/hooks/dev-rules-reminder.cjs)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(node /Users/nobita_isc/projects/chess_composer/.claude/hooks/usage-context-awareness.cjs)",
+      "Bash(node .claude/hooks/dev-rules-reminder.cjs)",
+      "Bash(node .claude/hooks/usage-context-awareness.cjs)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebSearch",
+      "WebFetch(domain:api.github.com)",
+      "Bash(node /Users/nobita_isc/projects/chess_composer/.claude/scripts/set-active-plan.cjs plans/260411-1959-shared-puzzle-board-refactor)",
+      "Bash(node /Users/nobita_isc/projects/chess_composer/.claude/scripts/set-active-plan.cjs /Users/nobita_isc/projects/chess_composer/plans/260411-1959-shared-puzzle-board-refactor)",
+      "Bash(grep -E '\\\\.\\(js|ts\\)$')",
+      "Bash(grep -E \"\\\\.\\(tsx|ts|jsx|js\\)$\")",
+      "Bash(grep -E \"\\\\.\\(js|ts\\)$\")"
     ]
   }
 }

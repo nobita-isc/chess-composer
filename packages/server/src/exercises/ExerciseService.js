@@ -82,13 +82,21 @@ export class ExerciseService {
     const weekStart = data.weekStart || this.getWeekStart();
     const weekEnd = this.getWeekEnd(weekStart);
 
+    // Calculate average rating from puzzles
+    const puzzles = database.getPuzzlesByIds(puzzleIds);
+    const puzzlesWithRating = puzzles.filter(p => p.rating != null);
+    const avgRating = puzzlesWithRating.length > 0
+      ? Math.round(puzzlesWithRating.reduce((sum, p) => sum + p.rating, 0) / puzzlesWithRating.length)
+      : null;
+
     // Create the exercise
     const result = exerciseRepository.createExercise({
       week_start: weekStart,
       week_end: weekEnd,
       name: name || `Week of ${this.formatWeekLabel(weekStart, weekEnd)}`,
       puzzle_ids: puzzleIds.join(','),
-      filters
+      filters,
+      avg_rating: avgRating
     });
 
     if (!result.success) {

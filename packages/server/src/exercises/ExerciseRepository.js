@@ -39,8 +39,8 @@ export class ExerciseRepository {
       const now = new Date().toISOString();
 
       database.run(
-        `INSERT INTO weekly_exercises (id, week_start, week_end, name, puzzle_ids, filters, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO weekly_exercises (id, week_start, week_end, name, puzzle_ids, filters, avg_rating, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id,
           data.week_start,
@@ -48,6 +48,7 @@ export class ExerciseRepository {
           data.name || null,
           data.puzzle_ids,
           data.filters ? JSON.stringify(data.filters) : null,
+          data.avg_rating || null,
           now
         ]
       );
@@ -61,6 +62,7 @@ export class ExerciseRepository {
           name: data.name || null,
           puzzle_ids: data.puzzle_ids,
           filters: data.filters || null,
+          avg_rating: data.avg_rating || null,
           created_at: now
         }
       };
@@ -309,7 +311,7 @@ export class ExerciseRepository {
    */
   getStudentPerformance(studentId) {
     const exercises = database.query(
-      `SELECT se.score, se.total_puzzles, se.status, we.week_start
+      `SELECT se.score, se.total_puzzles, se.status, we.week_start, we.avg_rating, we.name as exercise_name
        FROM student_exercises se
        JOIN weekly_exercises we ON se.exercise_id = we.id
        WHERE se.student_id = ? AND se.status = 'graded'
@@ -321,6 +323,7 @@ export class ExerciseRepository {
       return {
         total_exercises: 0,
         average_score: null,
+        avg_rating: null,
         total_puzzles_solved: 0,
         total_puzzles: 0,
         history: []
@@ -330,16 +333,25 @@ export class ExerciseRepository {
     const totalScore = exercises.reduce((sum, e) => sum + (e.score || 0), 0);
     const totalPuzzles = exercises.reduce((sum, e) => sum + (e.total_puzzles || 0), 0);
 
+    // Calculate overall average rating across all exercises
+    const exercisesWithRating = exercises.filter(e => e.avg_rating != null);
+    const overallAvgRating = exercisesWithRating.length > 0
+      ? Math.round(exercisesWithRating.reduce((sum, e) => sum + e.avg_rating, 0) / exercisesWithRating.length)
+      : null;
+
     return {
       total_exercises: exercises.length,
       average_score: totalPuzzles > 0 ? Math.round((totalScore / totalPuzzles) * 100) : null,
+      avg_rating: overallAvgRating,
       total_puzzles_solved: totalScore,
       total_puzzles: totalPuzzles,
       history: exercises.map(e => ({
         week: e.week_start,
+        exercise_name: e.exercise_name,
         score: e.score,
         total: e.total_puzzles,
-        percentage: e.total_puzzles > 0 ? Math.round((e.score / e.total_puzzles) * 100) : 0
+        percentage: e.total_puzzles > 0 ? Math.round((e.score / e.total_puzzles) * 100) : 0,
+        avg_rating: e.avg_rating || null
       }))
     };
   }

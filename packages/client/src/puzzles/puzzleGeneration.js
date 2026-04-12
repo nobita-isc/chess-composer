@@ -148,12 +148,27 @@ export function processPuzzles(puzzleData, selectedThemes) {
       puzzleTheme = puzzleThemesList[0] || null;
     }
 
+    // Build tactical theme badges (same filtering as ExercisePuzzleViewer)
+    const allCategorized = new Set(Object.values(THEME_CATEGORIES).flat());
+    const tacticalList = puzzleThemesList
+      .filter(t => allCategorized.has(t.toLowerCase()))
+      .filter(t => {
+        const lower = t.toLowerCase();
+        if (lower === 'endgame') return !puzzleThemesList.some(o => o.toLowerCase().endsWith('endgame') && o.toLowerCase() !== 'endgame');
+        if (['short', 'long', 'verylong'].includes(lower)) return false;
+        return true;
+      });
+    const themeNames = tacticalList.length > 0
+      ? tacticalList.map(t => formatThemeName(t))
+      : [formatThemeName(puzzleTheme)];
+
     return {
       id: puzzle.id || `puzzle_${Date.now()}_${i}`,
       fen: puzzle.fen,
       fenAfterOpponent: puzzle.fenAfterOpponent || puzzle.fen,
       theme: puzzleTheme,
       themeName: formatThemeName(puzzleTheme),
+      themeNames,
       opponentMove: puzzle.opponentMoveSAN,
       solution: puzzle.solutionSAN || puzzle.solution,
       solutionLine: puzzle.solutionLine || [],

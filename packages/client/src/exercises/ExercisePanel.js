@@ -147,6 +147,7 @@ export function showExercisePanel(apiClient, getCurrentPuzzles, onPuzzlesUpdated
                 </div>
                 <div class="exercise-meta">
                   <span>${ex.puzzle_count} puzzles</span>
+                  <span>Rating: ${ex.avg_rating || '-'}</span>
                   <span>${ex.total_assigned} assigned</span>
                   <span>${ex.total_graded} graded</span>
                 </div>
@@ -645,6 +646,10 @@ export function showExercisePanel(apiClient, getCurrentPuzzles, onPuzzlesUpdated
             <span class="stat-value">${data.performance.total_puzzles_solved}/${data.performance.total_puzzles}</span>
             <span class="stat-label">Puzzles Correct</span>
           </div>
+          <div class="stat-card">
+            <span class="stat-value">${data.performance.avg_rating !== null ? data.performance.avg_rating : '-'}</span>
+            <span class="stat-label">Avg Puzzle Rating</span>
+          </div>
         </div>
 
         <h4>History</h4>
@@ -655,6 +660,7 @@ export function showExercisePanel(apiClient, getCurrentPuzzles, onPuzzlesUpdated
               <tr>
                 <th>Week</th>
                 <th>Score</th>
+                <th>Rating</th>
                 <th>Percentage</th>
               </tr>
             </thead>
@@ -663,6 +669,7 @@ export function showExercisePanel(apiClient, getCurrentPuzzles, onPuzzlesUpdated
                 <tr>
                   <td>${escapeHtml(h.week)}</td>
                   <td>${h.score}/${h.total}</td>
+                  <td>${h.avg_rating || '-'}</td>
                   <td>
                     <span class="score-bar" style="width: ${h.percentage}%">${h.percentage}%</span>
                   </td>
@@ -704,6 +711,7 @@ export function showExercisePanel(apiClient, getCurrentPuzzles, onPuzzlesUpdated
                 <th>Skill Level</th>
                 <th>Exercises</th>
                 <th>Avg Score</th>
+                <th>Avg Rating</th>
                 <th>Total Correct</th>
               </tr>
             </thead>
@@ -714,6 +722,7 @@ export function showExercisePanel(apiClient, getCurrentPuzzles, onPuzzlesUpdated
                   <td>${SKILL_LEVEL_LABELS[data.student.skill_level]}</td>
                   <td>${data.performance.total_exercises}</td>
                   <td>${data.performance.average_score !== null ? data.performance.average_score + '%' : '-'}</td>
+                  <td>${data.performance.avg_rating !== null ? data.performance.avg_rating : '-'}</td>
                   <td>${data.performance.total_puzzles_solved}/${data.performance.total_puzzles}</td>
                 </tr>
               `).join('')}
@@ -879,6 +888,7 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
                   <th class="ep-th-grow">Exercise</th>
                   <th style="width:90px">Status</th>
                   <th style="width:70px">Puzzles</th>
+                  <th style="width:70px">Rating</th>
                   <th style="width:80px">Assigned</th>
                   <th style="width:70px">Graded</th>
                   <th style="width:240px">Actions</th>
@@ -893,6 +903,7 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
                     </td>
                     <td>${exerciseStatus(ex)}</td>
                     <td>${ex.puzzle_count}</td>
+                    <td>${ex.avg_rating || '-'}</td>
                     <td>${ex.total_assigned}</td>
                     <td class="ep-cell-graded">${gradedFraction(ex)}</td>
                     <td>
@@ -1511,6 +1522,10 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
             <span class="stat-value">${data.performance.total_puzzles_solved}/${data.performance.total_puzzles}</span>
             <span class="stat-label">Puzzles Correct</span>
           </div>
+          <div class="stat-card">
+            <span class="stat-value">${data.performance.avg_rating !== null ? data.performance.avg_rating : '-'}</span>
+            <span class="stat-label">Avg Puzzle Rating</span>
+          </div>
         </div>
 
         <h4>History</h4>
@@ -1521,6 +1536,7 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
               <tr>
                 <th>Week</th>
                 <th>Score</th>
+                <th>Rating</th>
                 <th>Percentage</th>
               </tr>
             </thead>
@@ -1529,6 +1545,7 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
                 <tr>
                   <td>${escapeHtml(h.week)}</td>
                   <td>${h.score}/${h.total}</td>
+                  <td>${h.avg_rating || '-'}</td>
                   <td>
                     <span class="score-bar" style="width: ${h.percentage}%">${h.percentage}%</span>
                   </td>
@@ -1570,6 +1587,7 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
                 <th>Skill Level</th>
                 <th>Exercises</th>
                 <th>Avg Score</th>
+                <th>Avg Rating</th>
                 <th>Total Correct</th>
               </tr>
             </thead>
@@ -1580,6 +1598,7 @@ export function renderExercisePage(container, apiClient, getCurrentPuzzles, onPu
                   <td>${SKILL_LEVEL_LABELS[data.student.skill_level]}</td>
                   <td>${data.performance.total_exercises}</td>
                   <td>${data.performance.average_score !== null ? data.performance.average_score + '%' : '-'}</td>
+                  <td>${data.performance.avg_rating !== null ? data.performance.avg_rating : '-'}</td>
                   <td>${data.performance.total_puzzles_solved}/${data.performance.total_puzzles}</td>
                 </tr>
               `).join('')}

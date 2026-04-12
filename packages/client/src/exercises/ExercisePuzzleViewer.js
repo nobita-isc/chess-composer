@@ -7,6 +7,10 @@
 
 import { InteractivePuzzleBoard } from '../shared/interactive-puzzle-board.js'
 import { escapeHtml, uciMovesToSan } from '../shared/chess-puzzle-utils.js'
+import { formatThemeName, THEME_CATEGORIES } from '../puzzles/puzzleGeneration.js'
+
+// Build set of all categorized tactical themes (checkmates, tactics, endgames, etc.)
+const TACTICAL_THEMES = new Set(Object.values(THEME_CATEGORIES).flat())
 
 function getDifficultyInfo(rating) {
   if (rating >= 2000) return { label: 'Advanced', cls: 'badge-advanced' }
@@ -26,9 +30,24 @@ function convertExercisePuzzle(puzzle, index) {
     ? (fenTurn === 'w' ? 'Black' : 'White')
     : (fenTurn === 'w' ? 'White' : 'Black')
 
-  const themes = typeof puzzle.themes === 'string'
+  const allThemes = typeof puzzle.themes === 'string'
     ? puzzle.themes.split(',').map(t => t.trim()).filter(Boolean)
     : (puzzle.themes || [])
+
+  // Show categorized tactical themes, removing redundant parent themes
+  // e.g., if "knightendgame" is present, "endgame" is redundant
+  const tacticalThemes = allThemes.filter(t => TACTICAL_THEMES.has(t.toLowerCase()))
+  const dedupedThemes = tacticalThemes.filter(t => {
+    const lower = t.toLowerCase()
+    // Remove generic "endgame" if a specific endgame type exists
+    if (lower === 'endgame') return !tacticalThemes.some(o => o.toLowerCase().endsWith('endgame') && o.toLowerCase() !== 'endgame')
+    // Remove length descriptors (short/long/verylong) — not useful as badges
+    if (['short', 'long', 'verylong'].includes(lower)) return false
+    return true
+  })
+  const themeNames = dedupedThemes.length > 0
+    ? dedupedThemes.map(t => formatThemeName(t))
+    : [formatThemeName(allThemes[0] || null)]
 
   const movesCount = hasOpponentMove
     ? Math.ceil((sanMoves.length - 1) / 2)
@@ -40,7 +59,8 @@ function convertExercisePuzzle(puzzle, index) {
     uciMoves,
     sanMoves,
     rating: puzzle.rating || 0,
-    themeName: themes[0] ? themes[0].charAt(0).toUpperCase() + themes[0].slice(1) : 'Puzzle',
+    themeName: themeNames[0],
+    themeNames,
     sideToFind,
     movesCount,
     hasOpponentMove
@@ -96,22 +116,24 @@ function _openViewer(puzzles, title, puzzleIndex, gradingCtx = null) {
   overlay.innerHTML = `
     <div class="pv-dialog">
       <div class="pv-header">
-        <div class="pv-header-left">
+        <div class="pv-header-top">
           <span class="pv-title">${escapeHtml(title)} - #${puzzleIndex + 1}</span>
-          <span class="badge badge-theme">${escapeHtml(puzzle.themeName)}</span>
-          <span class="badge ${diff.cls}">${diff.label}</span>
+          <div class="pv-header-right">
+            <button class="pv-nav-btn" data-action="prev" ${puzzleIndex === 0 ? 'disabled' : ''}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <span class="pv-nav-text">${puzzleIndex + 1} / ${puzzles.length}</span>
+            <button class="pv-nav-btn pv-nav-btn-primary" data-action="next" ${puzzleIndex === puzzles.length - 1 ? 'disabled' : ''}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+            <button class="pv-close-btn" data-action="close">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
         </div>
-        <div class="pv-header-right">
-          <button class="pv-nav-btn" data-action="prev" ${puzzleIndex === 0 ? 'disabled' : ''}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-          </button>
-          <span class="pv-nav-text">${puzzleIndex + 1} / ${puzzles.length}</span>
-          <button class="pv-nav-btn pv-nav-btn-primary" data-action="next" ${puzzleIndex === puzzles.length - 1 ? 'disabled' : ''}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
-          <button class="pv-close-btn" data-action="close">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
+        <div class="pv-header-themes">
+          ${puzzle.themeNames.map(t => `<span class="badge badge-theme">${escapeHtml(t)}</span>`).join('')}
+          <span class="badge ${diff.cls}">${diff.label}</span>
         </div>
       </div>
       <div class="pv-body">

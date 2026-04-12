@@ -7,6 +7,25 @@
 import { Chess } from 'chess.js';
 import { PIECE_IMAGES, generateBoardHTML } from '../puzzles/staticBoard.js';
 import { showAppAlert } from '../shared/app-dialogs.js';
+import { formatThemeName, THEME_CATEGORIES } from '../puzzles/puzzleGeneration.js';
+
+const TACTICAL_THEMES = new Set(Object.values(THEME_CATEGORIES).flat());
+
+/** Get filtered tactical theme badges for a puzzle */
+function getTacticalThemeNames(puzzle) {
+  const allThemes = typeof puzzle.themes === 'string'
+    ? puzzle.themes.split(',').map(t => t.trim()).filter(Boolean)
+    : (puzzle.themes || []);
+  const tactical = allThemes
+    .filter(t => TACTICAL_THEMES.has(t.toLowerCase()))
+    .filter(t => {
+      const lower = t.toLowerCase();
+      if (lower === 'endgame') return !allThemes.some(o => o.toLowerCase().endsWith('endgame') && o.toLowerCase() !== 'endgame');
+      if (['short', 'long', 'verylong'].includes(lower)) return false;
+      return true;
+    });
+  return tactical.length > 0 ? tactical.map(formatThemeName) : [];
+}
 
 /**
  * Open print preview in a new window
@@ -79,7 +98,12 @@ function generatePrintHTML(exercise) {
     // Prepare position by playing opponent's first move
     const { chess, lastMoveSan, playerColor, flipped } = preparePuzzlePosition(puzzle);
     const turnText = playerColor === 'w' ? 'White to move' : 'Black to move';
-    const lastMoveText = lastMoveSan ? `After ${lastMoveSan}` : '';
+    // "Last move: Rxe3" for white's move, "Last move: ..Rxe3" for black's move
+    const opponentColor = playerColor === 'w' ? 'b' : 'w';
+    const lastMoveText = lastMoveSan
+      ? `Last move: ${opponentColor === 'b' ? '..' : ''}${lastMoveSan}`
+      : '';
+    const themeNames = getTacticalThemeNames(puzzle);
 
     return `
       <div class="puzzle-item">
@@ -92,10 +116,11 @@ function generatePrintHTML(exercise) {
           ${puzzle.rating ? `<span class="rating">Rating: ${puzzle.rating}</span>` : ''}
         </div>
         ${generateBoardHTML(chess, `board-${index}`, flipped, lastMoveSan)}
-        <div class="answer-area">
-          <span class="answer-label">Answer:</span>
-          <div class="answer-line"></div>
-        </div>
+        ${themeNames.length > 0 ? `
+          <div class="puzzle-themes-print">
+            ${themeNames.map(t => `<span class="theme-badge-print">${t}</span>`).join('')}
+          </div>
+        ` : ''}
       </div>
     `;
   }).join('');
@@ -330,6 +355,22 @@ function generatePrintHTML(exercise) {
     }
 
     /* Answer Area */
+    .puzzle-themes-print {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5mm;
+      padding-top: 2mm;
+    }
+
+    .theme-badge-print {
+      font-size: 7pt;
+      padding: 0.5mm 2mm;
+      border: 0.5pt solid #999;
+      border-radius: 2mm;
+      color: #333;
+      white-space: nowrap;
+    }
+
     .answer-area {
       display: flex;
       align-items: center;
