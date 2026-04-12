@@ -193,11 +193,8 @@ export async function showLessonContentEditor(apiClient, lessonId, lessonTitle, 
       })
       return
     }
-    const result = await showEditContentDialog(item)
-    if (result) {
-      await apiClient.updateContent(contentId, result)
-      render()
-    }
+    const saved = await showEditContentDialog(item, apiClient, contentId)
+    if (saved) render()
   }
 
   render()
@@ -350,29 +347,33 @@ function showUploadContentDialog(defaultType = 'video', apiClient = null) {
 
 // ==================== Edit Content Dialog (Title + Description) ====================
 
-function showEditContentDialog(item) {
+function showEditContentDialog(item, apiClient, contentId) {
   return new Promise((resolve) => {
     const inputStyle = 'width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;box-sizing:border-box;font-family:inherit'
     const labelStyle = 'display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:6px'
     const typeLabel = TYPE_CONFIG[item.content_type]?.label || 'Content'
 
+    const originalTitle = item.title || ''
+    const originalDesc = item.description || ''
+    let hasSaved = false
+
     const dlg = document.createElement('div')
     dlg.className = 'pv-overlay'
-    dlg.style.zIndex = '60000'
     dlg.style.cssText = 'z-index:60000;background:var(--color-bg-base,#f8fafc);align-items:stretch;justify-content:stretch'
     dlg.innerHTML = `
       <div style="width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden">
         <div style="flex-shrink:0;display:flex;justify-content:space-between;align-items:center;padding:16px 32px;border-bottom:1px solid #e2e8f0;background:#fff">
           <div style="display:flex;align-items:center;gap:12px">
-            <button data-action="close" style="display:flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;color:#4f46e5;font-size:13px">
+            <button id="ec-back" style="display:flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;color:#4f46e5;font-size:13px">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
               Back
             </button>
             <div style="width:1px;height:24px;background:#e2e8f0"></div>
             <span style="font-size:18px;font-weight:700;color:#1e293b">Edit ${escapeHtml(typeLabel)}</span>
           </div>
-          <div style="display:flex;gap:12px">
-            <button data-action="close" style="padding:10px 20px;border:1px solid #d1d5db;border-radius:8px;background:#fff;font-size:13px;color:#64748b;cursor:pointer">Cancel</button>
+          <div style="display:flex;align-items:center;gap:12px">
+            <div id="ec-status" style="font-size:12px"></div>
+            <button id="ec-cancel" style="padding:10px 20px;border:1px solid #d1d5db;border-radius:8px;background:#fff;font-size:13px;color:#64748b;cursor:pointer">Cancel</button>
             <button id="ec-save" style="padding:10px 20px;border:none;border-radius:8px;background:#4f46e5;font-size:13px;font-weight:600;color:#fff;cursor:pointer">Save</button>
           </div>
         </div>
@@ -388,28 +389,82 @@ function showEditContentDialog(item) {
     document.body.appendChild(dlg)
     document.body.style.overflow = 'hidden'
 
-    // Init markdown editor — use available height for larger editing area
     const editorContainer = dlg.querySelector('#ec-description-editor')
     const availableHeight = Math.max(400, window.innerHeight - 260)
     const descEditor = createMarkdownEditor(editorContainer, {
-      value: item.description || '',
+      value: originalDesc,
       placeholder: 'Describe this content for students...',
       height: availableHeight
     })
 
-    // Close handlers
-    const closeDlg = () => { descEditor.destroy(); document.body.style.overflow = ''; dlg.remove(); resolve(null) }
-    dlg.querySelectorAll('[data-action="close"]').forEach(b => b.addEventListener('click', closeDlg))
+    const statusEl = dlg.querySelector('#ec-status')
 
-    // Save
-    dlg.querySelector('#ec-save').addEventListener('click', () => {
+    function hasUnsavedChanges() {
+      const currentTitle = dlg.querySelector('#ec-title').value.trim()
+      const currentDesc = descEditor.getValue().trim()
+      return currentTitle !== originalTitle || currentDesc !== (originalDesc || '')
+    }
+
+    function showStatus(message, type) {
+      const colors = { success: '#059669', error: '#dc2626', info: '#4f46e5' }
+      const bgs = { success: '#f0fdf4', error: '#fef2f2', info: '#eef2ff' }
+      statusEl.style.cssText = `font-size:12px;padding:6px 12px;border-radius:6px;color:${colors[type]};background:${bgs[type]};font-weight:500`
+      statusEl.textContent = message
+      if (type === 'success') {
+        setTimeout(() => { statusEl.textContent = ''; statusEl.style.cssText = '' }, 3000)
+      }
+    }
+
+    async function tryClose() {
+      if (hasSaved || !hasUnsavedChanges()) {
+        descEditor.destroy()
+        document.body.style.overflow = ''
+        dlg.remove()
+        resolve(hasSaved)
+        return
+      }
+      const confirmed = await showAppConfirm({
+        title: 'Unsaved Changes',
+        message: 'You have unsaved changes. Are you sure you want to leave? Your changes will be lost.',
+        confirmLabel: 'Leave',
+        confirmColor: '#dc2626',
+        icon: 'alert'
+      })
+      if (confirmed) {
+        descEditor.destroy()
+        document.body.style.overflow = ''
+        dlg.remove()
+        resolve(false)
+      }
+    }
+
+    // Close handlers
+    dlg.querySelector('#ec-back').addEventListener('click', tryClose)
+    dlg.querySelector('#ec-cancel').addEventListener('click', tryClose)
+
+    // Save — calls API directly, stays on screen if error
+    dlg.querySelector('#ec-save').addEventListener('click', async () => {
       const title = dlg.querySelector('#ec-title').value.trim()
-      if (!title) return
+      if (!title) {
+        showStatus('Title is required', 'error')
+        return
+      }
       const description = descEditor.getValue().trim() || null
-      descEditor.destroy()
-      document.body.style.overflow = ''
-      dlg.remove()
-      resolve({ title, description })
+      const saveBtn = dlg.querySelector('#ec-save')
+      saveBtn.textContent = 'Saving...'
+      saveBtn.disabled = true
+
+      try {
+        await apiClient.updateContent(contentId, { title, description })
+        hasSaved = true
+        showStatus('Saved successfully', 'success')
+        saveBtn.textContent = 'Save'
+        saveBtn.disabled = false
+      } catch (err) {
+        showStatus(err.message || 'Failed to save', 'error')
+        saveBtn.textContent = 'Save'
+        saveBtn.disabled = false
+      }
     })
   })
 }
