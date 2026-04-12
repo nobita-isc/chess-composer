@@ -359,39 +359,47 @@ function showEditContentDialog(item) {
     const dlg = document.createElement('div')
     dlg.className = 'pv-overlay'
     dlg.style.zIndex = '60000'
+    dlg.style.cssText = 'z-index:60000;background:var(--color-bg-base,#f8fafc);align-items:stretch;justify-content:stretch'
     dlg.innerHTML = `
-      <div style="width:560px;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,0.2);display:flex;flex-direction:column;overflow:hidden;max-height:90vh">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:20px 24px;border-bottom:1px solid #e2e8f0">
-          <span style="font-size:18px;font-weight:700;color:#1e293b">Edit ${escapeHtml(typeLabel)}</span>
-          <button data-action="close" style="width:32px;height:32px;border-radius:8px;background:#f1f5f9;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
+      <div style="width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden">
+        <div style="flex-shrink:0;display:flex;justify-content:space-between;align-items:center;padding:16px 32px;border-bottom:1px solid #e2e8f0;background:#fff">
+          <div style="display:flex;align-items:center;gap:12px">
+            <button data-action="close" style="display:flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;color:#4f46e5;font-size:13px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+              Back
+            </button>
+            <div style="width:1px;height:24px;background:#e2e8f0"></div>
+            <span style="font-size:18px;font-weight:700;color:#1e293b">Edit ${escapeHtml(typeLabel)}</span>
+          </div>
+          <div style="display:flex;gap:12px">
+            <button data-action="close" style="padding:10px 20px;border:1px solid #d1d5db;border-radius:8px;background:#fff;font-size:13px;color:#64748b;cursor:pointer">Cancel</button>
+            <button id="ec-save" style="padding:10px 20px;border:none;border-radius:8px;background:#4f46e5;font-size:13px;font-weight:600;color:#fff;cursor:pointer">Save</button>
+          </div>
         </div>
-        <div style="padding:24px;display:flex;flex-direction:column;gap:16px;overflow-y:auto">
-          <div><label style="${labelStyle}">Title</label><input type="text" id="ec-title" value="${escapeHtml(item.title)}" style="${inputStyle}"></div>
-          <div><label style="${labelStyle}">Description (Markdown)</label><div id="ec-description-editor"></div></div>
-        </div>
-        <div style="display:flex;justify-content:flex-end;gap:12px;padding:16px 24px;border-top:1px solid #e2e8f0">
-          <button data-action="close" style="padding:10px 20px;border:1px solid #d1d5db;border-radius:8px;background:#fff;font-size:13px;color:#64748b;cursor:pointer">Cancel</button>
-          <button id="ec-save" style="padding:10px 20px;border:none;border-radius:8px;background:#4f46e5;font-size:13px;font-weight:600;color:#fff;cursor:pointer">Save</button>
+        <div style="flex:1;overflow-y:auto;padding:32px;display:flex;justify-content:center">
+          <div style="width:100%;max-width:900px;display:flex;flex-direction:column;gap:20px">
+            <div><label style="${labelStyle}">Title</label><input type="text" id="ec-title" value="${escapeHtml(item.title)}" style="${inputStyle}"></div>
+            <div style="flex:1;display:flex;flex-direction:column"><label style="${labelStyle}">Description (Markdown)</label><div id="ec-description-editor" style="flex:1"></div></div>
+          </div>
         </div>
       </div>
     `
 
     document.body.appendChild(dlg)
+    document.body.style.overflow = 'hidden'
 
-    // Init markdown editor
+    // Init markdown editor — use available height for larger editing area
     const editorContainer = dlg.querySelector('#ec-description-editor')
+    const availableHeight = Math.max(400, window.innerHeight - 260)
     const descEditor = createMarkdownEditor(editorContainer, {
       value: item.description || '',
       placeholder: 'Describe this content for students...',
-      height: 200
+      height: availableHeight
     })
 
     // Close handlers
-    const closeDlg = () => { descEditor.destroy(); dlg.remove(); resolve(null) }
+    const closeDlg = () => { descEditor.destroy(); document.body.style.overflow = ''; dlg.remove(); resolve(null) }
     dlg.querySelectorAll('[data-action="close"]').forEach(b => b.addEventListener('click', closeDlg))
-    dlg.addEventListener('click', (e) => { if (e.target === dlg) closeDlg() })
 
     // Save
     dlg.querySelector('#ec-save').addEventListener('click', () => {
@@ -399,6 +407,7 @@ function showEditContentDialog(item) {
       if (!title) return
       const description = descEditor.getValue().trim() || null
       descEditor.destroy()
+      document.body.style.overflow = ''
       dlg.remove()
       resolve({ title, description })
     })
