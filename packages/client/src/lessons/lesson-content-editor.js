@@ -7,6 +7,7 @@
 import { showAppConfirm, showAppPrompt, showAppAlert } from '../shared/app-dialogs.js'
 import { openPuzzleComposer } from './puzzle-composer.js'
 import { createMarkdownEditor } from '../shared/markdown-editor.js'
+import { openLessonPlayer } from './lesson-player.js'
 
 function escapeHtml(str) {
   if (!str) return ''
@@ -109,6 +110,18 @@ export async function showLessonContentEditor(apiClient, lessonId, lessonTitle, 
       bodyEl.querySelectorAll('[data-action="edit"]').forEach(btn => {
         btn.addEventListener('click', () => editContent(btn.dataset.id, content.find(c => c.id === btn.dataset.id)))
       })
+
+      bodyEl.querySelectorAll('[data-action="preview"]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const item = content.find(c => c.id === btn.dataset.id)
+          if (!item) return
+          openLessonPlayer({
+            title: courseName || lessonTitle,
+            id: null,
+            lessons: [{ title: lessonTitle, content: [{ ...item, completed: 0 }] }]
+          }, { readOnly: true, onClose: () => {} })
+        })
+      })
     } catch (err) {
       bodyEl.innerHTML = `<div style="text-align:center;padding:40px;color:var(--color-error-500)">${escapeHtml(err.message)}</div>`
     }
@@ -134,6 +147,7 @@ export async function showLessonContentEditor(apiClient, lessonId, lessonTitle, 
           </div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0">
+          <button data-action="preview" data-id="${item.id}" style="padding:6px 14px;border:1px solid #c7d2fe;border-radius:8px;background:#fff;font-size:12px;color:#4f46e5;cursor:pointer">Preview</button>
           <button data-action="edit" data-id="${item.id}" style="padding:6px 14px;border:1px solid var(--color-gray-200);border-radius:8px;background:#fff;font-size:12px;color:var(--color-gray-600);cursor:pointer">Edit</button>
           <button data-action="delete" data-id="${item.id}" style="padding:6px 14px;border:1px solid #fecaca;border-radius:8px;background:#fff;font-size:12px;color:#dc2626;cursor:pointer">Delete</button>
         </div>
