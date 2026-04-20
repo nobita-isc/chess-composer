@@ -207,7 +207,7 @@ export function openLessonPlayer(course, options = {}) {
           </div>
           <div id="lp-splitter-h" title="Drag to resize · double-click to reset" style="width:5px;background:transparent;cursor:col-resize;flex-shrink:0;position:relative;z-index:10"></div>
           <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0">
-            <div id="lp-main" style="flex:1;overflow-y:auto;min-height:0">
+            <div id="lp-main" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:${current.content_type === 'video' ? 'hidden' : 'auto'}">
               ${DESCRIPTION_STYLES}
               ${renderContent(current)}
             </div>
@@ -420,6 +420,30 @@ export function openLessonPlayer(course, options = {}) {
         else { close() }
       })
     }
+
+    // Fit the 16:9 video shell to the available stage (both sidebar and notes
+    // splitter drags, and window resize, flow through ResizeObserver).
+    overlay._videoRO?.disconnect()
+    overlay._videoRO = null
+    const stage = overlay.querySelector('.lp-video-stage')
+    const shell = overlay.querySelector('.lp-video-shell')
+    if (stage && shell) {
+      const fitVideo = () => {
+        const w = stage.clientWidth
+        const h = stage.clientHeight
+        if (w <= 0 || h <= 0) return
+        // Pick the largest 16:9 box that fits both dimensions
+        const byWidth = { w, h: w * 9 / 16 }
+        const byHeight = { w: h * 16 / 9, h }
+        const box = byWidth.h <= h ? byWidth : byHeight
+        shell.style.width = `${Math.floor(box.w)}px`
+        shell.style.height = `${Math.floor(box.h)}px`
+      }
+      fitVideo()
+      const ro = new ResizeObserver(fitVideo)
+      ro.observe(stage)
+      overlay._videoRO = ro
+    }
   }
 
   function renderContent(item) {
@@ -430,18 +454,20 @@ export function openLessonPlayer(course, options = {}) {
       const embedUrl = url.includes('youtube.com/watch') ? url.replace('watch?v=', 'embed/') :
                         url.includes('youtu.be/') ? `https://www.youtube.com/embed/${url.split('youtu.be/')[1]}` : url
       return `
-        <div style="width:100%;aspect-ratio:16/9;background:#0f172a">
-          ${isYouTube ? `<iframe src="${escapeHtml(embedUrl)}" style="width:100%;height:100%;border:none" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen></iframe>` :
-           isUploadedVideo ? `<video src="${escapeHtml(url)}" controls style="width:100%;height:100%"></video>` :
-           url ? `<iframe src="${escapeHtml(url)}" style="width:100%;height:100%;border:none"></iframe>` :
-          '<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#1e293b"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg><span style="color:#64748b;font-size:14px">No video uploaded yet</span></div>'}
+        <div class="lp-video-stage" style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:#0f172a;overflow:hidden">
+          <div class="lp-video-shell" style="background:#0f172a;overflow:hidden;width:100%;aspect-ratio:16/9;max-width:100%;max-height:100%">
+            ${isYouTube ? `<iframe src="${escapeHtml(embedUrl)}" style="width:100%;height:100%;border:none;display:block" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen></iframe>` :
+             isUploadedVideo ? `<video src="${escapeHtml(url)}" controls style="width:100%;height:100%;display:block"></video>` :
+             url ? `<iframe src="${escapeHtml(url)}" style="width:100%;height:100%;border:none;display:block"></iframe>` :
+            '<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#1e293b"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg><span style="color:#64748b;font-size:14px">No video uploaded yet</span></div>'}
+          </div>
         </div>
-        <div style="padding:24px 32px">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="padding:16px 32px;flex-shrink:0;border-top:1px solid #f1f5f9">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
             <span style="padding:2px 8px;background:#eef2ff;border-radius:6px;font-size:11px;font-weight:600;color:#4f46e5">VIDEO</span>
             <span style="font-size:12px;color:#94a3b8">${escapeHtml(item.lessonTitle)}</span>
           </div>
-          <h2 style="font-size:22px;font-weight:700;color:#1e293b;margin:0">${escapeHtml(item.title)}</h2>
+          <h2 style="font-size:20px;font-weight:700;color:#1e293b;margin:0">${escapeHtml(item.title)}</h2>
         </div>
       `
     }
