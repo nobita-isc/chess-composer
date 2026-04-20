@@ -2,13 +2,14 @@
 
 Instructions for setting up Chess Composer in development, staging, and production environments.
 
-**Latest Features (2026-03-28)**
-- Inline puzzle grading with keyboard shortcuts (C/X)
-- Exercise rename (PUT /api/exercises/:id)
-- Password visibility toggle on login/user management
-- Modern UI components (ep-table, styled buttons, dropdown menus)
-- Multiple exercises per week support
-- Timezone handling fixes
+**Latest Features (2026-04-18)**
+- Preview button in lesson content editor (all content types)
+- Rich content descriptions (markdown editor, download as HTML/markdown)
+- Shared InteractivePuzzleBoard (chess.com-style dark theme, Chessground recreation fix)
+- Multi-puzzle challenges in single content item (puzzle_challenges JSON array)
+- Lesson puzzle player with per-move hints and auto-play
+- PWA disabled in development (Vite HMR restored, conditional in production)
+- Student registration feature (migration 011 - description column)
 
 ## Prerequisites
 
@@ -441,10 +442,13 @@ Before deploying to production:
 - [ ] NODE_ENV=production
 - [ ] CORS_ORIGIN configured for your domain
 - [ ] SSL/TLS certificates installed
-- [ ] Database backed up
+- [ ] Database backed up (before first run, migrations auto-run)
+- [ ] All 11 migrations verified (through 011_add_content_description.js)
 - [ ] Admin user password changed from default
 - [ ] Server firewall allows ports 80, 443
 - [ ] Rate limiting enabled on sensitive endpoints
+- [ ] File upload storage configured (100MB max per file, writable)
+- [ ] Learning materials directory backed up regularly
 - [ ] Error logging configured
 - [ ] Monitoring/alerting setup (optional)
 - [ ] Auto-restart on crash configured
@@ -477,6 +481,9 @@ curl https://chess-composer.yourdomain.com
 | Slow puzzle generation | Unindexed queries | Run `npm run build:db` with indices |
 | JWT token invalid | Secret changed | Update all sessions |
 | Out of disk space | Database too large | Archive old results, increase disk |
+| File upload fails | Disk full / permissions | Check `/uploads` directory writable |
+| Lesson content missing | Migration 011 not run | Run `npm run dev` once (auto-migrates) |
+| Content descriptions empty | Client-side rendering issue | Verify `safe-markdown.js` is loaded |
 
 ### Log Files
 

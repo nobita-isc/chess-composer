@@ -242,8 +242,8 @@ Client
 | reports.js | /api/reports/submit, /list, /dismiss | POST, GET, PATCH | ✅ |
 | users.js | /api/users/* (admin only) | CRUD | ✅ |
 | lichess.js | /api/lichess/... | GET (proxy) | ✅ |
-| courses.js | /api/courses/*, /api/courses/:id/lessons, assignments | CRUD | ✅ |
-| lesson-content.js | /api/lesson-content/*, file upload (100MB max), XP lookup | CRUD + POST | ✅ |
+| courses.js | /api/courses/*, /api/courses/:id/lessons, assignments | CRUD + course preview | ✅ |
+| lesson-content.js | /api/lessons/:id/content, /api/content/*, file upload (100MB), learning materials | CRUD + POST upload | ✅ |
 
 ### Service Layer Example
 
@@ -339,18 +339,20 @@ class PuzzleRepository {
 - Updated on puzzle block
 - ~500MB memory for 3.5M puzzles
 
-### Database Migrations
+### Database Migrations (11 total)
 
 ```
-001_add_source_field.js           → Add source, game_url
-002_add_exercise_tables.js        → Create exercises tables
-003_add_puzzle_results.js         → Track puzzle attempts
-004_add_users_auth.js             → Add users, auth
-005_add_puzzle_hints.js           → Add hint field
-006_add_is_final_flag.js          → Add is_final flag
-007_add_lessons_platform.js       → courses, lessons, lesson_content, course_assignments, lesson_progress, student_gamification
-008_add_puzzle_composer_fields.js → puzzle_instruction, puzzle_hints, puzzle_video_url on lesson_content
-009_add_puzzle_challenges_field.js → puzzle_challenges (JSON array) on lesson_content
+001_add_source_field.js              → Add source, game_url
+002_add_exercise_tables.js           → Create exercises tables
+003_add_puzzle_results.js            → Track puzzle attempts
+004_add_users_auth.js                → Add users, auth
+005_add_puzzle_hints.js              → Add hint field
+006_add_is_final_flag.js             → Add is_final flag
+007_add_lessons_platform.js          → courses, lessons, lesson_content, course_assignments, lesson_progress, student_gamification
+008_add_puzzle_composer_fields.js    → puzzle_instruction, puzzle_hints, puzzle_video_url on lesson_content
+009_add_puzzle_challenges_field.js   → puzzle_challenges (JSON array) on lesson_content
+010_add_avg_rating.js                → avg_rating cache on weekly_exercises
+011_add_content_description.js       → description (markdown) on lesson_content
 ```
 
 Run automatically on startup:
@@ -589,6 +591,31 @@ Teacher: View reports (AdminPanel)
          └─ Update in-memory blocked cache
          └─ Excluded from future generation
 ```
+
+### Learning Materials & Content Descriptions Flow
+
+```
+Admin: lesson-content-editor → add markdown description
+   │
+   ├─ markdown-editor.js (split-pane editor with toolbar)
+   │
+   ├─ Save to lesson_content.description (migration 011)
+   │
+   └─ POST /api/content or PUT /api/content/:id
+      │
+      ▼
+Student: lesson-player.js loads content
+   │
+   ├─ Render description via safe-markdown.js
+   │  └─ Uses marked + DOMPurify (single source of truth)
+   │
+   ├─ Show [Download Learning Materials] button
+   │
+   └─ Download as HTML or Markdown via content-download-helper.js
+      └─ Client-side Blob + createObjectURL (no server overhead)
+```
+
+**Key Pattern**: `safe-markdown.js` centralizes markdown rendering to prevent XSS across all components. All user markdown → `safeMarkdown()` → HTML.
 
 ## Performance Architecture
 

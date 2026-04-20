@@ -33,7 +33,23 @@ Platform that:
 
 ## Core Features
 
-### 1. Puzzle Generation
+### 1. Chess Lessons Platform
+**Functional Requirements:**
+- Create courses with nested lessons and content items (video, PDF, puzzle, quiz)
+- Content items support rich markdown descriptions and learning materials
+- Multi-puzzle challenges in single lesson (puzzle_challenges JSON array)
+- Per-move hints (student/computer roles) for puzzle solving
+- Gamification: XP rewards, streak tracking, badge achievements
+- File uploads: video (100MB), PDF (100MB), with range request support
+- Student course enrollment and progress tracking
+- Lesson player: Coursera-style sidebar navigation, auto-play, description download
+
+**Non-functional:**
+- Preview content before publishing (Preview button pattern)
+- Content descriptions render safely via markdown sanitization
+- Multi-puzzle batch loading <500ms
+
+### 2. Puzzle Generation
 **Functional Requirements:**
 - Select from 90+ Lichess themes (backRankMate, smotheredMate, etc.)
 - Filter by rating range (1200-3000)
@@ -159,28 +175,34 @@ Platform that:
 ## Acceptance Criteria
 
 ### Teacher Workflow
-- [ ] Can login with admin credentials
-- [ ] Can generate 10 puzzles by theme in <2 seconds
-- [ ] Can create weekly exercise with selected puzzles
-- [ ] Can assign exercise to 1+ students
-- [ ] Can export exercise as PDF
-- [ ] Can grade student submissions
-- [ ] Can view student statistics
+- [x] Can login with admin credentials
+- [x] Can generate 10 puzzles by theme in <2 seconds
+- [x] Can create weekly exercise with selected puzzles
+- [x] Can assign exercise to 1+ students
+- [x] Can export exercise as PDF
+- [x] Can grade student submissions
+- [x] Can view student statistics
+- [x] Can create courses with lessons and content
+- [x] Can preview content before publishing
+- [x] Can add rich descriptions to content items
 
 ### Student Workflow
-- [ ] Can login with student credentials
-- [ ] Can see assigned exercises
-- [ ] Can solve puzzles with move validation
-- [ ] Can submit answers
-- [ ] Can view grade and feedback
+- [x] Can login with student credentials
+- [x] Can see assigned exercises
+- [x] Can solve puzzles with move validation
+- [x] Can submit answers
+- [x] Can view grade and feedback
+- [x] Can view assigned courses and track progress
+- [x] Can solve multi-puzzle challenges with hints
+- [x] Can download learning materials
 
 ### System Requirements
-- [ ] 0 SQL injection vulnerabilities
-- [ ] 0 XSS vulnerabilities
-- [ ] All API responses in standard format
-- [ ] All errors have user-friendly messages
-- [ ] Database backed up before schema changes
-- [ ] <100ms response on most endpoints
+- [x] 0 SQL injection vulnerabilities
+- [x] 0 XSS vulnerabilities (markdown sanitization via safe-markdown.js)
+- [x] All API responses in standard format
+- [x] All errors have user-friendly messages
+- [x] Database backed up before schema changes
+- [x] <100ms response on most endpoints
 
 ## Development Roadmap
 
@@ -191,7 +213,9 @@ Platform that:
 | **3. Core features** | ✅ Complete | Puzzle generation, exercises, grading |
 | **4. Auth & admin** | ✅ Complete | JWT, user management, reporting |
 | **5. Polish** | ✅ Complete | PDF export, modals, error handling |
-| **6. Performance** | 🚧 In progress | Caching, query optimization |
+| **6. Performance & UX** | ✅ Complete | Caching, UI modernization, inline grading |
+| **6b. Lessons Platform** | ✅ Complete | Courses, lessons, puzzle composer, gamification |
+| **6c. Rich Content** | ✅ Complete | Markdown descriptions, learning materials, migration 011 |
 | **7. Deployment** | 📋 Planned | Docker setup, CI/CD |
 
 ## Risk Assessment
@@ -240,6 +264,8 @@ Platform that:
 | pdfkit | 0.15.0 | PDF generation | ✅ Used |
 | bcrypt | 6.0.0 | Password hashing | ✅ Used |
 | jsonwebtoken | 9.0.3 | JWT tokens | ✅ Used |
+| marked | 18.0.0+ | Markdown parsing | ✅ Used |
+| dompurify | 3.3.3+ | HTML sanitization | ✅ Used |
 | Vite | 5.4.11 | Build tool | ✅ Used |
 
 ## Version History

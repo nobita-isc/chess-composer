@@ -163,6 +163,44 @@ This changelog follows [Keep a Changelog](https://keepachangelog.com/) conventio
 
 ---
 
+## [2026-04-18] — Interactive Puzzle Board Refactor & Content Descriptions
+
+### Added
+- **Shared InteractivePuzzleBoard module** (`interactive-puzzle-board.js`): Centralized puzzle interaction logic with proper Chessground lifecycle management (board recreation pattern)
+- **Safe markdown module** (`safe-markdown.js`): marked + DOMPurify integration for all content description rendering
+- **Markdown editor component** (`markdown-editor.js`): Split-pane editor with live preview, toolbar buttons
+- **Content download helper** (`content-download-helper.js`): Export descriptions as HTML or markdown files
+- **Preview button**: All content editor dialogs now include Preview button (lesson-content-editor.js)
+- **Lesson content description column** (migration 011): Rich markdown support for learning materials
+
+### Changed
+- Puzzle composer uses shared InteractivePuzzleBoard for consistency
+- Lesson player uses safe-markdown for all description rendering
+- All markdown rendering centralized via single safe-markdown.js module (prevents XSS)
+
+### Fixed
+- Chessground bounds issue in interactive puzzle board (recreation on opponent move)
+- Content editor UX: save/close behavior in edit content dialog
+- Full-screen dialog overflow on mobile
+
+### Tests
+- 5+ comprehensive lesson-content route tests with Hono + DB integration
+- Content description feature tests
+
+### Known Issues (Resolved)
+- PWA disabled in dev mode (restores Vite HMR, commit 0c7cca3)
+
+---
+
+## [2026-04-12] → [2026-04-18] — Quality & Stability
+
+### Added
+- Student registration feature (migration 011)
+- Comprehensive test suite for lesson content routes
+- Preview functionality across all content types
+
+---
+
 ## Maintenance Notes
 
 - **Architecture**: Vanilla JS SPA with Hono REST API, no frontend framework (React/Vue)
@@ -189,5 +227,5 @@ This changelog follows [Keep a Changelog](https://keepachangelog.com/) conventio
 
 ---
 
-**Last Updated**: 2026-04-12
+**Last Updated**: 2026-04-18
 **Maintained By**: Chess Composer Team

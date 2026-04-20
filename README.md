@@ -58,6 +58,12 @@ Teacher grades submissions → PDF gradesheet export
 | PDF export (exercises, gradesheets) | ✅ Complete |
 | Custom puzzle creation | ✅ Complete |
 | Lichess integration | ✅ Complete |
+| Chess lessons platform (courses, lessons) | ✅ Complete |
+| Interactive puzzle player (multi-puzzle, hints) | ✅ Complete |
+| Rich content descriptions (markdown) | ✅ Complete |
+| Gamification (XP, streaks, badges) | ✅ Complete |
+| File uploads (video, PDF, 100MB) | ✅ Complete |
+| PWA offline support | ✅ Complete |
 
 ## Database Schema
 
@@ -113,6 +119,11 @@ All endpoints return `{ success: boolean, data?: T, error?: string }`.
 | `/api/students/*` | Student CRUD |
 | `/api/reports/*` | Submit, list, dismiss reports |
 | `/api/users/*` | User management (admin only) |
+| `/api/courses/*` | Course CRUD, lessons, assignments |
+| `/api/lessons/*` | Lesson CRUD, content management |
+| `/api/content/*` | Content CRUD, file upload, descriptions |
+| `/api/my/courses/*` | Student course enrollment & progress |
+| `/api/my/gamification` | Student XP, badges, streaks |
 
 See [System Architecture](./docs/system-architecture.md) for detailed API specs.
 
