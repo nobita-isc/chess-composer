@@ -24,7 +24,7 @@ describe.skipIf(!dbExists)('Multi-theme DB integration', () => {
     const mod = await import('../src/database/DatabaseGenerator.js')
     databaseGenerator = mod.databaseGenerator
     databaseGenerator.initialize()
-  })
+  }, 60000) // 457MB puzzle DB load can exceed default 10s hookTimeout
 
   it('single theme returns puzzles with that theme', () => {
     const puzzles = databaseGenerator.generatePuzzles('pin', 10)

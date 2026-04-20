@@ -10,7 +10,8 @@ vi.mock('../src/database/SqliteDatabase.js', () => ({
   database: {
     run: vi.fn(() => ({ changes: 1 })),
     query: vi.fn(() => []),
-    queryOne: vi.fn(() => null)
+    queryOne: vi.fn(() => null),
+    getPuzzlesByIds: vi.fn(() => [])
   }
 }))
 

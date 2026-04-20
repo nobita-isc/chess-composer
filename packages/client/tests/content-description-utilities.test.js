@@ -95,30 +95,49 @@ describe('safeMarkdown', () => {
 
 describe('content-download-helper', () => {
   let downloadAsStyledHtml, downloadAsMarkdown, downloadAllNotes
-  let mockCreateObjectURL, mockRevokeObjectURL, mockClick, mockAppendChild, mockRemoveChild
+  // For downloadAsMarkdown (still uses Blob + anchor)
+  let mockCreateObjectURL, mockRevokeObjectURL, mockAnchorClick
+  // For downloadAsStyledHtml (uses hidden iframe + window.print)
+  let iframeCount, capturedIframe, mockPrint
 
   beforeEach(async () => {
-    // Mock DOM APIs for triggerDownload
-    mockClick = vi.fn()
+    iframeCount = 0
+    capturedIframe = null
+    mockAnchorClick = vi.fn()
+    mockPrint = vi.fn()
     mockCreateObjectURL = vi.fn(() => 'blob:mock-url')
     mockRevokeObjectURL = vi.fn()
-    mockAppendChild = vi.fn()
-    mockRemoveChild = vi.fn()
 
     globalThis.URL.createObjectURL = mockCreateObjectURL
     globalThis.URL.revokeObjectURL = mockRevokeObjectURL
 
-    // Mock document.createElement to intercept anchor creation
+    // Intercept createElement: anchors get a spy click; iframes expose a
+    // spy'd contentWindow.print and fire onload synchronously after write().
     const origCreateElement = document.createElement.bind(document)
     vi.spyOn(document, 'createElement').mockImplementation((tag) => {
       const el = origCreateElement(tag)
       if (tag === 'a') {
-        el.click = mockClick
+        el.click = mockAnchorClick
+      } else if (tag === 'iframe') {
+        iframeCount++
+        capturedIframe = el
+        // jsdom does not call iframe.onload after contentDocument.write in
+        // tests; stub the timing so the module's onload handler runs.
+        Object.defineProperty(el, 'contentWindow', {
+          configurable: true,
+          get() { return { print: mockPrint, focus: vi.fn(), document: el.contentDocument, matchMedia: null } }
+        })
+        const origDoc = el.contentDocument
+        if (origDoc) {
+          const origClose = origDoc.close.bind(origDoc)
+          origDoc.close = function() {
+            origClose()
+            queueMicrotask(() => { try { el.onload?.() } catch {} })
+          }
+        }
       }
       return el
     })
-    vi.spyOn(document.body, 'appendChild').mockImplementation(mockAppendChild)
-    vi.spyOn(document.body, 'removeChild').mockImplementation(mockRemoveChild)
 
     const mod = await import('../src/shared/content-download-helper.js')
     downloadAsStyledHtml = mod.downloadAsStyledHtml
@@ -130,19 +149,21 @@ describe('content-download-helper', () => {
     vi.restoreAllMocks()
   })
 
-  describe('downloadAsStyledHtml', () => {
-    it('returns true and triggers download for valid markdown', () => {
+  describe('downloadAsStyledHtml (PDF via print iframe)', () => {
+    it('returns true and mounts a hidden print iframe for valid markdown', () => {
       const result = downloadAsStyledHtml('My Notes', '## Hello World', { courseName: 'Chess 101' })
       expect(result).toBe(true)
-      expect(mockCreateObjectURL).toHaveBeenCalled()
-      expect(mockClick).toHaveBeenCalled()
-      expect(mockRevokeObjectURL).toHaveBeenCalled()
+      expect(iframeCount).toBe(1)
+      expect(capturedIframe).toBeTruthy()
+      // iframe is hidden/off-screen so user never sees a flash
+      expect(capturedIframe.style.visibility).toBe('hidden')
     })
 
     it('returns false for null markdown', () => {
       const result = downloadAsStyledHtml('Title', null)
       expect(result).toBe(false)
-      expect(mockClick).not.toHaveBeenCalled()
+      expect(iframeCount).toBe(0)
+      expect(mockPrint).not.toHaveBeenCalled()
     })
 
     it('returns false for empty markdown', () => {
@@ -155,12 +176,13 @@ describe('content-download-helper', () => {
       expect(result).toBe(false)
     })
 
-    it('creates blob with text/html mime type', () => {
-      downloadAsStyledHtml('Test', '# Content')
-      expect(mockCreateObjectURL).toHaveBeenCalled()
-      const blobArg = mockCreateObjectURL.mock.calls[0][0]
-      expect(blobArg).toBeInstanceOf(Blob)
-      expect(blobArg.type).toBe('text/html')
+    it('writes styled HTML into the iframe document', () => {
+      downloadAsStyledHtml('Test', '# Content', { courseName: 'Course X' })
+      expect(capturedIframe).toBeTruthy()
+      const html = capturedIframe.contentDocument?.documentElement?.outerHTML || ''
+      expect(html).toContain('Course X')
+      expect(html).toContain('Test')
+      expect(html).toContain('@page')
     })
   })
 
@@ -168,7 +190,7 @@ describe('content-download-helper', () => {
     it('returns true and triggers download for valid content', () => {
       const result = downloadAsMarkdown('Notes', '## Section\n\nContent here')
       expect(result).toBe(true)
-      expect(mockClick).toHaveBeenCalled()
+      expect(mockAnchorClick).toHaveBeenCalled()
     })
 
     it('returns false for null content', () => {
@@ -187,14 +209,14 @@ describe('content-download-helper', () => {
   })
 
   describe('downloadAllNotes', () => {
-    it('combines descriptions from multiple items', () => {
+    it('combines descriptions from multiple items into one print iframe', () => {
       const items = [
         { title: 'Video 1', description: '## Video notes', content_type: 'video' },
         { title: 'PDF 1', description: '## PDF notes', content_type: 'pdf' },
       ]
       const result = downloadAllNotes('Chess Course', items)
       expect(result).toBe(true)
-      expect(mockClick).toHaveBeenCalled()
+      expect(iframeCount).toBe(1)
     })
 
     it('filters out items without descriptions', () => {
@@ -206,8 +228,8 @@ describe('content-download-helper', () => {
       ]
       const result = downloadAllNotes('Course', items)
       expect(result).toBe(true)
-      // Only V1 has a valid description, so download still triggers
-      expect(mockClick).toHaveBeenCalledTimes(1)
+      // Only V1 has a valid description — still exactly one print iframe
+      expect(iframeCount).toBe(1)
     })
 
     it('returns false when no items have descriptions', () => {
@@ -217,7 +239,7 @@ describe('content-download-helper', () => {
       ]
       const result = downloadAllNotes('Course', items)
       expect(result).toBe(false)
-      expect(mockClick).not.toHaveBeenCalled()
+      expect(iframeCount).toBe(0)
     })
 
     it('returns false for empty items array', () => {
