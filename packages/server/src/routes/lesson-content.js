@@ -72,6 +72,15 @@ lessonContent.put('/content/:id', requireRole('admin'), async (c) => {
     if (data.description && typeof data.description === 'string' && data.description.length > 10000) {
       return c.json({ success: false, error: 'Description too long (max 10,000 characters)' }, 400)
     }
+    // Validate video_url: only http/https allowed
+    if (data.video_url !== undefined && data.video_url !== null && data.video_url !== '') {
+      try {
+        const u = new URL(data.video_url)
+        if (!['http:', 'https:'].includes(u.protocol)) throw new Error('Protocol not allowed')
+      } catch {
+        return c.json({ success: false, error: 'video_url must be a valid http or https URL' }, 400)
+      }
+    }
     const result = courseRepository.updateContent(c.req.param('id'), data)
     if (!result.success) return c.json(result, 404)
     return c.json({ success: true })

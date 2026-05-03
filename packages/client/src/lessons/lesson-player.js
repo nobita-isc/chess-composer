@@ -8,48 +8,11 @@ import { safeMarkdown } from '../shared/safe-markdown.js'
 import { openExercisePuzzleViewer } from '../exercises/ExercisePuzzleViewer.js'
 import { openLessonPuzzlePlayer } from './lesson-puzzle-player.js'
 import { downloadAsStyledHtml, downloadAllNotes } from '../shared/content-download-helper.js'
+import { attachSplitterRaw as attachSplitter } from './shared/pane-splitter.js'
 
 function escapeHtml(str) {
   if (!str) return ''
   return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
-
-/**
- * Wire a drag-to-resize handle. Adds a subtle hover tint, calls onDrag during
- * drag with the delta (px) from drag start and the starting pane size, and
- * onEnd when released. Double-click invokes onReset.
- */
-function attachSplitter(el, { axis, onDrag, getStartSize, onEnd, onReset }) {
-  if (!el) return
-  const hoverEnter = () => { el.style.background = 'rgba(79, 70, 229, 0.18)' }
-  const hoverLeave = () => { el.style.background = 'transparent' }
-  el.addEventListener('mouseenter', hoverEnter)
-  el.addEventListener('mouseleave', hoverLeave)
-  el.addEventListener('dblclick', () => onReset?.())
-  el.addEventListener('mousedown', (e) => {
-    e.preventDefault()
-    const start = axis === 'x' ? e.clientX : e.clientY
-    const startSize = getStartSize()
-    const prevUserSelect = document.body.style.userSelect
-    const prevCursor = document.body.style.cursor
-    document.body.style.userSelect = 'none'
-    document.body.style.cursor = axis === 'x' ? 'col-resize' : 'row-resize'
-    el.style.background = 'rgba(79, 70, 229, 0.28)'
-    const move = (ev) => {
-      const delta = (axis === 'x' ? ev.clientX : ev.clientY) - start
-      onDrag(delta, startSize)
-    }
-    const up = () => {
-      window.removeEventListener('mousemove', move)
-      window.removeEventListener('mouseup', up)
-      document.body.style.userSelect = prevUserSelect
-      document.body.style.cursor = prevCursor
-      hoverLeave()
-      onEnd?.()
-    }
-    window.addEventListener('mousemove', move)
-    window.addEventListener('mouseup', up)
-  })
 }
 
 const DESCRIPTION_STYLES = `
