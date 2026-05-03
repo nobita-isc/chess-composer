@@ -1,0 +1,17 @@
+# Gitleaks configuration for chess-composer
+# Extends default ruleset with project-specific allowlists
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Project-specific allowlists"
+paths = [
+  '''(^|\/)tests\/''',
+  '''(^|\/)\.claude\/''',
+  '''(^|\/)plans\/''',
+  '''(^|\/)docs\/''',
+  '''(^|\/)scripts\/''',
+  '''package-lock\.json$''',
+  '''\.test\.js$''',
+]

@@ -17,7 +17,10 @@
     "start": "npm run start -w @chess-composer/server",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:install": "playwright install chromium"
   },
   "keywords": [
     "chess",
@@ -26,10 +29,12 @@
   ],
   "license": "MIT",
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@vitest/coverage-v8": "^4.1.2",
     "concurrently": "^8.2.2",
     "jsdom": "^29.0.2",
     "papaparse": "^5.4.1",
+    "playwright": "^1.59.1",
     "vitest": "^4.1.2"
   }
 }

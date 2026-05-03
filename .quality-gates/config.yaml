@@ -1,0 +1,59 @@
+# Quality Gates Configuration
+# Generated: 2026-04-16
+# Project: chess-composer (Node.js monorepo)
+
+stacks:
+  - node
+  - javascript
+  - hono
+  - vite
+
+scope:
+  exclude:
+    - "dist/"
+    - "node_modules/"
+    - "packages/server/data/"
+    - "uploads/"
+    - ".claude/"
+    - "plans/"
+    - "docs/"
+    - "*.db"
+    - "*.sqlite"
+    - "package-lock.json"
+
+thresholds:
+  coverage: 70
+  file_max_loc: 200
+
+gates:
+  secrets:
+    enabled: true
+    tool: gitleaks
+  deps:
+    enabled: true
+    tool: trivy
+  sast:
+    enabled: true
+    tool: semgrep
+  coverage:
+    enabled: true
+    tool: vitest
+    report_path: "coverage/"
+  file-size:
+    enabled: true
+    tool: wc
+  sonar:
+    enabled: false
+  dast:
+    enabled: false
+
+hooks:
+  pre-commit:
+    - secrets
+  pre-push:
+    - secrets
+    - sast
+    - deps
+
+gitleaks:
+  config_path: .quality-gates/gitleaks.toml
