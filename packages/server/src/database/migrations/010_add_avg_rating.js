@@ -1,42 +1,40 @@
 /**
- * Migration: Add avg_rating column to weekly_exercises
+ * Migration 010: Add avg_rating column to weekly_exercises
  * Stores the average puzzle rating so it doesn't need recalculating on every query.
  * Backfills existing exercises from their puzzle data.
+ * Portable: SQLite + Postgres. Uses addColumnIfNotExists to avoid TX poisoning on PG.
  */
 
-export function migrate(db) {
-  const tableInfo = db.prepare('PRAGMA table_info(weekly_exercises)').all();
-  const hasColumn = tableInfo.some(col => col.name === 'avg_rating');
+import { addColumnIfNotExists } from '../migration-helpers.js';
 
-  if (!hasColumn) {
-    db.exec(`ALTER TABLE weekly_exercises ADD COLUMN avg_rating INTEGER;`);
-    console.log('   Added avg_rating column');
+export async function migrate(db) {
+  const columnAdded = await addColumnIfNotExists(db, 'weekly_exercises', 'avg_rating', 'INTEGER');
+  console.log(columnAdded ? '   Added avg_rating column' : '   avg_rating column already exists');
 
-    // Backfill existing exercises
-    const exercises = db.prepare('SELECT id, puzzle_ids FROM weekly_exercises').all();
-    const updateStmt = db.prepare('UPDATE weekly_exercises SET avg_rating = ? WHERE id = ?');
+  if (!columnAdded) return;
 
-    for (const exercise of exercises) {
-      const puzzleIds = exercise.puzzle_ids.split(',').filter(Boolean);
-      if (puzzleIds.length === 0) continue;
+  // Backfill existing exercises
+  const exercises = await db.query('SELECT id, puzzle_ids FROM weekly_exercises');
 
-      const placeholders = puzzleIds.map(() => '?').join(',');
-      const puzzles = db.prepare(
-        `SELECT rating FROM puzzles WHERE id IN (${placeholders})`
-      ).all(...puzzleIds);
+  for (const exercise of exercises) {
+    const puzzleIds = exercise.puzzle_ids.split(',').filter(Boolean);
+    if (puzzleIds.length === 0) continue;
 
-      if (puzzles.length > 0) {
-        const totalRating = puzzles.reduce((sum, p) => sum + (p.rating || 0), 0);
-        const avgRating = Math.round(totalRating / puzzles.length);
-        updateStmt.run(avgRating, exercise.id);
-      }
+    const placeholders = puzzleIds.map(() => '?').join(',');
+    const puzzles = await db.query(
+      `SELECT rating FROM puzzles WHERE id IN (${placeholders})`,
+      puzzleIds
+    );
+
+    if (puzzles.length > 0) {
+      const totalRating = puzzles.reduce((sum, p) => sum + (p.rating || 0), 0);
+      const avgRating = Math.round(totalRating / puzzles.length);
+      await db.run('UPDATE weekly_exercises SET avg_rating = ? WHERE id = ?', [avgRating, exercise.id]);
     }
-    console.log(`   Backfilled avg_rating for ${exercises.length} exercises`);
-  } else {
-    console.log('   avg_rating column already exists');
   }
+  console.log(`   Backfilled avg_rating for ${exercises.length} exercises`);
 }
 
-export function rollback(db) {
-  // SQLite doesn't support DROP COLUMN directly
+export async function rollback(db) {
+  // DROP COLUMN not universally safe; leave in place
 }

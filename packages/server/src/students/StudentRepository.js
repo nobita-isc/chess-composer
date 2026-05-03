@@ -6,27 +6,18 @@
 import { database } from '../database/SqliteDatabase.js';
 
 export class StudentRepository {
-  /**
-   * Generate a unique student ID
-   * @returns {string}
-   */
   generateId() {
     const timestamp = Date.now().toString(36);
     const random = Math.random().toString(36).substring(2, 8);
     return `student_${timestamp}_${random}`;
   }
 
-  /**
-   * Create a new student
-   * @param {object} data - Student data
-   * @returns {{ success: boolean, data?: object, error?: string }}
-   */
-  create(data) {
+  async create(data) {
     try {
       const id = this.generateId();
       const now = new Date().toISOString();
 
-      database.run(
+      await database.run(
         `INSERT INTO students (id, name, email, skill_level, notes, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
@@ -57,37 +48,17 @@ export class StudentRepository {
     }
   }
 
-  /**
-   * Get all students
-   * @returns {object[]}
-   */
-  findAll() {
-    return database.query(
-      'SELECT * FROM students ORDER BY name ASC'
-    );
+  async findAll() {
+    return database.query('SELECT * FROM students ORDER BY name ASC');
   }
 
-  /**
-   * Get student by ID
-   * @param {string} id - Student ID
-   * @returns {object|null}
-   */
-  findById(id) {
-    return database.queryOne(
-      'SELECT * FROM students WHERE id = ?',
-      [id]
-    );
+  async findById(id) {
+    return database.queryOne('SELECT * FROM students WHERE id = ?', [id]);
   }
 
-  /**
-   * Update a student
-   * @param {string} id - Student ID
-   * @param {object} data - Updated data
-   * @returns {{ success: boolean, data?: object, error?: string }}
-   */
-  update(id, data) {
+  async update(id, data) {
     try {
-      const existing = this.findById(id);
+      const existing = await this.findById(id);
       if (!existing) {
         return { success: false, error: 'Student not found' };
       }
@@ -101,7 +72,7 @@ export class StudentRepository {
         updated_at: now
       };
 
-      database.run(
+      await database.run(
         `UPDATE students
          SET name = ?, email = ?, skill_level = ?, notes = ?, updated_at = ?
          WHERE id = ?`,
@@ -117,17 +88,9 @@ export class StudentRepository {
     }
   }
 
-  /**
-   * Delete a student
-   * @param {string} id - Student ID
-   * @returns {{ success: boolean, error?: string }}
-   */
-  delete(id) {
+  async delete(id) {
     try {
-      const result = database.run(
-        'DELETE FROM students WHERE id = ?',
-        [id]
-      );
+      const result = await database.run('DELETE FROM students WHERE id = ?', [id]);
 
       if (result.changes === 0) {
         return { success: false, error: 'Student not found' };
@@ -139,12 +102,8 @@ export class StudentRepository {
     }
   }
 
-  /**
-   * Get student count
-   * @returns {number}
-   */
-  count() {
-    return database.queryScalar('SELECT COUNT(*) FROM students') || 0;
+  async count() {
+    return (await database.queryScalar('SELECT COUNT(*) FROM students')) || 0;
   }
 }
 

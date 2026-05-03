@@ -1,14 +1,12 @@
 /**
  * Migration 009: Puzzle Challenges (multi-puzzle per content item)
  * Adds puzzle_challenges JSON column to lesson_content.
- * Stores an array of puzzle objects within a single content item.
+ * Portable: SQLite + Postgres. Uses addColumnIfNotExists to avoid TX poisoning on PG.
  */
 
-export function migrate(db) {
-  try {
-    db.exec('ALTER TABLE lesson_content ADD COLUMN puzzle_challenges TEXT')
-  } catch (err) {
-    if (!err.message?.includes('duplicate column')) throw err
-  }
-  console.log('   Added puzzle_challenges column to lesson_content')
+import { addColumnIfNotExists } from '../migration-helpers.js';
+
+export async function migrate(db) {
+  const added = await addColumnIfNotExists(db, 'lesson_content', 'puzzle_challenges', 'TEXT');
+  console.log(added ? '   Added puzzle_challenges column to lesson_content' : '   puzzle_challenges column already exists');
 }

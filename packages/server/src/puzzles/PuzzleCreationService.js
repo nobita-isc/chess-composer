@@ -13,7 +13,7 @@ export class PuzzleCreationService {
    * @param {object} data - Puzzle creation data
    * @returns {{ success: boolean, data?: object, error?: string }}
    */
-  createPuzzle(data) {
+  async createPuzzle(data) {
     const { id, fen, moves, source, themes = [], rating, game_url } = data;
 
     // 1. Validate all input
@@ -37,7 +37,7 @@ export class PuzzleCreationService {
     const normalized = validation.normalized;
 
     // 2. Check for duplicate ID (primary check, but database constraint is backup)
-    if (puzzleRepository.checkDuplicateId(normalized.id)) {
+    if (await puzzleRepository.checkDuplicateId(normalized.id)) {
       return {
         success: false,
         error: `Puzzle with ID "${normalized.id}" already exists`
@@ -78,7 +78,7 @@ export class PuzzleCreationService {
     };
 
     // 6. Persist to database
-    const result = puzzleRepository.createPuzzle(puzzleData);
+    const result = await puzzleRepository.createPuzzle(puzzleData);
 
     if (!result.success) {
       // Handle duplicate ID from database constraint (race condition fallback)
@@ -129,7 +129,7 @@ export class PuzzleCreationService {
    * @param {string} customId - Optional custom ID override
    * @returns {{ success: boolean, data?: object, error?: string }}
    */
-  importFromLichess(lichessData, customId = null) {
+  async importFromLichess(lichessData, customId = null) {
     const id = customId || `lichess_${lichessData.id || this.generatePuzzleId('li')}`;
 
     return this.createPuzzle({
@@ -147,15 +147,11 @@ export class PuzzleCreationService {
    * Get statistics about custom puzzles
    * @returns {object}
    */
-  getCustomPuzzleStats() {
+  async getCustomPuzzleStats() {
     const sources = ['manual', 'lichess_import', 'interactive', 'pgn'];
-    const stats = {};
-
-    for (const source of sources) {
-      stats[source] = puzzleRepository.countPuzzlesBySource(source);
-    }
-
-    stats.total = Object.values(stats).reduce((a, b) => a + b, 0);
+    const counts = await Promise.all(sources.map(s => puzzleRepository.countPuzzlesBySource(s)));
+    const stats = Object.fromEntries(sources.map((s, i) => [s, counts[i]]));
+    stats.total = counts.reduce((a, b) => a + b, 0);
     return stats;
   }
 }

@@ -33,12 +33,12 @@ export class UserService {
         return { success: false, error: 'Student accounts must be linked to a student record' };
       }
 
-      const student = studentRepository.findById(student_id);
+      const student = await studentRepository.findById(student_id);
       if (!student) {
         return { success: false, error: 'Student record not found' };
       }
 
-      const existingUser = userRepository.findByStudentId(student_id);
+      const existingUser = await userRepository.findByStudentId(student_id);
       if (existingUser) {
         return { success: false, error: `Student "${student.name}" already has an account (${existingUser.username})` };
       }
@@ -58,8 +58,8 @@ export class UserService {
     });
   }
 
-  getUserProfile(userId) {
-    const user = userRepository.findById(userId);
+  async getUserProfile(userId) {
+    const user = await userRepository.findById(userId);
 
     if (!user) {
       return { success: false, error: 'User not found' };
@@ -67,7 +67,7 @@ export class UserService {
 
     let studentInfo = null;
     if (user.student_id) {
-      studentInfo = studentRepository.findById(user.student_id);
+      studentInfo = await studentRepository.findById(user.student_id);
     }
 
     return {
@@ -80,7 +80,7 @@ export class UserService {
   }
 
   async updateUser(id, data) {
-    const existing = userRepository.findById(id);
+    const existing = await userRepository.findById(id);
     if (!existing) {
       return { success: false, error: 'User not found' };
     }
@@ -114,12 +114,12 @@ export class UserService {
 
     if (data.student_id !== undefined) {
       if (data.student_id !== null) {
-        const student = studentRepository.findById(data.student_id);
+        const student = await studentRepository.findById(data.student_id);
         if (!student) {
           return { success: false, error: 'Student record not found' };
         }
 
-        const existingUser = userRepository.findByStudentId(data.student_id);
+        const existingUser = await userRepository.findByStudentId(data.student_id);
         if (existingUser && existingUser.id !== id) {
           return { success: false, error: 'This student already has an account' };
         }
@@ -130,8 +130,8 @@ export class UserService {
     return userRepository.update(id, updateData);
   }
 
-  deleteUser(id) {
-    const user = userRepository.findById(id);
+  async deleteUser(id) {
+    const user = await userRepository.findById(id);
     if (!user) {
       return { success: false, error: 'User not found' };
     }
@@ -143,7 +143,7 @@ export class UserService {
     return userRepository.delete(id);
   }
 
-  getAllUsers() {
+  async getAllUsers() {
     return userRepository.findAll();
   }
 }

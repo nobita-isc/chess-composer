@@ -1,11 +1,11 @@
 /**
  * Migration 007: Chess Lessons Platform
  * Creates tables for courses, lessons, content items, assignments, progress, and gamification.
+ * Portable: SQLite + Postgres. All PKs are TEXT (UUID). No sqlite-only syntax.
  */
 
-export function migrate(db) {
-  // Courses
-  db.exec(`
+export async function migrate(db) {
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS courses (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
@@ -17,8 +17,7 @@ export function migrate(db) {
     )
   `);
 
-  // Lessons within courses
-  db.exec(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS lessons (
       id TEXT PRIMARY KEY,
       course_id TEXT NOT NULL,
@@ -30,8 +29,7 @@ export function migrate(db) {
     )
   `);
 
-  // Content items within lessons (video, pdf, puzzle, quiz)
-  db.exec(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS lesson_content (
       id TEXT PRIMARY KEY,
       lesson_id TEXT NOT NULL,
@@ -52,8 +50,7 @@ export function migrate(db) {
     )
   `);
 
-  // Course assignments to students
-  db.exec(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS course_assignments (
       id TEXT PRIMARY KEY,
       course_id TEXT NOT NULL,
@@ -65,8 +62,7 @@ export function migrate(db) {
     )
   `);
 
-  // Per-content-item progress tracking
-  db.exec(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS lesson_progress (
       id TEXT PRIMARY KEY,
       student_id TEXT NOT NULL,
@@ -81,8 +77,7 @@ export function migrate(db) {
     )
   `);
 
-  // Student gamification stats
-  db.exec(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS student_gamification (
       student_id TEXT PRIMARY KEY,
       total_xp INTEGER DEFAULT 0,
@@ -94,13 +89,12 @@ export function migrate(db) {
     )
   `);
 
-  // Indexes
-  db.exec(`CREATE INDEX IF NOT EXISTS idx_lessons_course ON lessons(course_id)`);
-  db.exec(`CREATE INDEX IF NOT EXISTS idx_lesson_content_lesson ON lesson_content(lesson_id)`);
-  db.exec(`CREATE INDEX IF NOT EXISTS idx_course_assignments_student ON course_assignments(student_id)`);
-  db.exec(`CREATE INDEX IF NOT EXISTS idx_course_assignments_course ON course_assignments(course_id)`);
-  db.exec(`CREATE INDEX IF NOT EXISTS idx_lesson_progress_student ON lesson_progress(student_id)`);
-  db.exec(`CREATE INDEX IF NOT EXISTS idx_lesson_progress_content ON lesson_progress(content_id)`);
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_lessons_course ON lessons(course_id)`);
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_lesson_content_lesson ON lesson_content(lesson_id)`);
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_course_assignments_student ON course_assignments(student_id)`);
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_course_assignments_course ON course_assignments(course_id)`);
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_lesson_progress_student ON lesson_progress(student_id)`);
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_lesson_progress_content ON lesson_progress(content_id)`);
 
   console.log('   Created lessons platform tables (courses, lessons, lesson_content, course_assignments, lesson_progress, student_gamification)');
 }

@@ -1,23 +1,20 @@
 /**
  * Migration 008: Puzzle Composer Fields
  * Adds puzzle_instruction, puzzle_hints (JSON), and puzzle_video_url to lesson_content.
- * Supports chess.com-style puzzle challenges with per-move hints and explanations.
+ * Portable: SQLite + Postgres. Uses addColumnIfNotExists to avoid TX poisoning on PG.
  */
 
-export function migrate(db) {
-  const columns = [
-    { name: 'puzzle_instruction', sql: 'ALTER TABLE lesson_content ADD COLUMN puzzle_instruction TEXT' },
-    { name: 'puzzle_hints', sql: 'ALTER TABLE lesson_content ADD COLUMN puzzle_hints TEXT' },
-    { name: 'puzzle_video_url', sql: 'ALTER TABLE lesson_content ADD COLUMN puzzle_video_url TEXT' }
-  ]
+import { addColumnIfNotExists } from '../migration-helpers.js';
 
-  for (const col of columns) {
-    try {
-      db.exec(col.sql)
-    } catch (err) {
-      if (!err.message?.includes('duplicate column')) throw err
-    }
+const COLUMNS = [
+  { column: 'puzzle_instruction', type: 'TEXT' },
+  { column: 'puzzle_hints',       type: 'TEXT' },
+  { column: 'puzzle_video_url',   type: 'TEXT' },
+];
+
+export async function migrate(db) {
+  for (const { column, type } of COLUMNS) {
+    await addColumnIfNotExists(db, 'lesson_content', column, type);
   }
-
-  console.log('   Added puzzle composer fields (puzzle_instruction, puzzle_hints, puzzle_video_url) to lesson_content')
+  console.log('   Added puzzle composer fields (puzzle_instruction, puzzle_hints, puzzle_video_url) to lesson_content');
 }

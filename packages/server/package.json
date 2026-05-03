@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "db:migrate-to-postgres": "node src/cli/migrate-to-postgres.js"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
@@ -14,6 +15,7 @@
     "chess.js": "^1.0.0-beta.8",
     "hono": "^4.6.18",
     "jsonwebtoken": "^9.0.3",
-    "pdfkit": "^0.15.0"
+    "pdfkit": "^0.15.0",
+    "pg": "^8.20.0"
   }
 }

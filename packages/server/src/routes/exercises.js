@@ -16,29 +16,20 @@ const __dirname = path.dirname(__filename);
 
 const exercises = new Hono();
 
-// Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, '../../uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-/**
- * GET /api/exercises
- * List all weekly exercises
- */
-exercises.get('/', (c) => {
+exercises.get('/', async (c) => {
   try {
-    const exerciseList = exerciseService.getAllExercisesWithStats();
+    const exerciseList = await exerciseService.getAllExercisesWithStats();
     return c.json({ success: true, data: exerciseList });
   } catch (error) {
     return c.json({ success: false, error: error.message }, 500);
   }
 });
 
-/**
- * POST /api/exercises
- * Create a new weekly exercise from puzzle IDs
- */
 exercises.post('/', async (c) => {
   try {
     const body = await c.req.json();
@@ -48,32 +39,20 @@ exercises.post('/', async (c) => {
       return c.json({ success: false, error: 'At least one puzzle ID is required' }, 400);
     }
 
-    const result = exerciseService.createWeeklyExercise({
-      puzzleIds,
-      filters,
-      name,
-      weekStart
-    });
+    const result = await exerciseService.createWeeklyExercise({ puzzleIds, filters, name, weekStart });
 
-    if (!result.success) {
-      return c.json({ success: false, error: result.error }, 400);
-    }
-
+    if (!result.success) return c.json({ success: false, error: result.error }, 400);
     return c.json({ success: true, data: result.data }, 201);
   } catch (error) {
     return c.json({ success: false, error: error.message }, 500);
   }
 });
 
-/**
- * GET /api/exercises/current-week
- * Get info about current week
- */
-exercises.get('/current-week', (c) => {
+exercises.get('/current-week', async (c) => {
   try {
     const weekStart = exerciseService.getWeekStart();
     const weekEnd = exerciseService.getWeekEnd(weekStart);
-    const exercises_list = exerciseRepository.findExercisesByWeek(weekStart);
+    const exercises_list = await exerciseRepository.findExercisesByWeek(weekStart);
 
     return c.json({
       success: true,
@@ -90,40 +69,26 @@ exercises.get('/current-week', (c) => {
   }
 });
 
-/**
- * GET /api/exercises/:id
- * Get exercise with full puzzle details
- */
-exercises.get('/:id', (c) => {
+exercises.get('/:id', async (c) => {
   try {
     const id = c.req.param('id');
-    const result = exerciseService.getExerciseWithPuzzles(id);
+    const result = await exerciseService.getExerciseWithPuzzles(id);
 
-    if (!result.success) {
-      return c.json({ success: false, error: result.error }, 404);
-    }
-
+    if (!result.success) return c.json({ success: false, error: result.error }, 404);
     return c.json({ success: true, data: result.data });
   } catch (error) {
     return c.json({ success: false, error: error.message }, 500);
   }
 });
 
-/**
- * GET /api/exercises/:id/pdf
- * Download exercise as PDF
- */
 exercises.get('/:id/pdf', async (c) => {
   try {
     const id = c.req.param('id');
-    const result = exerciseService.getExerciseWithPuzzles(id);
+    const result = await exerciseService.getExerciseWithPuzzles(id);
 
-    if (!result.success) {
-      return c.json({ success: false, error: result.error }, 404);
-    }
+    if (!result.success) return c.json({ success: false, error: result.error }, 404);
 
     const pdfBuffer = await pdfGenerator.generateExercisePdf(result.data);
-
     const filename = `exercise-${result.data.week_start}.pdf`;
 
     return new Response(pdfBuffer, {
@@ -138,57 +103,36 @@ exercises.get('/:id/pdf', async (c) => {
   }
 });
 
-/**
- * PUT /api/exercises/:id
- * Update exercise (name)
- */
 exercises.put('/:id', requireRole('admin'), async (c) => {
   try {
     const id = c.req.param('id');
     const { name } = await c.req.json();
 
-    if (!name || !name.trim()) {
-      return c.json({ success: false, error: 'Name is required' }, 400);
-    }
+    if (!name || !name.trim()) return c.json({ success: false, error: 'Name is required' }, 400);
 
     const trimmed = name.trim();
-    if (trimmed.length > 200) {
-      return c.json({ success: false, error: 'Name must be 200 characters or less' }, 400);
-    }
+    if (trimmed.length > 200) return c.json({ success: false, error: 'Name must be 200 characters or less' }, 400);
 
-    const result = exerciseRepository.updateExerciseName(id, trimmed);
-    if (!result.success) {
-      return c.json({ success: false, error: result.error }, 404);
-    }
+    const result = await exerciseRepository.updateExerciseName(id, trimmed);
+    if (!result.success) return c.json({ success: false, error: result.error }, 404);
     return c.json({ success: true });
   } catch (error) {
     return c.json({ success: false, error: error.message }, 500);
   }
 });
 
-/**
- * DELETE /api/exercises/:id
- * Delete an exercise
- */
-exercises.delete('/:id', (c) => {
+exercises.delete('/:id', async (c) => {
   try {
     const id = c.req.param('id');
-    const result = exerciseRepository.deleteExercise(id);
+    const result = await exerciseRepository.deleteExercise(id);
 
-    if (!result.success) {
-      return c.json({ success: false, error: result.error }, 400);
-    }
-
+    if (!result.success) return c.json({ success: false, error: result.error }, 400);
     return c.json({ success: true, message: 'Exercise deleted' });
   } catch (error) {
     return c.json({ success: false, error: error.message }, 500);
   }
 });
 
-/**
- * POST /api/exercises/:id/assign
- * Assign exercise to students
- */
 exercises.post('/:id/assign', async (c) => {
   try {
     const id = c.req.param('id');
@@ -199,26 +143,19 @@ exercises.post('/:id/assign', async (c) => {
       return c.json({ success: false, error: 'At least one student ID is required' }, 400);
     }
 
-    const result = exerciseService.assignExerciseToStudents(id, studentIds);
+    const result = await exerciseService.assignExerciseToStudents(id, studentIds);
 
-    if (!result.success) {
-      return c.json({ success: false, error: result.error }, 400);
-    }
-
+    if (!result.success) return c.json({ success: false, error: result.error }, 400);
     return c.json({ success: true, data: result.data });
   } catch (error) {
     return c.json({ success: false, error: error.message }, 500);
   }
 });
 
-/**
- * GET /api/exercises/:id/assignments
- * Get all student assignments for an exercise
- */
-exercises.get('/:id/assignments', (c) => {
+exercises.get('/:id/assignments', async (c) => {
   try {
     const id = c.req.param('id');
-    const assignments = exerciseRepository.findExerciseAssignments(id);
+    const assignments = await exerciseRepository.findExerciseAssignments(id);
     return c.json({ success: true, data: assignments });
   } catch (error) {
     return c.json({ success: false, error: error.message }, 500);

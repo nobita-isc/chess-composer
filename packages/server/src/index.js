@@ -16,17 +16,7 @@ import { logger } from 'hono/logger';
 import { databaseGenerator } from './database/DatabaseGenerator.js';
 import { database } from './database/SqliteDatabase.js';
 import { reportManager } from './reports/PuzzleReportManager.js';
-import { migrate as migrateSources } from './database/migrations/001_add_source_field.js';
-import { migrate as migrateExercises } from './database/migrations/002_add_exercise_tables.js';
-import { migrate as migratePuzzleResults } from './database/migrations/003_add_puzzle_results.js';
-import { migrate as migrateAuth } from './database/migrations/004_add_users_auth.js';
-import { migrate as migratePuzzleHints } from './database/migrations/005_add_puzzle_hints.js';
-import { migrate as migrateIsFinal } from './database/migrations/006_add_is_final_flag.js';
-import { migrate as migrateLessons } from './database/migrations/007_add_lessons_platform.js';
-import { migrate as migratePuzzleComposer } from './database/migrations/008_add_puzzle_composer_fields.js';
-import { migrate as migratePuzzleChallenges } from './database/migrations/009_add_puzzle_challenges_field.js';
-import { migrate as migrateAvgRating } from './database/migrations/010_add_avg_rating.js';
-import { migrate as migrateContentDescription } from './database/migrations/011_add_content_description.js';
+import { runMigrations } from './database/migration-runner.js';
 
 import { authRequired } from './middleware/authMiddleware.js';
 import auth from './routes/auth.js';
@@ -51,7 +41,7 @@ app.use('*', cors({
 }));
 
 // Initialize database and services
-function initializeServices() {
+async function initializeServices() {
   console.log('Initializing database...');
   const dbInitialized = databaseGenerator.initialize();
 
@@ -60,41 +50,33 @@ function initializeServices() {
     process.exit(1);
   }
 
+  // For postgres path: wait for async driver connect before proceeding.
+  await database.initAsync();
   console.log('Database initialized successfully');
 
   // Run migrations
   console.log('Running database migrations...');
   try {
-    migrateSources(database.db);
-    migrateExercises(database.db);
-    migratePuzzleResults(database.db);
-    migrateAuth(database.db);
-    migratePuzzleHints(database.db);
-    migrateIsFinal(database.db);
-    migrateLessons(database.db);
-    migratePuzzleComposer(database.db);
-    migratePuzzleChallenges(database.db);
-    migrateAvgRating(database.db);
-    migrateContentDescription(database.db);
+    await runMigrations(database);
     console.log('Migrations completed');
   } catch (error) {
     console.error('Migration error:', error.message);
   }
 
   console.log('Initializing report manager...');
-  reportManager.initialize();
+  await reportManager.initialize();
   console.log('Report manager initialized');
 
   // Connect report manager to generator for blocked puzzle filtering
   databaseGenerator.setBlockedIds(reportManager.getBlockedPuzzleIds());
 
   // Log stats
-  const stats = databaseGenerator.getStats();
+  const stats = await databaseGenerator.getStats();
   console.log(`Loaded ${stats.totalPuzzles.toLocaleString()} puzzles with ${stats.totalThemes} themes`);
 }
 
 // Initialize on startup
-initializeServices();
+await initializeServices();
 
 // Auth routes (public - no middleware)
 app.route('/api/auth', auth);

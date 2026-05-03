@@ -12,10 +12,10 @@ function generateId(prefix) {
 export class CourseRepository {
   // ==================== Courses ====================
 
-  createCourse(data) {
+  async createCourse(data) {
     const id = generateId('course')
     const now = new Date().toISOString()
-    database.run(
+    await database.run(
       `INSERT INTO courses (id, title, description, thumbnail_url, skill_level, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [id, data.title, data.description || null, data.thumbnail_url || null, data.skill_level || 'beginner', now, now]
@@ -23,7 +23,7 @@ export class CourseRepository {
     return { success: true, data: { id, ...data, created_at: now } }
   }
 
-  findAllCourses() {
+  async findAllCourses() {
     return database.query(`
       SELECT c.*,
         (SELECT COUNT(*) FROM lessons WHERE course_id = c.id) as lesson_count,
@@ -32,11 +32,11 @@ export class CourseRepository {
     `)
   }
 
-  findCourseById(id) {
+  async findCourseById(id) {
     return database.queryOne('SELECT * FROM courses WHERE id = ?', [id])
   }
 
-  updateCourse(id, data) {
+  async updateCourse(id, data) {
     const now = new Date().toISOString()
     const fields = []
     const values = []
@@ -46,30 +46,30 @@ export class CourseRepository {
     if (data.skill_level !== undefined) { fields.push('skill_level = ?'); values.push(data.skill_level) }
     fields.push('updated_at = ?'); values.push(now)
     values.push(id)
-    const result = database.run(`UPDATE courses SET ${fields.join(', ')} WHERE id = ?`, values)
+    const result = await database.run(`UPDATE courses SET ${fields.join(', ')} WHERE id = ?`, values)
     return result.changes > 0 ? { success: true } : { success: false, error: 'Course not found' }
   }
 
-  deleteCourse(id) {
-    const result = database.run('DELETE FROM courses WHERE id = ?', [id])
+  async deleteCourse(id) {
+    const result = await database.run('DELETE FROM courses WHERE id = ?', [id])
     return result.changes > 0 ? { success: true } : { success: false, error: 'Course not found' }
   }
 
   // ==================== Lessons ====================
 
-  createLesson(courseId, data) {
+  async createLesson(courseId, data) {
     const id = generateId('lesson')
     const now = new Date().toISOString()
-    const maxOrder = database.queryOne('SELECT MAX(order_index) as m FROM lessons WHERE course_id = ?', [courseId])
+    const maxOrder = await database.queryOne('SELECT MAX(order_index) as m FROM lessons WHERE course_id = ?', [courseId])
     const orderIndex = data.order_index ?? ((maxOrder?.m ?? -1) + 1)
-    database.run(
+    await database.run(
       'INSERT INTO lessons (id, course_id, order_index, title, description, created_at) VALUES (?, ?, ?, ?, ?, ?)',
       [id, courseId, orderIndex, data.title, data.description || null, now]
     )
     return { success: true, data: { id, course_id: courseId, order_index: orderIndex } }
   }
 
-  findLessonsByCourse(courseId) {
+  async findLessonsByCourse(courseId) {
     return database.query(`
       SELECT l.*,
         (SELECT COUNT(*) FROM lesson_content WHERE lesson_id = l.id) as content_count
@@ -77,11 +77,11 @@ export class CourseRepository {
     `, [courseId])
   }
 
-  findLessonById(id) {
+  async findLessonById(id) {
     return database.queryOne('SELECT * FROM lessons WHERE id = ?', [id])
   }
 
-  updateLesson(id, data) {
+  async updateLesson(id, data) {
     const fields = []
     const values = []
     if (data.title !== undefined) { fields.push('title = ?'); values.push(data.title) }
@@ -89,25 +89,25 @@ export class CourseRepository {
     if (data.order_index !== undefined) { fields.push('order_index = ?'); values.push(data.order_index) }
     if (fields.length === 0) return { success: true }
     values.push(id)
-    const result = database.run(`UPDATE lessons SET ${fields.join(', ')} WHERE id = ?`, values)
+    const result = await database.run(`UPDATE lessons SET ${fields.join(', ')} WHERE id = ?`, values)
     return result.changes > 0 ? { success: true } : { success: false, error: 'Lesson not found' }
   }
 
-  deleteLesson(id) {
-    const result = database.run('DELETE FROM lessons WHERE id = ?', [id])
+  async deleteLesson(id) {
+    const result = await database.run('DELETE FROM lessons WHERE id = ?', [id])
     return result.changes > 0 ? { success: true } : { success: false, error: 'Lesson not found' }
   }
 
   // ==================== Content Items ====================
 
-  createContent(lessonId, data) {
+  async createContent(lessonId, data) {
     const id = generateId('lc')
     const now = new Date().toISOString()
-    const maxOrder = database.queryOne('SELECT MAX(order_index) as m FROM lesson_content WHERE lesson_id = ?', [lessonId])
+    const maxOrder = await database.queryOne('SELECT MAX(order_index) as m FROM lesson_content WHERE lesson_id = ?', [lessonId])
     const orderIndex = data.order_index ?? ((maxOrder?.m ?? -1) + 1)
     const hintsJson = data.puzzle_hints ? (typeof data.puzzle_hints === 'string' ? data.puzzle_hints : JSON.stringify(data.puzzle_hints)) : null
     const challengesJson = data.puzzle_challenges ? (typeof data.puzzle_challenges === 'string' ? data.puzzle_challenges : JSON.stringify(data.puzzle_challenges)) : null
-    database.run(
+    await database.run(
       `INSERT INTO lesson_content (id, lesson_id, order_index, content_type, title, video_url, file_path, file_size, duration_min, puzzle_id, puzzle_fen, puzzle_moves, quiz_data, xp_reward, puzzle_instruction, puzzle_hints, puzzle_video_url, puzzle_challenges, description, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, lessonId, orderIndex, data.content_type, data.title, data.video_url || null, data.file_path || null,
@@ -118,15 +118,15 @@ export class CourseRepository {
     return { success: true, data: { id, lesson_id: lessonId, order_index: orderIndex } }
   }
 
-  findContentById(id) {
+  async findContentById(id) {
     return database.queryOne('SELECT * FROM lesson_content WHERE id = ?', [id])
   }
 
-  findContentByLesson(lessonId) {
+  async findContentByLesson(lessonId) {
     return database.query('SELECT * FROM lesson_content WHERE lesson_id = ? ORDER BY order_index', [lessonId])
   }
 
-  updateContent(id, data) {
+  async updateContent(id, data) {
     const allowedColumns = new Set([
       'order_index', 'content_type', 'title', 'video_url', 'file_path', 'file_size',
       'duration_min', 'puzzle_id', 'puzzle_fen', 'puzzle_moves', 'quiz_data', 'xp_reward',
@@ -142,30 +142,34 @@ export class CourseRepository {
     }
     if (fields.length === 0) return { success: true }
     values.push(id)
-    const result = database.run(`UPDATE lesson_content SET ${fields.join(', ')} WHERE id = ?`, values)
+    const result = await database.run(`UPDATE lesson_content SET ${fields.join(', ')} WHERE id = ?`, values)
     return result.changes > 0 ? { success: true } : { success: false, error: 'Content not found' }
   }
 
-  deleteContent(id) {
-    const result = database.run('DELETE FROM lesson_content WHERE id = ?', [id])
+  async deleteContent(id) {
+    const result = await database.run('DELETE FROM lesson_content WHERE id = ?', [id])
     return result.changes > 0 ? { success: true } : { success: false, error: 'Content not found' }
   }
 
-  reorderContent(lessonId, orderedIds) {
-    const stmt = database.db ? database.db.prepare('UPDATE lesson_content SET order_index = ? WHERE id = ? AND lesson_id = ?') : null
-    if (!stmt) return { success: false, error: 'DB not ready' }
+  async reorderContent(lessonId, orderedIds) {
+    // Use raw better-sqlite3 prepare for batch update (sqlite path only)
+    const db = database.db
+    if (!db) return { success: false, error: 'DB not ready' }
+    const stmt = db.prepare('UPDATE lesson_content SET order_index = ? WHERE id = ? AND lesson_id = ?')
     orderedIds.forEach((id, index) => stmt.run(index, id, lessonId))
     return { success: true }
   }
 
   // ==================== Assignments ====================
 
-  assignCourse(courseId, studentId) {
+  async assignCourse(courseId, studentId) {
     const id = generateId('ca')
     const now = new Date().toISOString()
     try {
-      database.run('INSERT INTO course_assignments (id, course_id, student_id, assigned_at) VALUES (?, ?, ?, ?)',
-        [id, courseId, studentId, now])
+      await database.run(
+        'INSERT INTO course_assignments (id, course_id, student_id, assigned_at) VALUES (?, ?, ?, ?)',
+        [id, courseId, studentId, now]
+      )
       return { success: true }
     } catch (err) {
       if (err.message?.includes('UNIQUE')) return { success: false, error: 'Already assigned' }
@@ -173,7 +177,7 @@ export class CourseRepository {
     }
   }
 
-  findAssignmentsByStudent(studentId) {
+  async findAssignmentsByStudent(studentId) {
     return database.query(`
       SELECT ca.*, c.title, c.description, c.thumbnail_url, c.skill_level,
         (SELECT COUNT(*) FROM lessons WHERE course_id = c.id) as lesson_count
@@ -183,7 +187,7 @@ export class CourseRepository {
     `, [studentId])
   }
 
-  findAssignmentsByCourse(courseId) {
+  async findAssignmentsByCourse(courseId) {
     return database.query(`
       SELECT ca.*, s.name as student_name, s.skill_level as student_skill
       FROM course_assignments ca
@@ -194,29 +198,34 @@ export class CourseRepository {
 
   // ==================== Progress ====================
 
-  markContentComplete(studentId, contentId, data = {}) {
+  async markContentComplete(studentId, contentId, data = {}) {
     const id = generateId('lp')
     const now = new Date().toISOString()
     try {
-      database.run(
+      await database.run(
         `INSERT INTO lesson_progress (id, student_id, content_id, completed, puzzle_result, completed_at, xp_earned)
          VALUES (?, ?, ?, 1, ?, ?, ?)`,
         [id, studentId, contentId, data.puzzle_result || null, now, data.xp_earned || 0]
       )
     } catch (err) {
       if (err.message?.includes('UNIQUE')) {
-        database.run('UPDATE lesson_progress SET completed = 1, completed_at = ?, xp_earned = ? WHERE student_id = ? AND content_id = ?',
-          [now, data.xp_earned || 0, studentId, contentId])
+        await database.run(
+          'UPDATE lesson_progress SET completed = 1, completed_at = ?, xp_earned = ? WHERE student_id = ? AND content_id = ?',
+          [now, data.xp_earned || 0, studentId, contentId]
+        )
       } else { throw err }
     }
     return { success: true }
   }
 
-  resetContentProgress(studentId, contentId) {
-    database.run('DELETE FROM lesson_progress WHERE student_id = ? AND content_id = ?', [studentId, contentId])
+  async resetContentProgress(studentId, contentId) {
+    await database.run(
+      'DELETE FROM lesson_progress WHERE student_id = ? AND content_id = ?',
+      [studentId, contentId]
+    )
   }
 
-  getStudentCourseProgress(studentId, courseId) {
+  async getStudentCourseProgress(studentId, courseId) {
     return database.query(`
       SELECT lc.id as content_id, lc.content_type, lc.title, lc.lesson_id, lc.order_index, lc.xp_reward,
         COALESCE(lp.completed, 0) as completed, lp.puzzle_result, lp.completed_at, lp.xp_earned
@@ -230,58 +239,56 @@ export class CourseRepository {
 
   // ==================== Gamification ====================
 
-  getOrCreateGamification(studentId) {
-    let gam = database.queryOne('SELECT * FROM student_gamification WHERE student_id = ?', [studentId])
+  async getOrCreateGamification(studentId) {
+    let gam = await database.queryOne('SELECT * FROM student_gamification WHERE student_id = ?', [studentId])
     if (!gam) {
-      database.run('INSERT INTO student_gamification (student_id) VALUES (?)', [studentId])
+      await database.run('INSERT INTO student_gamification (student_id) VALUES (?)', [studentId])
       gam = { student_id: studentId, total_xp: 0, current_streak: 0, longest_streak: 0, last_activity_date: null, badges: '[]' }
     }
     return { ...gam, badges: JSON.parse(gam.badges || '[]') }
   }
 
-  addXP(studentId, xp) {
-    this.getOrCreateGamification(studentId)
-    database.run('UPDATE student_gamification SET total_xp = total_xp + ? WHERE student_id = ?', [xp, studentId])
+  async addXP(studentId, xp) {
+    await this.getOrCreateGamification(studentId)
+    await database.run(
+      'UPDATE student_gamification SET total_xp = total_xp + ? WHERE student_id = ?',
+      [xp, studentId]
+    )
 
-    // Update streak
     const today = new Date().toISOString().split('T')[0]
-    const gam = database.queryOne('SELECT last_activity_date, current_streak, longest_streak FROM student_gamification WHERE student_id = ?', [studentId])
+    const gam = await database.queryOne(
+      'SELECT last_activity_date, current_streak, longest_streak FROM student_gamification WHERE student_id = ?',
+      [studentId]
+    )
     if (gam.last_activity_date !== today) {
       const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
       const newStreak = gam.last_activity_date === yesterday ? gam.current_streak + 1 : 1
       const longest = Math.max(newStreak, gam.longest_streak)
-      database.run('UPDATE student_gamification SET current_streak = ?, longest_streak = ?, last_activity_date = ? WHERE student_id = ?',
-        [newStreak, longest, today, studentId])
+      await database.run(
+        'UPDATE student_gamification SET current_streak = ?, longest_streak = ?, last_activity_date = ? WHERE student_id = ?',
+        [newStreak, longest, today, studentId]
+      )
     }
   }
 
-  /**
-   * Check and award badges based on current progress.
-   * @param {string} studentId
-   * @param {string} courseId - optional, to check course-specific badges
-   */
-  checkAndAwardBadges(studentId, courseId = null) {
-    const gam = this.getOrCreateGamification(studentId)
+  async checkAndAwardBadges(studentId, courseId = null) {
+    const gam = await this.getOrCreateGamification(studentId)
     const badges = new Set(gam.badges)
     const initialCount = badges.size
 
-    // Streak badges
     if (gam.current_streak >= 7) badges.add('streak-7')
     if (gam.current_streak >= 30) badges.add('streak-30')
 
-    // Check course completion
     if (courseId) {
-      const progress = this.getStudentCourseProgress(studentId, courseId)
+      const progress = await this.getStudentCourseProgress(studentId, courseId)
       if (progress.length > 0 && progress.every(p => p.completed)) {
         badges.add(`course-${courseId}`)
-        // First course badge
         if (!gam.badges.includes('first-course')) badges.add('first-course')
       }
 
-      // Perfect score (all puzzles correct in a lesson)
-      const lessons = database.query('SELECT id FROM lessons WHERE course_id = ?', [courseId])
+      const lessons = await database.query('SELECT id FROM lessons WHERE course_id = ?', [courseId])
       for (const lesson of lessons) {
-        const items = database.query(
+        const items = await database.query(
           `SELECT lc.id, lc.content_type, COALESCE(lp.completed, 0) as completed, lp.puzzle_result
            FROM lesson_content lc
            LEFT JOIN lesson_progress lp ON lp.content_id = lc.id AND lp.student_id = ?
@@ -294,13 +301,14 @@ export class CourseRepository {
       }
     }
 
-    // Save if new badges were earned
     if (badges.size > initialCount) {
-      database.run('UPDATE student_gamification SET badges = ? WHERE student_id = ?',
-        [JSON.stringify([...badges]), studentId])
+      await database.run(
+        'UPDATE student_gamification SET badges = ? WHERE student_id = ?',
+        [JSON.stringify([...badges]), studentId]
+      )
     }
 
-    return [...badges].filter(b => !gam.badges.includes(b)) // return newly earned
+    return [...badges].filter(b => !gam.badges.includes(b))
   }
 }
 

@@ -7,6 +7,7 @@
  */
 
 import { database } from '../database/SqliteDatabase.js';
+import { getDialectForDb } from '../database/dialect.js';
 
 // Report reason constants
 export const REPORT_REASONS = {
@@ -38,7 +39,7 @@ export class PuzzleReportManager {
   /**
    * Initialize the report manager
    */
-  initialize() {
+  async initialize() {
     if (this.initialized) return;
 
     this.db = database;
@@ -47,42 +48,44 @@ export class PuzzleReportManager {
       throw new Error('Database not initialized');
     }
 
-    // Create tables if they don't exist
-    this.createTables();
-
-    // Build blocked IDs cache
-    this.rebuildBlockedCache();
+    await this.createTables();
+    await this.rebuildBlockedCache();
 
     this.initialized = true;
   }
 
   /**
-   * Create SQLite tables for reports and modifications
+   * Create tables for reports and modifications (portable: SQLite + Postgres)
    */
-  createTables() {
+  async createTables() {
+    const dialect = getDialectForDb(this.db);
     try {
-      this.db.exec(`
+      // BIGINT for millisecond timestamps: PG INT4 max ~2.1e9 < Date.now() ~1.7e12.
+      // SQLite stores BIGINT as 8-byte integer — fully compatible.
+      const isPostgres = Boolean(this.db.driver);
+      const bigintType = isPostgres ? 'BIGINT' : 'INTEGER';
+      await this.db.exec(`
         CREATE TABLE IF NOT EXISTS puzzle_reports (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          id ${dialect.autoIncrementPk()},
           puzzle_id TEXT NOT NULL,
           reason TEXT NOT NULL,
           notes TEXT,
           dismissed INTEGER DEFAULT 0,
-          reported_at INTEGER NOT NULL
+          reported_at ${bigintType} NOT NULL
         )
       `);
 
-      this.db.exec(`
+      await this.db.exec(`
         CREATE TABLE IF NOT EXISTS puzzle_modifications (
           puzzle_id TEXT PRIMARY KEY,
           blocked INTEGER DEFAULT 0,
           modified_fen TEXT,
-          modified_at INTEGER NOT NULL
+          modified_at ${bigintType} NOT NULL
         )
       `);
 
-      this.db.exec(`CREATE INDEX IF NOT EXISTS idx_reports_puzzle ON puzzle_reports(puzzle_id)`);
-      this.db.exec(`CREATE INDEX IF NOT EXISTS idx_mods_blocked ON puzzle_modifications(blocked)`);
+      await this.db.exec(`CREATE INDEX IF NOT EXISTS idx_reports_puzzle ON puzzle_reports(puzzle_id)`);
+      await this.db.exec(`CREATE INDEX IF NOT EXISTS idx_mods_blocked ON puzzle_modifications(blocked)`);
     } catch (error) {
       if (!error.message?.includes('already exists')) {
         throw error;
@@ -93,9 +96,9 @@ export class PuzzleReportManager {
   /**
    * Rebuild the blocked IDs cache
    */
-  rebuildBlockedCache() {
+  async rebuildBlockedCache() {
     try {
-      const rows = this.db.query('SELECT puzzle_id FROM puzzle_modifications WHERE blocked = 1');
+      const rows = await this.db.query('SELECT puzzle_id FROM puzzle_modifications WHERE blocked = 1');
       this.blockedIdsCache = new Set(rows.map(r => r.puzzle_id));
     } catch (error) {
       this.blockedIdsCache = new Set();
@@ -109,9 +112,8 @@ export class PuzzleReportManager {
    * @param {string} notes - Optional notes
    * @returns {object} - { success, reportId?, error? }
    */
-  reportPuzzle(puzzleId, reason, notes = '') {
+  async reportPuzzle(puzzleId, reason, notes = '') {
     try {
-      // Validate puzzleId
       if (!puzzleId || typeof puzzleId !== 'string' || puzzleId.length > MAX_PUZZLE_ID_LENGTH) {
         throw new Error('Invalid puzzle ID');
       }
@@ -120,7 +122,6 @@ export class PuzzleReportManager {
         throw new Error('Invalid puzzle ID format');
       }
 
-      // Validate reason
       if (!Object.values(REPORT_REASONS).includes(reason)) {
         throw new Error('Invalid report reason');
       }
@@ -132,13 +133,15 @@ export class PuzzleReportManager {
         reported_at: Date.now()
       };
 
-      const result = this.db.run(
+      const result = await this.db.run(
         `INSERT INTO puzzle_reports (puzzle_id, reason, notes, dismissed, reported_at)
          VALUES (?, ?, ?, 0, ?)`,
         [reportData.puzzle_id, reportData.reason, reportData.notes, reportData.reported_at]
       );
 
-      return { success: true, reportId: Number(result.lastInsertRowid) };
+      // lastInsertRowid from better-sqlite3; postgres driver returns lastInsertId
+      const reportId = Number(result.lastInsertRowid ?? result.lastInsertId ?? 0);
+      return { success: true, reportId };
     } catch (error) {
       return { success: false, error: error.message };
     }
@@ -149,7 +152,7 @@ export class PuzzleReportManager {
    * @param {object} options - { page, pageSize, includeDismissed }
    * @returns {object} - { reports, total, page, pageSize, hasMore }
    */
-  getReports({ page = 1, pageSize = 20, includeDismissed = false } = {}) {
+  async getReports({ page = 1, pageSize = 20, includeDismissed = false } = {}) {
     try {
       let countSql = 'SELECT COUNT(*) FROM puzzle_reports';
       let sql = 'SELECT * FROM puzzle_reports';
@@ -163,8 +166,8 @@ export class PuzzleReportManager {
       sql += ' ORDER BY reported_at DESC';
       sql += ` LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`;
 
-      const total = this.db.queryScalar(countSql) || 0;
-      const reports = this.db.query(sql);
+      const total = (await this.db.queryScalar(countSql)) || 0;
+      const reports = await this.db.query(sql);
 
       return {
         reports,
@@ -183,9 +186,9 @@ export class PuzzleReportManager {
    * @param {number} reportId - Report ID
    * @returns {object} - { success, error? }
    */
-  dismissReport(reportId) {
+  async dismissReport(reportId) {
     try {
-      this.db.run('UPDATE puzzle_reports SET dismissed = 1 WHERE id = ?', [reportId]);
+      await this.db.run('UPDATE puzzle_reports SET dismissed = 1 WHERE id = ?', [reportId]);
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
@@ -197,9 +200,9 @@ export class PuzzleReportManager {
    * @param {number} reportId - Report ID
    * @returns {object} - { success, error? }
    */
-  deleteReport(reportId) {
+  async deleteReport(reportId) {
     try {
-      this.db.run('DELETE FROM puzzle_reports WHERE id = ?', [reportId]);
+      await this.db.run('DELETE FROM puzzle_reports WHERE id = ?', [reportId]);
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
@@ -211,13 +214,21 @@ export class PuzzleReportManager {
    * @param {string} puzzleId - Puzzle ID
    * @returns {object} - { success, error? }
    */
-  blockPuzzle(puzzleId) {
+  async blockPuzzle(puzzleId) {
     try {
-      this.db.run(
-        `INSERT OR REPLACE INTO puzzle_modifications (puzzle_id, blocked, modified_fen, modified_at)
-         VALUES (?, 1, (SELECT modified_fen FROM puzzle_modifications WHERE puzzle_id = ?), ?)`,
-        [puzzleId, puzzleId, Date.now()]
+      // Preserve existing modified_fen when blocking; upsert is portable across SQLite + Postgres
+      const existing = await this.db.queryOne(
+        'SELECT modified_fen FROM puzzle_modifications WHERE puzzle_id = ?',
+        [puzzleId]
       );
+      const dialect = getDialectForDb(this.db);
+      const sql = dialect.upsert({
+        table: 'puzzle_modifications',
+        columns: ['puzzle_id', 'blocked', 'modified_fen', 'modified_at'],
+        conflictCols: ['puzzle_id'],
+        updateCols: ['blocked', 'modified_fen', 'modified_at']
+      });
+      await this.db.run(sql, [puzzleId, 1, existing?.modified_fen ?? null, Date.now()]);
 
       this.blockedIdsCache.add(puzzleId);
       return { success: true };
@@ -231,9 +242,9 @@ export class PuzzleReportManager {
    * @param {string} puzzleId - Puzzle ID
    * @returns {object} - { success, error? }
    */
-  unblockPuzzle(puzzleId) {
+  async unblockPuzzle(puzzleId) {
     try {
-      this.db.run(
+      await this.db.run(
         'UPDATE puzzle_modifications SET blocked = 0, modified_at = ? WHERE puzzle_id = ?',
         [Date.now(), puzzleId]
       );
@@ -251,22 +262,25 @@ export class PuzzleReportManager {
    * @param {string} newFen - New FEN string
    * @returns {object} - { success, error? }
    */
-  updatePuzzleFEN(puzzleId, newFen) {
+  async updatePuzzleFEN(puzzleId, newFen) {
     try {
       if (!newFen || newFen.length > MAX_FEN_LENGTH) {
         throw new Error('Invalid FEN string length');
       }
 
-      const existing = this.db.queryOne(
+      const existing = await this.db.queryOne(
         'SELECT blocked FROM puzzle_modifications WHERE puzzle_id = ?',
         [puzzleId]
       );
 
-      this.db.run(
-        `INSERT OR REPLACE INTO puzzle_modifications (puzzle_id, blocked, modified_fen, modified_at)
-         VALUES (?, ?, ?, ?)`,
-        [puzzleId, existing?.blocked || 0, newFen, Date.now()]
-      );
+      const dialect = getDialectForDb(this.db);
+      const sql = dialect.upsert({
+        table: 'puzzle_modifications',
+        columns: ['puzzle_id', 'blocked', 'modified_fen', 'modified_at'],
+        conflictCols: ['puzzle_id'],
+        updateCols: ['blocked', 'modified_fen', 'modified_at']
+      });
+      await this.db.run(sql, [puzzleId, existing?.blocked || 0, newFen, Date.now()]);
 
       return { success: true };
     } catch (error) {
@@ -279,7 +293,7 @@ export class PuzzleReportManager {
    * @param {string} puzzleId - Puzzle ID
    * @returns {object|null}
    */
-  getModification(puzzleId) {
+  async getModification(puzzleId) {
     return this.db.queryOne(
       'SELECT * FROM puzzle_modifications WHERE puzzle_id = ?',
       [puzzleId]
@@ -308,7 +322,7 @@ export class PuzzleReportManager {
    * @param {string} puzzleId - Puzzle ID
    * @returns {object|null}
    */
-  getPuzzleInfo(puzzleId) {
+  async getPuzzleInfo(puzzleId) {
     return this.db.queryOne(
       'SELECT id, fen, rating, themes FROM puzzles WHERE id = ?',
       [puzzleId]
@@ -319,10 +333,10 @@ export class PuzzleReportManager {
    * Get statistics
    * @returns {object}
    */
-  getStats() {
+  async getStats() {
     try {
-      const totalReports = this.db.queryScalar('SELECT COUNT(*) FROM puzzle_reports') || 0;
-      const pendingReports = this.db.queryScalar('SELECT COUNT(*) FROM puzzle_reports WHERE dismissed = 0') || 0;
+      const totalReports = (await this.db.queryScalar('SELECT COUNT(*) FROM puzzle_reports')) || 0;
+      const pendingReports = (await this.db.queryScalar('SELECT COUNT(*) FROM puzzle_reports WHERE dismissed = 0')) || 0;
       const dismissedReports = totalReports - pendingReports;
       const blockedPuzzles = this.blockedIdsCache.size;
 

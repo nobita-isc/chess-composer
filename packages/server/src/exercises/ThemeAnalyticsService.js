@@ -37,9 +37,8 @@ export class ThemeAnalyticsService {
    * @param {string} studentId
    * @returns {{ summary, themes[] }}
    */
-  getStudentThemeAnalytics(studentId) {
-    // Fetch all graded assignments for this student (include those without puzzle_results for summary stats)
-    const assignments = database.query(
+  async getStudentThemeAnalytics(studentId) {
+    const assignments = await database.query(
       `SELECT se.puzzle_results, se.score, se.total_puzzles, we.puzzle_ids
        FROM student_exercises se
        JOIN weekly_exercises we ON se.exercise_id = we.id
@@ -51,14 +50,12 @@ export class ThemeAnalyticsService {
       return { summary: { total_exercises: 0, average_score: null, strongest: null, weakest: null }, themes: [] }
     }
 
-    // Collect all puzzle IDs from all graded assignments
     const allPuzzleIds = new Set()
     for (const a of assignments) {
       a.puzzle_ids.split(',').forEach(id => allPuzzleIds.add(id.trim()))
     }
 
-    // Batch fetch puzzle themes
-    const puzzleThemes = this._getPuzzleThemes([...allPuzzleIds])
+    const puzzleThemes = await this._getPuzzleThemes([...allPuzzleIds])
 
     // Accumulate per-theme stats
     const themeStats = new Map()
@@ -129,15 +126,14 @@ export class ThemeAnalyticsService {
    * @param {string[]} puzzleIds
    * @returns {Map<string, string[]>}
    */
-  _getPuzzleThemes(puzzleIds) {
+  async _getPuzzleThemes(puzzleIds) {
     const result = new Map()
     if (puzzleIds.length === 0) return result
 
-    // Query in batches of 500
     for (let i = 0; i < puzzleIds.length; i += 500) {
       const batch = puzzleIds.slice(i, i + 500)
       const placeholders = batch.map(() => '?').join(',')
-      const rows = database.query(
+      const rows = await database.query(
         `SELECT id, themes FROM puzzles WHERE id IN (${placeholders})`,
         batch
       )

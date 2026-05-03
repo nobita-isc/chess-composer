@@ -12,12 +12,12 @@ export class UserRepository {
     return `user_${timestamp}_${random}`;
   }
 
-  create({ username, password_hash, role, student_id = null }) {
+  async create({ username, password_hash, role, student_id = null }) {
     try {
       const id = this.generateId();
       const now = new Date().toISOString();
 
-      database.run(
+      await database.run(
         `INSERT INTO users (id, username, password_hash, role, student_id, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [id, username, password_hash, role, student_id, now, now]
@@ -38,28 +38,28 @@ export class UserRepository {
     }
   }
 
-  findByUsername(username) {
+  async findByUsername(username) {
     return database.queryOne(
       'SELECT * FROM users WHERE username = ?',
       [username]
     );
   }
 
-  findById(id) {
+  async findById(id) {
     return database.queryOne(
       'SELECT id, username, role, student_id, created_at, updated_at FROM users WHERE id = ?',
       [id]
     );
   }
 
-  findByStudentId(studentId) {
+  async findByStudentId(studentId) {
     return database.queryOne(
       'SELECT id, username, role, student_id, created_at, updated_at FROM users WHERE student_id = ?',
       [studentId]
     );
   }
 
-  findAll() {
+  async findAll() {
     return database.query(
       `SELECT u.id, u.username, u.role, u.student_id, u.created_at, u.updated_at,
               s.name as student_name
@@ -69,9 +69,9 @@ export class UserRepository {
     );
   }
 
-  update(id, data) {
+  async update(id, data) {
     try {
-      const existing = database.queryOne('SELECT * FROM users WHERE id = ?', [id]);
+      const existing = await database.queryOne('SELECT * FROM users WHERE id = ?', [id]);
       if (!existing) {
         return { success: false, error: 'User not found' };
       }
@@ -85,12 +85,12 @@ export class UserRepository {
       };
 
       if (data.password_hash) {
-        database.run(
+        await database.run(
           `UPDATE users SET username = ?, password_hash = ?, role = ?, student_id = ?, updated_at = ? WHERE id = ?`,
           [updated.username, data.password_hash, updated.role, updated.student_id, updated.updated_at, id]
         );
       } else {
-        database.run(
+        await database.run(
           `UPDATE users SET username = ?, role = ?, student_id = ?, updated_at = ? WHERE id = ?`,
           [updated.username, updated.role, updated.student_id, updated.updated_at, id]
         );
@@ -111,9 +111,9 @@ export class UserRepository {
     }
   }
 
-  delete(id) {
+  async delete(id) {
     try {
-      const result = database.run('DELETE FROM users WHERE id = ?', [id]);
+      const result = await database.run('DELETE FROM users WHERE id = ?', [id]);
 
       if (result.changes === 0) {
         return { success: false, error: 'User not found' };
@@ -125,12 +125,12 @@ export class UserRepository {
     }
   }
 
-  count() {
-    return database.queryScalar('SELECT COUNT(*) FROM users') || 0;
+  async count() {
+    return (await database.queryScalar('SELECT COUNT(*) FROM users')) || 0;
   }
 
-  countByRole(role) {
-    return database.queryScalar('SELECT COUNT(*) FROM users WHERE role = ?', [role]) || 0;
+  async countByRole(role) {
+    return (await database.queryScalar('SELECT COUNT(*) FROM users WHERE role = ?', [role])) || 0;
   }
 }
 
