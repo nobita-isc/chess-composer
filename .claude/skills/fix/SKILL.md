@@ -74,7 +74,7 @@ Classify before routing. See `references/complexity-assessment.md`.
 See `references/skill-activation-matrix.md` for complete matrix.
 
 **Always activate:** `debug` (all workflows)
-**Conditional:** `problem-solving`, `sequential-thinking`, `brainstorm`, `context-engineering`
+**Conditional:** `problem-solving`, `sequential-thinking`, `brainstorm-technical`, `brainstorm-features`, `context-engineering`
 **Subagents:** `debugger`, `researcher`, `planner`, `code-reviewer`, `tester`, `Bash`
 **Parallel:** Multiple `Explore` agents for scouting, `Bash` agents for verification
 
@@ -98,7 +98,7 @@ Load as needed:
 - `references/task-orchestration.md` - Native Claude Task patterns for moderate+ workflows
 - `references/workflow-quick.md` - Quick: debug → fix → review
 - `references/workflow-standard.md` - Standard: full pipeline with Tasks
-- `references/workflow-deep.md` - Deep: research + brainstorm + plan with Tasks
+- `references/workflow-deep.md` - Deep: research + brainstorm-technical + plan with Tasks
 - `references/review-cycle.md` - Review logic (autonomous vs HITL)
 - `references/skill-activation-matrix.md` - When to activate each skill
 - `references/parallel-exploration.md` - Parallel Explore/Bash/Task coordination patterns

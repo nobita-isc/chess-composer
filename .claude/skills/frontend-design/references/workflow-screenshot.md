@@ -49,7 +49,7 @@ Use `ai-multimodal` skill:
 - Request approval
 
 ### 6. Document
-If approved, update `./docs/design-guidelines.md`
+If approved, update `./docs/design-system/design-principles.md`
 
 ## Quality Standards
 - Match screenshot at pixel level where possible

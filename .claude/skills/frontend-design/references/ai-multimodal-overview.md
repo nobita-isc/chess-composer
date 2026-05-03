@@ -148,7 +148,7 @@ python scripts/gemini_batch_process.py \
   --files docs/inspiration/[reference].png \
   --task analyze \
   --prompt "[extraction criteria from design-extraction.md]" \
-  --output docs/design-guidelines/extracted.md \
+  --output docs/design-system/extracted.md \
   --model gemini-2.5-flash
 ```
 

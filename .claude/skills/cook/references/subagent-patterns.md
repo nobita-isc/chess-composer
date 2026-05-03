@@ -29,7 +29,7 @@ Task(subagent_type="planner", prompt="Create implementation plan based on report
 
 ## UI Implementation
 ```
-Task(subagent_type="ui-ux-designer", prompt="Implement [feature] UI per ./docs/design-guidelines.md", description="UI [feature]")
+Task(subagent_type="ui-ux-designer", prompt="Implement [feature] UI per ./docs/design-system/design-principles.md", description="UI [feature]")
 ```
 - For frontend work
 - Follow design guidelines

@@ -64,7 +64,7 @@ Use `ai-multimodal` skill:
 - Review against inspiration
 - Report to user
 - Request approval
-- Update `./docs/design-guidelines.md`
+- Update `./docs/design-system/design-principles.md`
 
 ## Quality Standards
 Match award-winning sites:

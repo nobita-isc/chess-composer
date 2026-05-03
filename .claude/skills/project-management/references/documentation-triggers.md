@@ -23,7 +23,7 @@ MUST update project documentation in `./docs` when:
 ├── project-overview-pdr.md     # Product requirements
 ├── code-standards.md           # Coding conventions
 ├── codebase-summary.md         # Architecture overview
-├── design-guidelines.md        # UI/UX standards
+├── design-system/              # Design principles, tokens, catalog, themes
 ├── deployment-guide.md         # Deploy procedures
 ├── system-architecture.md      # System design
 └── project-roadmap.md          # Milestones & progress

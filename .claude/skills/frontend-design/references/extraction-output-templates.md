@@ -147,7 +147,7 @@ Based on analysis, recommend:
    - Example: Extract "generous white space" principle, apply with your colors
 
 3. **Document Decisions**
-   - Save extracted guidelines in project `docs/design-guidelines/`
+   - Save extracted guidelines in project `docs/design-system/`
    - Create design system spec from extraction
    - Reference when generating new assets
 

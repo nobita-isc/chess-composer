@@ -60,7 +60,9 @@
       "Bash(node /Users/nobita_isc/projects/chess_composer/.claude/scripts/set-active-plan.cjs /Users/nobita_isc/projects/chess_composer/plans/260411-1959-shared-puzzle-board-refactor)",
       "Bash(grep -E '\\\\.\\(js|ts\\)$')",
       "Bash(grep -E \"\\\\.\\(tsx|ts|jsx|js\\)$\")",
-      "Bash(grep -E \"\\\\.\\(js|ts\\)$\")"
+      "Bash(grep -E \"\\\\.\\(js|ts\\)$\")",
+      "Bash(node:*)",
+      "Bash(git diff *)"
     ]
   }
 }

@@ -25,7 +25,8 @@ Skip Tasks for Quick workflow (< 3 steps). See `references/task-orchestration.md
 |-------|---------------|
 | `problem-solving` | Stuck on approach, multiple failed attempts |
 | `sequential-thinking` | Complex logic chain, multi-step reasoning needed |
-| `brainstorm` | Multiple valid approaches, architecture decision |
+| `brainstorm-technical` | Multiple valid approaches, architecture decision |
+| `brainstorm-features` | New feature design, unclear requirements, needs spec |
 | `context-engineering` | Fixing AI/LLM/agent code, context window issues |
 | `ai-multimodal` | UI issues, screenshots provided, visual bugs |
 
@@ -63,7 +64,7 @@ See `references/parallel-exploration.md` for detailed patterns.
 |----------|------------------|
 | Quick | `debug`, `code-review`, parallel `Bash` verification |
 | Standard | Above + Tasks, `problem-solving`, `sequential-thinking`, `tester`, parallel `Explore` |
-| Deep | All above + `brainstorm`, `context-engineering`, `researcher`, `planner` |
+| Deep | All above + `brainstorm-technical`, `context-engineering`, `researcher`, `planner` |
 | Parallel | Per-issue Task trees + `fullstack-developer` agents + coordination via `TaskList` |
 
 ## Detection Triggers
@@ -73,6 +74,7 @@ See `references/parallel-exploration.md` for detailed patterns.
 | "AI", "LLM", "agent", "context" | `context-engineering` |
 | "stuck", "tried everything" | `problem-solving` |
 | "complex", "multi-step" | `sequential-thinking` |
-| "which approach", "options" | `brainstorm` |
+| "which approach", "options" | `brainstorm-technical` |
+| "build X", "create X", "new feature" | `brainstorm-features` |
 | "latest docs", "best practice" | `researcher` subagent |
 | Screenshot attached | `ai-multimodal` |

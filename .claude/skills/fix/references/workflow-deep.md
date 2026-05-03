@@ -1,6 +1,6 @@
 # Deep Workflow
 
-Full pipeline with research, brainstorming, and planning for complex issues. Uses native Claude Tasks with dependency chains.
+Full pipeline with research, technical brainstorming, and planning for complex issues. Uses native Claude Tasks with dependency chains.
 
 ## Task Setup (Before Starting)
 
@@ -45,7 +45,7 @@ Use `researcher` subagent for external knowledge.
 
 ### Step 3: Brainstorm
 `TaskUpdate(T3, status="in_progress")` — auto-unblocks when T1 + T2 complete.
-Activate `brainstorm` skill.
+Activate `brainstorm-technical` skill.
 
 - Evaluate multiple approaches
 - Consider trade-offs
@@ -110,7 +110,7 @@ See `references/review-cycle.md` for mode-specific handling.
 |------|------------------|
 | 1 | `debug`, parallel `Explore` subagents for investigation |
 | 2 | `researcher` (runs parallel with step 1) |
-| 3 | `brainstorm` |
+| 3 | `brainstorm-technical` |
 | 4 | `planner` |
 | 5 | `problem-solving`, `sequential-thinking`, `context-engineering`, parallel `Bash` |
 | 6 | `tester` |

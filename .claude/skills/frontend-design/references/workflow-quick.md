@@ -36,7 +36,7 @@ Use `ai-multimodal` skill:
 ### 4. Report & Approve
 - Summarize changes briefly
 - Request user approval
-- Update `./docs/design-guidelines.md` if approved
+- Update `./docs/design-system/design-principles.md` if approved
 
 ## When to Use
 - Simple components

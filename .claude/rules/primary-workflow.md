@@ -3,6 +3,16 @@
 **IMPORTANT:** Analyze the skills catalog and activate the skills that are needed for the task during the process.
 **IMPORTANT**: Ensure token efficiency while maintaining high quality.
 
+#### 0. Requirements Analysis (Optional)
+For projects that need formal requirements documentation:
+- `/specs init` — Create initial FSD + use cases from codebase and PRD
+- `/specs analyze "feature"` — Document new feature requirements
+- `/specs update` — Sync FSD and use cases with code changes
+- `/test-cases generate` — Generate test cases from use cases
+- `/test-cases export csv` — Export for manual QA testing
+
+These steps are optional. Skip if project doesn't need formal BA/QA documentation.
+
 #### 1. Code Implementation
 - Before you start, delegate to `planner` agent to create a implementation plan with TODO tasks in `./plans` directory.
 - When in planning phase, use multiple `researcher` agents in parallel to conduct research on different relevant technical topics and report back to `planner` agent to create implementation plan.
