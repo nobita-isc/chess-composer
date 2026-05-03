@@ -10,7 +10,7 @@ export default defineConfig({
       provider: 'v8',
       include: ['packages/server/src/**/*.js'],
       exclude: ['**/node_modules/**', '**/tests/**', '**/dist/**'],
-      reporter: ['text', 'text-summary']
+      reporter: ['text', 'text-summary', 'json-summary']
     }
   }
 })
