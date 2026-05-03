@@ -452,9 +452,25 @@ student_gamification (
 | Error handling | ✅ Try-catch, user-friendly messages |
 | Input validation | ✅ Zod schemas on API inputs |
 | Security | ✅ No hardcoded secrets, parameterized queries |
-| Testing | 📋 Coverage tracking, test files not listed |
+| Testing | ✅ **3-layer: Unit (Vitest), Widget (jsdom), E2E (Playwright) — 62 widget tests (95% coverage)** |
 | Documentation | ✅ JSDoc comments, clear naming |
 | Dependencies | ✅ Minimal, production-ready packages |
+
+## Test Infrastructure (2026-05-03)
+
+| Component | Type | Coverage | Count |
+|-----------|------|----------|-------|
+| **Board widget** | Unit + jsdom | 95% | 62 tests |
+| **Puzzle solving** | E2E | Full flow | 11 passing specs |
+| **Puzzle play** | E2E | Full flow | 9 passing specs |
+| **Smoke tests** | E2E | Critical paths | Multiple |
+
+**Test Utilities:**
+- `seed-test-db.js` — WAL-safe SQLite clone (puzzles-e2e.db)
+- `sign-test-token.js` — JWT test token generation
+- `seed-test-users.js` — Test user seeding
+- E2E helpers — board-actions, api-assertions, seed-exercise, seed-lesson
+- Auth fixture — Token-based login automation
 
 ## Technology Summary
 
@@ -491,6 +507,14 @@ student_gamification (
 - Inline grading: instant (no server roundtrip until save)
 
 ## Recent Changes (2026-05-03)
+
+**New: Playwright E2E Tests + Board Widget Unit Tests**
+- E2E infra: Playwright (Chromium), headless + headed modes
+- E2E specs: puzzle-solving (11 pass), puzzle-play (9 pass), smoke tests
+- Board widget tests: 62 tests, 95% coverage on interactive puzzle board
+- DB isolation: WAL-safe SQLite clone via seed-test-db.js (puzzles-e2e.db)
+- Auth helpers: sign-test-token.js, seed-test-users.js, auth-fixture.js
+- Vitest workspace: jsdom project for opt-in DOM tests
 
 **New: Course Management UX Overhaul (3-Pane Workspace)**
 - CourseManagementPage.js refactored: eliminated stacked modals, introduced 3-pane workspace layout

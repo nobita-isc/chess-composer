@@ -8,6 +8,27 @@ This changelog follows [Keep a Changelog](https://keepachangelog.com/) conventio
 
 ## Unreleased
 
+## [2026-05-03] — Playwright E2E Tests + Board Widget Unit Tests
+
+### Added
+- **E2E test infrastructure**: Playwright (Chromium) with root config, Headless + headed modes
+- **E2E test suites**: `e2e/puzzle-solving.spec.js` (13 specs, 11 pass, 3 skipped), `e2e/puzzle-play.spec.js` (10 specs, 9 pass, 1 skipped), `e2e/smoke.spec.js` (smoke tests)
+- **E2E helpers**: `e2e/helpers/{board-actions,api-assertions,seed-exercise,seed-lesson}.js` for reusable test patterns
+- **E2E fixtures**: `e2e/fixtures/auth-fixture.js` with token-based login
+- **DB clone helper**: `packages/server/test-utils/seed-test-db.js` using `VACUUM INTO` for WAL-safe SQLite clone (puzzles-e2e.db isolated database)
+- **JWT signing helper**: `packages/server/test-utils/sign-test-token.js` for test token generation
+- **User seeding helper**: `packages/server/test-utils/seed-test-users.js` for test user setup
+- **Vitest workspace**: `vitest.workspace.js` with jsdom project for client DOM tests (opt-in)
+- **Board widget unit tests**: `packages/client/tests/interactive-puzzle-board.test.js`, `chess-puzzle-utils.test.js`, `helpers/make-board.js` (62 tests, 95% coverage on widget)
+- **Root test scripts**: `test:e2e`, `test:e2e:headed`, `test:e2e:install`
+
+### Technical Details
+- E2E isolation: All tests use `puzzles-e2e.db` (WAL-safe clone via `VACUUM INTO`)
+- Auth bypass: Token injection via `chess_access_token` localStorage key
+- Board widget: 95% coverage on interactive board interactions and move validation
+
+---
+
 ## [2026-05-03] — Postgres Driver + SQLite→Postgres Migration CLI
 
 ### Added

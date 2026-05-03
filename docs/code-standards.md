@@ -665,6 +665,16 @@ const passwordHash = crypto.md5(password)  // Weak
 
 ## Testing Standards
 
+### Test Layers
+
+Chess Composer uses a **3-layer testing strategy**: unit tests for isolated logic, jsdom widget tests for DOM interactions, and E2E tests for full user flows.
+
+| Layer | Framework | Scope | Example |
+|-------|-----------|-------|---------|
+| **Unit (Vitest)** | Vitest | Functions, utilities, services | `PuzzleValidator.validateFEN()` |
+| **Widget (Vitest + jsdom)** | Vitest + jsdom | Client DOM components, board interactions | `interactive-puzzle-board.js` move validation |
+| **E2E (Playwright)** | Playwright (Chromium) | Complete user flows, puzzle solving, lesson playback | Solve puzzle → submit → grade |
+
 ### Test Structure
 
 ```javascript
@@ -686,12 +696,12 @@ describe('PuzzleValidator', () => {
 })
 ```
 
-### Code Coverage Target
+### Test Coverage Target
 
-- **Minimum**: 80% coverage
-- **Units**: Functions, utilities, services
-- **Integration**: API endpoints, database operations
-- **E2E**: Critical user flows (Playwright)
+- **Unit**: 80%+ coverage on services, utilities, validators
+- **Widget**: 95% coverage on interactive board and puzzle components
+- **E2E**: Critical user flows (puzzle solving, lesson playback, course management)
+- **Overall**: 80%+ project coverage
 
 ## Performance Guidelines
 

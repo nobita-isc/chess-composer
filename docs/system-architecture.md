@@ -4,6 +4,8 @@
 
 Chess Composer is a distributed single-page application (SPA) with a REST API backend. Client and server communicate via JSON over HTTP. Authentication via JWT tokens (stateless).
 
+**Testing Strategy**: 3-layer approach — unit tests (Vitest), widget/DOM tests (Vitest + jsdom), E2E tests (Playwright). See [Testing Guide](./testing-guide.md).
+
 ```
 ┌─────────────────┐                    ┌──────────────────┐
 │   Web Browser   │                    │   Lichess CSV    │
