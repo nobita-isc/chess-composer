@@ -42,6 +42,16 @@ app.use('*', cors({
 
 // Initialize database and services
 async function initializeServices() {
+  // Banner: surface the active DB target loud and early so accidental main-DB writes from e2e are obvious.
+  const driver = (process.env.DATABASE_DRIVER || 'sqlite').toLowerCase();
+  const dbTarget = driver === 'postgres'
+    ? (process.env.DATABASE_URL || '').replace(/:([^@]+)@/, ':***@')
+    : (process.env.SQLITE_PATH || 'packages/server/data/puzzles.db (default)');
+  const envBadge = process.env.NODE_ENV === 'test' ? '🧪 TEST' : '🟢 DEV/PROD';
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log(`  ${envBadge}  driver=${driver}  db=${dbTarget}`);
+  console.log('═══════════════════════════════════════════════════════════════');
+
   console.log('Initializing database...');
   const dbInitialized = databaseGenerator.initialize();
 

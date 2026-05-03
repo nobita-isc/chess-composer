@@ -39,7 +39,8 @@ export default defineConfig({
       command: `SQLITE_PATH=${E2E_DB_PATH} NODE_ENV=test npm run dev -w @chess-composer/server`,
       port: SERVER_PORT,
       timeout: 30000,
-      reuseExistingServer: !process.env.CI,
+      // NEVER reuse: a dev server on this port is bound to the MAIN DB and will be polluted by API-based seeding.
+      reuseExistingServer: false,
       env: {
         SQLITE_PATH: E2E_DB_PATH,
         NODE_ENV: 'test',
@@ -50,7 +51,7 @@ export default defineConfig({
       command: 'npm run dev -w @chess-composer/client',
       port: CLIENT_PORT,
       timeout: 30000,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
     },
   ],
 
