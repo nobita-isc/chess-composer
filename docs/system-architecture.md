@@ -342,6 +342,52 @@ class PuzzleRepository {
 └──────────────────────────────┘
 ```
 
+### Database Drivers
+
+The server exposes a pluggable async `DatabaseDriver` interface so the same
+business logic runs on both SQLite (dev default) and Postgres (production opt-in).
+
+```
+┌────────────────────────────────────┐
+│  DatabaseDriver (interface)        │
+│  ─────────────────────────────     │
+│  connect(config): Promise<void>    │
+│  query(sql, params): Promise<[]>   │
+│  queryOne(sql, params): Promise    │
+│  queryScalar(sql, params): Promise │
+│  run(sql, params): Promise         │
+│  exec(sql): Promise<void>          │
+│  transaction(fn): Promise          │
+│  close(): Promise<void>            │
+└────────────────────────────────────┘
+          ▲               ▲
+          │               │
+┌─────────────────┐  ┌──────────────────┐
+│  SqliteDriver   │  │  PostgresDriver  │
+│  (better-sqlite3│  │  (pg.Pool)       │
+│   sync wrapped  │  │  async native    │
+│   in Promises)  │  │  ? → $N adapter  │
+└─────────────────┘  └──────────────────┘
+```
+
+**Driver selection** is controlled by the `DATABASE_DRIVER` environment variable:
+
+| `DATABASE_DRIVER` | Driver used | Extra env required |
+|---|---|---|
+| `sqlite` (default) | `SqliteDriver` | `SQLITE_PATH` (optional) |
+| `postgres` | `PostgresDriver` | `DATABASE_URL` (required) |
+
+Key design points:
+- All methods return Promises — callers use `await` regardless of driver.
+- `SqliteDriver` wraps `better-sqlite3`'s synchronous API in `Promise.resolve`.
+- `PostgresDriver` converts `?` placeholders to `$N` via `param-adapter.js` before
+  forwarding to `pg.Pool`.
+- `transaction(fn)` provides atomic commit/rollback on both drivers (single-level only).
+- `database-config.js` reads env vars and instantiates the correct driver at startup.
+
+See `docs/database-driver.md` for switching drivers, running the migration CLI, and
+production deployment guidance.
+
 **In-Memory Theme Index**
 - Loaded at startup from database
 - `Map<theme, Array<puzzleIds>>`

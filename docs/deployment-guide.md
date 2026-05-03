@@ -511,6 +511,75 @@ sqlite3 /data/puzzles.db "PRAGMA integrity_check;"
 cp /data/puzzles.db /backups/puzzles-$(date +%Y%m%d).db
 ```
 
+## Postgres Deployment
+
+### When to use Postgres
+
+SQLite is sufficient for <20 concurrent users. Switch to Postgres when:
+- You need multiple app instances (read replicas, rolling deploys)
+- Write concurrency exceeds SQLite's WAL limits
+- You want managed backups via cloud Postgres (RDS, Cloud SQL, Supabase)
+
+### 1. Provision Postgres
+
+Any Postgres 14+ instance works. Recommended: managed cloud service with automated backups.
+
+Create a dedicated database and user:
+
+```sql
+CREATE DATABASE chess_composer;
+CREATE USER chess_user WITH ENCRYPTED PASSWORD 'strongpassword';
+GRANT ALL PRIVILEGES ON DATABASE chess_composer TO chess_user;
+```
+
+### 2. Configure Environment
+
+```bash
+DATABASE_DRIVER=postgres
+DATABASE_URL=postgres://chess_user:strongpassword@db.example.com:5432/chess_composer?sslmode=require
+PG_POOL_MAX=10
+```
+
+Never commit `DATABASE_URL`. Use your platform's secret management:
+- systemd: `EnvironmentFile=/etc/chess-composer/secrets.env` (chmod 600)
+- Docker: `--env-file` or Docker secrets
+- Kubernetes: `secretKeyRef` in pod spec
+
+### 3. Run Schema Migrations
+
+Migrations run automatically on server start. For zero-downtime first deploy,
+run the migration CLI before switching traffic:
+
+```bash
+# Dry-run (no writes) to validate connectivity
+DATABASE_URL=<prod_url> node packages/server/src/cli/migrate-to-postgres.js --dry-run
+
+# If migrating data from an existing SQLite file:
+SQLITE_PATH=/data/puzzles.db \
+DATABASE_URL=<prod_url> \
+  node packages/server/src/cli/migrate-to-postgres.js
+
+# Verify row counts match before switching traffic
+DATABASE_URL=<prod_url> node packages/server/src/cli/migrate-to-postgres.js --verify-only
+```
+
+Exit code 0 = counts match = safe to switch traffic.
+Exit code 1 = count mismatch — investigate before switching.
+Exit code 2 = connection/fatal error — check URL and firewall.
+
+See `docs/database-driver.md` for full CLI reference and troubleshooting.
+
+### 4. Production Checklist (Postgres additions)
+
+- [ ] `DATABASE_URL` set with `?sslmode=require`
+- [ ] `PG_POOL_MAX` tuned (`floor(max_connections / instances) - 2`)
+- [ ] Migrations verified (exit code 0 from `--verify-only`)
+- [ ] Automated backups enabled on Postgres instance
+- [ ] Connection string stored in secret manager (not `.env` file)
+- [ ] App server can reach Postgres on port 5432 (firewall/VPC rules)
+
+---
+
 ## Scaling (Future)
 
 ### Phase 1: Single Server (Current)

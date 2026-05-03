@@ -8,6 +8,30 @@ This changelog follows [Keep a Changelog](https://keepachangelog.com/) conventio
 
 ## Unreleased
 
+## [2026-05-03] — Postgres Driver + SQLite→Postgres Migration CLI
+
+### Added
+- **Pluggable DatabaseDriver interface**: `SqliteDriver` and `PostgresDriver` share a common async API (`query`, `queryOne`, `queryScalar`, `run`, `exec`, `transaction`, `close`)
+- **PostgresDriver** (`pg.Pool`): async-native, converts `?` placeholders to `$N` via `param-adapter.js`, BEGIN/COMMIT/ROLLBACK transaction support
+- **SqliteDriver**: wraps `better-sqlite3` synchronous API in Promises for interface parity
+- **`database-config.js`**: reads `DATABASE_DRIVER` env var, instantiates and connects correct driver at startup
+- **Migration CLI** (`npm -w packages/server run db:migrate-to-postgres`): one-way SQLite→Postgres data copy — batched inserts, FK-ordered tables, sequence reset, count verification
+- **CLI flags**: `--dry-run`, `--verify-only`, `--allow-non-empty`, `--table=<name>`, `--batch-size=<n>`
+- **`docker-compose.dev.yml`**: local Postgres 16-alpine with healthcheck for dev/testing
+- **`docs/database-driver.md`**: driver switching, CLI reference, troubleshooting, production guide
+
+### Changed
+- `.env.example`: expanded with `DATABASE_DRIVER`, `SQLITE_PATH`, `DATABASE_URL`, `PG_POOL_MAX` entries and comments
+- `docs/system-architecture.md`: added "Database Drivers" subsection with interface diagram and env var table
+- `docs/deployment-guide.md`: added Postgres deployment section with migration runbook and production checklist
+
+### Technical Details
+- `pg` package added to `packages/server` dependencies
+- `param-adapter.js`: stateful parser correctly skips `?` inside single-quoted SQL strings
+- Migration CLI exit codes: 0 = success, 1 = count mismatch, 2 = fatal
+
+---
+
 ## [2026-05-03] — Course Management UX Overhaul (3-Pane Workspace)
 
 ### Added
