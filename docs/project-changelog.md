@@ -8,6 +8,73 @@ This changelog follows [Keep a Changelog](https://keepachangelog.com/) conventio
 
 ## Unreleased
 
+## [2026-05-03] — Course Management UX Overhaul (3-Pane Workspace)
+
+### Added
+- **3-pane workspace UI**: Admin course management rewritten as Courses | Lessons | Editor with resizable splitters
+- **Breadcrumb navigation**: Context-aware breadcrumb showing course → lesson → content path
+- **Inline lesson metadata editor**: Debounced auto-save for lesson title + description
+- **Inline content list editor**: Edit-in-place for all content items (video/PDF/quiz/puzzle)
+- **Editable video URLs**: Video URL field now editable (was previously immutable)
+- **Selection persistence**: URL hash + localStorage state management; scroll position restored after puzzle composer round-trips
+- **Pane splitter utility**: Extracted to `shared/pane-splitter.js` for reuse across lesson player
+- **Debounce utility**: `shared/debounce.js` for input debouncing patterns
+- **Selection store**: `shared/selection-store.js` for managing course/lesson/content selection state
+
+### Changed
+- `CourseManagementPage.js`: Refactored from modal-based flow to 3-pane workspace
+- `lesson-player.js`: Now uses shared `pane-splitter.js` component
+- Admin course UI: Eliminated stacked modals in favor of single-page workspace
+- Lesson content editing: All edits in-place instead of modal dialogs
+
+### New Files
+- `course-list-pane.js` — Courses sidebar panel
+- `lesson-list-pane.js` — Lessons sidebar panel
+- `lesson-editor-pane.js` — Main content editor pane
+- `course-mgmt-breadcrumb.js` — Breadcrumb navigation component
+- `course-mgmt-dialogs.js` — Remaining modal dialogs (create course/lesson)
+- `lesson-meta-editor.js` — Inline lesson title + description editor
+- `lesson-content-list.js` — Editable content items list
+- `content-item-{video,pdf,quiz,puzzle}.js` — Per-type inline editors
+- `lesson-content-upload-dialog.js` — File upload dialog
+- `shared/pane-splitter.js` — Resizable pane divider utility
+- `shared/debounce.js` — Debounce function for auto-save
+- `shared/selection-store.js` — State persistence (URL + localStorage)
+
+### Deleted
+- `lesson-content-editor.js` — Functionality refactored into pane-based editors
+
+### Server Changes
+- `lesson-content` PUT endpoint: Now validates `video_url` (http/https only via URL constructor)
+
+### Technical Details
+- **Selection state**: URL hash `#/courses/X/lessons/Y` + localStorage backup
+- **Debouncing**: 500ms delay on lesson metadata changes before auto-save
+- **Splitter behavior**: Drag to resize panes, persist widths in localStorage
+- **Scroll restoration**: Tracked separately per content item
+
+### Fixed
+- Video URL immutability issue — URLs now editable like all other fields
+- Puzzle composer navigation — back button now restores previous pane state
+
+### Security
+- Video URL validation: reject non-http/https schemes
+
+### Files Modified
+- CourseManagementPage.js (refactored ~400→600 LOC as coordinator)
+- lesson-player.js (uses pane-splitter, ~320 LOC)
+- CourseRepository.js (no schema changes)
+
+### Files Added: 12
+- course-list-pane.js, lesson-list-pane.js, lesson-editor-pane.js
+- course-mgmt-breadcrumb.js, course-mgmt-dialogs.js
+- lesson-meta-editor.js, lesson-content-list.js
+- content-item-video.js, content-item-pdf.js, content-item-quiz.js, content-item-puzzle.js
+- lesson-content-upload-dialog.js
+- shared/pane-splitter.js, shared/debounce.js, shared/selection-store.js
+
+---
+
 ## [2026-04-12] — Rich Content Descriptions & Learning Materials
 
 ### Added

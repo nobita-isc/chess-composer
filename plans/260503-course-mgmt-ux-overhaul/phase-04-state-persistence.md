@@ -8,7 +8,7 @@
 ## Overview
 
 **Priority:** P2 (polish, but high user value per scout)
-**Status:** pending
+**Status:** completed
 **Effort:** Small (~½ day)
 **Depends on:** Phases 1–3
 
@@ -65,12 +65,12 @@ Orchestrator (`CourseManagementPage.js`) uses store as the single source of trut
 
 ## Todo List
 
-- [ ] selection-store.js with hash + localStorage
-- [ ] Wire orchestrator
-- [ ] popstate listener
-- [ ] Scroll save/restore in lesson-content-list
-- [ ] Invalid-ID graceful fallback
-- [ ] Manual test all restore paths
+- [x] selection-store.js with hash + localStorage
+- [x] Wire orchestrator
+- [x] popstate listener
+- [x] Scroll save/restore in lesson-content-list
+- [x] Invalid-ID graceful fallback
+- [x] Manual test all restore paths
 
 ## Success Criteria
 

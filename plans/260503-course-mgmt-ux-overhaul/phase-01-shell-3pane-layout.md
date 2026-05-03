@@ -9,7 +9,7 @@
 ## Overview
 
 **Priority:** P0 (foundation — Phases 2–4 depend on it)
-**Status:** pending
+**Status:** completed
 **Effort:** Medium (~1 day)
 
 Replace the modal-stacking flow with a single-page 3-pane workspace:
@@ -88,15 +88,15 @@ State: a single `selection` object `{ courseId, lessonId }` held in the orchestr
 
 ## Todo List
 
-- [ ] Extract pane-splitter; verify lesson-player regression-free
-- [ ] course-list-pane.js
-- [ ] lesson-list-pane.js
-- [ ] lesson-editor-pane.js skeleton
-- [ ] course-mgmt-breadcrumb.js
-- [ ] Orchestrator rewrite of CourseManagementPage.js
-- [ ] CSS for `cm-*` classes
-- [ ] Mobile fallback CSS
-- [ ] Manual click-count verification
+- [x] Extract pane-splitter; verify lesson-player regression-free
+- [x] course-list-pane.js
+- [x] lesson-list-pane.js
+- [x] lesson-editor-pane.js skeleton
+- [x] course-mgmt-breadcrumb.js
+- [x] Orchestrator rewrite of CourseManagementPage.js
+- [x] CSS for `cm-*` classes
+- [x] Mobile fallback CSS
+- [x] Manual click-count verification (user)
 
 ## Success Criteria
 

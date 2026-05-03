@@ -2,7 +2,7 @@
 
 Chess Composer is a **monorepo** with 2 npm workspaces (client & server), ~15K LOC total. Client is Vanilla JS SPA (Vite). Server is Node.js REST API (Hono). Both share chess.js dependency.
 
-**Last Updated**: 2026-04-12 (includes rich content descriptions, markdown editor, download feature)
+**Last Updated**: 2026-05-03 (includes 3-pane course management workspace, inline editors, selection persistence)
 
 ## Directory Structure
 
@@ -106,25 +106,48 @@ Handles puzzle solving, grading, PDF export, student management.
 - Dropdown menus with position:fixed to escape overflow
 - Password toggle component on all password inputs
 
-### Lessons Module: `src/lessons/` (6 files, ~2,200 LOC)
+### Lessons Module: `src/lessons/` (~20 files, ~4,000 LOC)
 
-Chess lessons platform — courses, lesson content, puzzle challenges, and student player with rich markdown descriptions.
+Chess lessons platform — 3-pane workspace for course/lesson/content CRUD, inline editors, puzzle composer, and student player with rich markdown descriptions.
 
-**Key components (2026-04-12)**
-- **CourseManagementPage.js** (388 LOC) - Admin UI: create/edit courses, lessons, content items
-- **lesson-content-editor.js** (370 LOC) - Inline content editor with markdown description support; integrates puzzle-composer, upload dialogs
-- **lesson-player.js** (320 LOC) - Coursera-style student lesson player: sidebar nav, description rendering, collapsible panels, Notes tab, download buttons
+**Key components (2026-05-03)**
+
+**Admin Course Management (3-Pane Workspace)**
+- **CourseManagementPage.js** (~600 LOC) - Main coordinator: loads 3-pane layout, manages state, handles splitter/breadcrumb
+- **course-list-pane.js** (~150 LOC) - LEFT: Courses table, create/delete, selection tracking
+- **lesson-list-pane.js** (~150 LOC) - CENTER: Lessons table, create/delete, selection tracking
+- **lesson-editor-pane.js** (~200 LOC) - RIGHT: Main content editor (lesson meta + content list)
+- **course-mgmt-breadcrumb.js** (~80 LOC) - Breadcrumb showing course → lesson → content path
+- **course-mgmt-dialogs.js** (~100 LOC) - Create course/lesson modals
+- **lesson-meta-editor.js** (~120 LOC) - Inline lesson title + description editor (debounced auto-save)
+- **lesson-content-list.js** (~200 LOC) - Editable content items with per-type inline editors
+- **content-item-video.js** (~100 LOC) - Video URL + title (now editable)
+- **content-item-pdf.js** (~100 LOC) - PDF file selection
+- **content-item-quiz.js** (~100 LOC) - Quiz config
+- **content-item-puzzle.js** (~100 LOC) - Puzzle challenges launcher (opens puzzle-composer.js)
+- **lesson-content-upload-dialog.js** (~150 LOC) - File upload for video/PDF
+
+**Shared Utilities (Workspace Support)**
+- **shared/pane-splitter.js** (~100 LOC) - Resizable pane divider, persist widths in localStorage
+- **shared/debounce.js** (~30 LOC) - Debounce function for auto-save patterns
+- **shared/selection-store.js** (~80 LOC) - URL hash + localStorage state persistence
+
+**Student-Facing Components**
+- **lesson-player.js** (320 LOC) - Coursera-style student lesson player: sidebar nav, description rendering, collapsible panels, Notes tab, download buttons (uses pane-splitter)
 - **lesson-puzzle-player.js** (387 LOC) - chess.com-style dark-theme puzzle player: interactive solving, per-move hints, computer auto-play, timeline feedback
 - **puzzle-composer.js** (580 LOC) - Full-screen admin puzzle composer: board preview, per-move hint editor, multi-puzzle batch creation, move validation, description field
 - **student-courses-page.js** (164 LOC) - Student course listing and assignment view
 
-**New: Rich content descriptions**
-- Markdown descriptions on all content types (video, PDF, puzzle)
-- Integrated markdown editor in upload and edit dialogs
-- Student-facing description rendering with proper typography
-- Collapsible description panel (auto-collapse for long content >300 chars)
-- Download descriptions as styled HTML or markdown files
-- Notes sidebar tab for quick reference
+**State Management & Persistence**
+- URL hash: `#/courses/{courseId}/lessons/{lessonId}/content/{contentId}`
+- localStorage backup: selection state + splitter widths
+- Scroll position: restored per content item after puzzle composer round-trips
+
+**Inline Editing Features**
+- Lesson title/description: Debounced auto-save (500ms delay)
+- Content item fields: Auto-save on blur
+- Video URLs: Now editable (was previously immutable)
+- Description fields: Markdown editor integration for all content types
 
 **puzzle_challenges architecture**: Multiple puzzles stored as a JSON array in one `lesson_content` row. Each challenge object: `puzzle_fen`, `puzzle_moves`, `puzzle_instruction`, `puzzle_hints[]`, `puzzle_video_url`, `description`, `xp_reward`. Student must solve ALL challenges before the item marks complete.
 
@@ -467,18 +490,26 @@ student_gamification (
 - Memory footprint: ~500MB (theme index + in-memory cache)
 - Inline grading: instant (no server roundtrip until save)
 
-## Recent Changes (2026-04-12)
+## Recent Changes (2026-05-03)
 
-**New: Rich Content Descriptions & Learning Materials**
+**New: Course Management UX Overhaul (3-Pane Workspace)**
+- CourseManagementPage.js refactored: eliminated stacked modals, introduced 3-pane workspace layout
+- course-list-pane.js, lesson-list-pane.js, lesson-editor-pane.js — separate sidebar panes + main editor
+- Inline editors (lesson-meta-editor.js, content-item-*.js): Edit title/description/URLs directly in workspace
+- Breadcrumb navigation: Shows context path (course → lesson → content)
+- Resizable splitters: pane-splitter.js extracted and shared with lesson-player.js
+- Selection persistence: URL hash + localStorage for state recovery and scroll restoration
+- Debounced auto-save: 500ms delay on lesson metadata changes
+- Video URL now editable (previously immutable)
+- Deleted: lesson-content-editor.js (functionality refactored into pane-based editors)
+- New utilities: shared/debounce.js, shared/selection-store.js, shared/pane-splitter.js
+
+**Previous (2026-04-12): Rich Content Descriptions & Learning Materials**
 - markdown-editor.js (120 LOC) — split-pane editor with live preview, toolbar (bold, italic, headers, lists, links)
 - content-download-helper.js (180 LOC) — export descriptions as styled HTML or markdown with print-friendly CSS
-- lesson-content-editor.js — upload/edit dialogs now include markdown editor for descriptions
 - lesson-player.js — renders descriptions with proper typography, collapsible panels, Notes sidebar tab
 - puzzle-composer.js — added description field to puzzle composer form
-- CourseRepository — description field added to createContent() and updateContent() allowlist
 - Migration 011 — description TEXT column on lesson_content
-- Student-facing download: styled HTML learning materials via "Download Notes" button
-- Visual hierarchy: type badges, clearer titles, better spacing
 
 **Previous: Chess Lessons Platform & Puzzle Composer Redesign**
 - Full lessons platform: courses → lessons → content items (video, PDF, puzzle, quiz)

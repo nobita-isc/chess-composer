@@ -11,7 +11,7 @@
 ## Overview
 
 **Priority:** P1
-**Status:** pending
+**Status:** completed
 **Effort:** Medium (~1 day)
 **Depends on:** Phase 1 + 2
 
@@ -84,18 +84,18 @@ Each content-item module is self-contained, ≤150 lines. Shared API client `les
 
 ## Todo List
 
-- [ ] lesson-content-api.js
-- [ ] lesson-content-upload-dialog.js (carve)
-- [ ] content-item-video.js (URL editable)
-- [ ] content-item-pdf.js
-- [ ] content-item-quiz.js
-- [ ] content-item-puzzle.js
-- [ ] lesson-content-list.js
-- [ ] Server PATCH whitelist extension
-- [ ] URL validation (client + server)
-- [ ] Wire into editor pane
-- [ ] Delete old lesson-content-editor.js
-- [ ] Manual flow test (all 4 content types)
+- [x] lesson-content-api.js
+- [x] lesson-content-upload-dialog.js (carve)
+- [x] content-item-video.js (URL editable)
+- [x] content-item-pdf.js
+- [x] content-item-quiz.js
+- [x] content-item-puzzle.js
+- [x] lesson-content-list.js
+- [x] Server PATCH whitelist extension
+- [x] URL validation (client + server)
+- [x] Wire into editor pane
+- [x] Delete old lesson-content-editor.js
+- [x] Manual flow test (all 4 content types)
 
 ## Success Criteria
 

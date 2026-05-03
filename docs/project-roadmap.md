@@ -1,16 +1,17 @@
 # Development Roadmap
 
-Chess Composer tracks progress through defined phases. Current status: **Phase 5 complete, Phase 6 complete, Phase 6b (Lessons Platform) complete, Phase 6c (Rich Content Descriptions) complete**.
+Chess Composer tracks progress through defined phases. Current status: **Phase 5 complete, Phase 6 complete, Phase 6b (Lessons Platform) complete, Phase 6c (Rich Content Descriptions) complete, Phase 6d (Course Management UX Overhaul) complete**.
 
-**Latest Updates (2026-04-12)**
-- Rich content descriptions: markdown editor, lesson content descriptions, student viewing
-- Admin editor: upload dialogs with description fields, puzzle composer description textarea
-- Student lesson player: renders markdown descriptions with proper styling, collapsible panel
-- Download feature: styled HTML downloads with embedded CSS, print-friendly learning materials
-- Sidebar improvements: Notes tab with description previews, visual hierarchy enhancements
-- Migration 011: description column on lesson_content table
-- New components: markdown-editor.js, content-download-helper.js
-- Build passes, all 6 phases complete
+**Latest Updates (2026-05-03)**
+- Course Management UX Overhaul: 3-pane workspace (Courses | Lessons | Editor)
+- Breadcrumb navigation: context-aware path display
+- Inline editors: lesson title/description, content URLs with debounced auto-save
+- Editable video URLs: now updatable field (was immutable)
+- Selection persistence: URL hash + localStorage for state recovery
+- Pane splitter utility: extracted to shared/pane-splitter.js
+- Scroll restoration: persists position after puzzle composer round-trips
+- New modules: 12 pane/editor files + 3 shared utilities
+- Deleted: lesson-content-editor.js (refactored into pane structure)
 
 ## Phase Overview
 
@@ -24,7 +25,8 @@ Chess Composer tracks progress through defined phases. Current status: **Phase 5
 | 6 | Performance & UX | ✅ Complete | 100% | 2026-03-28 | UI modernization, inline grading, bug fixes |
 | 6b | Chess Lessons Platform | ✅ Complete | 100% | 2026-03-28 | Courses, puzzle composer redesign, gamification |
 | 6c | Rich Content Descriptions | ✅ Complete | 100% | 2026-04-12 | Markdown descriptions, download learning materials, UX polish |
-| 7 | Deployment | 📋 Planned | 0% | 2026-04-30 | Docker, CI/CD, hosting |
+| **6d** | **Course Management UX Overhaul** | **✅ Complete** | **100%** | **2026-05-03** | **3-pane workspace, inline editors, selection persistence** |
+| 7 | Deployment | 📋 Planned | 0% | 2026-05-31 | Docker, CI/CD, hosting |
 
 ## Phase 1: Foundation & Setup ✅ COMPLETE
 
@@ -267,6 +269,70 @@ Chess Composer tracks progress through defined phases. Current status: **Phase 5
 
 ---
 
+## Phase 6d: Course Management UX Overhaul ✅ COMPLETE
+
+**Completed**: 2026-05-03
+
+### Objectives
+- ✅ Replace modal-based course management with 3-pane workspace
+- ✅ Inline editors for lesson metadata and content fields
+- ✅ Breadcrumb navigation for context awareness
+- ✅ Resizable pane splitters with localStorage persistence
+- ✅ Selection state persistence (URL hash + localStorage)
+- ✅ Editable video URLs
+- ✅ Debounced auto-save on metadata changes
+- ✅ Scroll position restoration
+
+### Deliverables
+- ✅ CourseManagementPage.js (refactored ~600 LOC coordinator)
+- ✅ course-list-pane.js (LEFT sidebar with course table)
+- ✅ lesson-list-pane.js (CENTER sidebar with lesson table)
+- ✅ lesson-editor-pane.js (RIGHT pane with lesson meta + content list)
+- ✅ course-mgmt-breadcrumb.js (breadcrumb component)
+- ✅ lesson-meta-editor.js (inline lesson title/description editor)
+- ✅ lesson-content-list.js (editable content items)
+- ✅ content-item-{video,pdf,quiz,puzzle}.js (4 per-type inline editors)
+- ✅ lesson-content-upload-dialog.js (file upload modal)
+- ✅ shared/pane-splitter.js (resizable divider utility)
+- ✅ shared/debounce.js (debounce function)
+- ✅ shared/selection-store.js (state persistence: URL + localStorage)
+
+### Key Architecture Decisions
+- **3-pane layout**: Separates concerns (course list, lesson list, content editor)
+- **State via URL hash**: `#/courses/{courseId}/lessons/{lessonId}/content/{contentId}` allows browser back/forward
+- **localStorage backup**: Preserves state if URL cleared; also stores splitter widths
+- **Debounced auto-save**: Reduces API calls on rapid text input (500ms delay on lesson metadata)
+- **Inline editing**: No separate dialog for most fields (title, description, video URL, etc.)
+- **Shared pane-splitter.js**: Extracted for reuse in lesson-player.js (student UI)
+
+### Files Modified
+- CourseManagementPage.js (refactored ~388→600 LOC)
+- lesson-player.js (now uses shared pane-splitter.js, ~320 LOC)
+- CourseRepository.js (no schema changes)
+
+### Files Added: 12
+- course-list-pane.js, lesson-list-pane.js, lesson-editor-pane.js
+- course-mgmt-breadcrumb.js, course-mgmt-dialogs.js
+- lesson-meta-editor.js, lesson-content-list.js
+- content-item-video.js, content-item-pdf.js, content-item-quiz.js, content-item-puzzle.js
+- lesson-content-upload-dialog.js
+- shared/pane-splitter.js, shared/debounce.js, shared/selection-store.js
+
+### Files Deleted: 1
+- lesson-content-editor.js (functionality refactored into pane-based editors)
+
+### Server Changes
+- lesson-content PUT endpoint: Added validation for video_url (http/https only)
+
+### Metrics
+- ✅ No stacked modals (single-page workspace)
+- ✅ Auto-save on blur for all editable fields
+- ✅ Selection state persists across page refreshes
+- ✅ Splitter widths remembered in localStorage
+- ✅ Scroll position restored after puzzle composer round-trips
+
+---
+
 ## Phase 7: Deployment 📋 PLANNED
 
 **Target**: 2026-04-30 | **Current**: 0% started
@@ -348,8 +414,9 @@ Phase 1 ✅
     │       │       │       │       ├─→ Phase 6 ✅
     │       │       │       │       └─→ Phase 6b ✅ (Lessons Platform)
     │       │       │       │               └─→ Phase 6c ✅ (Content Descriptions)
-    │       │       │       │                       └─→ Phase 7 📋
-    │       │       │       │                           └─→ Phase 8 (future)
+    │       │       │       │                       └─→ Phase 6d ✅ (Course Management UX)
+    │       │       │       │                               └─→ Phase 7 📋
+    │       │       │       │                                   └─→ Phase 8 (future)
 ```
 
 No blocking dependencies. Each phase builds on previous.
@@ -384,8 +451,9 @@ No blocking dependencies. Each phase builds on previous.
 2026-03-28: Phase 6  ✅ Performance & UX
 2026-03-28: Phase 6b ✅ Chess Lessons Platform
 2026-04-12: Phase 6c ✅ Rich Content Descriptions
-2026-04-30: Phase 7  📋 Deployment
-2026-06-30: Phase 8  📋 Mobile App (future)
+2026-05-03: Phase 6d ✅ Course Management UX Overhaul
+2026-05-31: Phase 7  📋 Deployment
+2026-07-31: Phase 8  📋 Mobile App (future)
 2026-12-31: Phase 9  📋 Advanced Features (future)
 ```
 
@@ -400,5 +468,5 @@ No blocking dependencies. Each phase builds on previous.
 5. **Promote from future**: When ready to start, create new phase section
 6. **Update success metrics**: Run periodic health checks against targets
 
-**Last Updated**: 2026-04-12 (rich content descriptions feature complete)
-**Next Review**: 2026-04-19
+**Last Updated**: 2026-05-03 (course management UX overhaul complete)
+**Next Review**: 2026-05-10

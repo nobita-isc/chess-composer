@@ -9,7 +9,7 @@
 ## Overview
 
 **Priority:** P1
-**Status:** pending
+**Status:** completed
 **Effort:** Small (~½ day)
 **Depends on:** Phase 1 (lesson-editor-pane.js skeleton)
 
@@ -69,12 +69,12 @@ lesson-editor-pane.js
 
 ## Todo List
 
-- [ ] Find/create debounce util
-- [ ] Verify/extend backend PATCH for description
-- [ ] lesson-meta-editor.js
-- [ ] Wire into editor pane
-- [ ] Remove old showAppPrompt edit code
-- [ ] Manual happy-path + error-path test
+- [x] Find/create debounce util
+- [x] Verify/extend backend PATCH for description
+- [x] lesson-meta-editor.js
+- [x] Wire into editor pane
+- [x] Remove old showAppPrompt edit code (none existed in orchestrator)
+- [x] Manual happy-path + error-path test (manual, not automated)
 
 ## Success Criteria
 

@@ -91,12 +91,22 @@ ExercisePanel renders puzzles
 | GradeDialog.js | Grading interface | ~300 | ✅ |
 | GenerateView.js | Puzzle generation UI | ~683 | ✅ |
 | AdminPanel.js | Admin dashboard (modern UI) | 678 | ✅ |
-| CourseManagementPage.js | Admin course/lesson/content CRUD | 388 | ✅ |
-| lesson-content-editor.js | Inline content editor + puzzle composer | 326 | ✅ |
-| lesson-player.js | Coursera-style student lesson player | 244 | ✅ |
+| **CourseManagementPage.js** | **3-pane workspace: courses \| lessons \| editor** | **~600** | **✅** |
+| **course-list-pane.js** | **Courses sidebar with create/delete** | **~150** | **✅ New** |
+| **lesson-list-pane.js** | **Lessons sidebar with create/delete** | **~150** | **✅ New** |
+| **lesson-editor-pane.js** | **Main content editor pane (video/pdf/quiz/puzzle)** | **~200** | **✅ New** |
+| **course-mgmt-breadcrumb.js** | **Breadcrumb navigation** | **~80** | **✅ New** |
+| **lesson-meta-editor.js** | **Inline lesson title + description editor** | **~120** | **✅ New** |
+| **lesson-content-list.js** | **Editable content items with inline editing** | **~200** | **✅ New** |
+| **content-item-{video,pdf,quiz,puzzle}.js** | **Per-type inline editors (4 files)** | **~100 ea** | **✅ New** |
+| **lesson-content-upload-dialog.js** | **File upload dialog** | **~150** | **✅ New** |
+| lesson-player.js | Coursera-style student lesson player (uses pane-splitter) | ~320 | ✅ |
 | lesson-puzzle-player.js | chess.com-style puzzle player (dark theme) | 387 | ✅ |
 | puzzle-composer.js | Full-screen admin puzzle composer | 558 | ✅ |
 | student-courses-page.js | Student course listing page | 164 | ✅ |
+| **shared/pane-splitter.js** | **Resizable pane divider utility** | **~100** | **✅ New** |
+| **shared/debounce.js** | **Debounce function for auto-save** | **~30** | **✅ New** |
+| **shared/selection-store.js** | **URL hash + localStorage state persistence** | **~80** | **✅ New** |
 
 ### State Management Pattern
 
@@ -504,25 +514,75 @@ Database: Update student_exercises
 Student sees grade in dashboard
 ```
 
+### Admin Course Management Flow (3-Pane Workspace)
+
+```
+Admin: Navigate to #/courses (CourseManagementPage.js)
+   │
+   ├─ 3-pane layout loads:
+   │
+   ├─ Pane 1 (LEFT): course-list-pane.js
+   │  └─ Courses table with create/delete, selection tracking
+   │
+   ├─ Pane 2 (CENTER): lesson-list-pane.js
+   │  ├─ Lessons for selected course
+   │  └─ Create/delete lesson, selection tracking
+   │
+   ├─ Pane 3 (RIGHT): lesson-editor-pane.js (main content area)
+   │  ├─ lesson-meta-editor.js: Inline lesson title + description (debounced auto-save)
+   │  ├─ lesson-content-list.js: Editable content items
+   │  │  ├─ content-item-video.js: Edit video URL (now editable), title
+   │  │  ├─ content-item-pdf.js: Upload or select PDF
+   │  │  ├─ content-item-quiz.js: Quiz config
+   │  │  └─ content-item-puzzle.js: Puzzle challenges editor (launches puzzle-composer.js)
+   │  └─ lesson-content-upload-dialog.js: File upload modal
+   │
+   ├─ Breadcrumb: course-mgmt-breadcrumb.js (shows: Course > Lesson > Content path)
+   │
+   └─ Resizable splitters: pane-splitter.js (widths persisted in localStorage)
+      │
+      ▼
+State Management (selection-store.js):
+   │
+   ├─ URL hash: #/courses/{courseId}/lessons/{lessonId}/content/{contentId}
+   ├─ localStorage: selection state (fallback if URL cleared)
+   └─ Scroll position: restored per content item
+      │
+      ▼
+When editing content item metadata:
+   │
+   ├─ lesson-meta-editor.js: Detects changes → debounce(500ms) → PUT /api/lessons/:id
+   └─ Content fields: Auto-save on blur (PUT /api/content/:id)
+      │
+      ▼
+When editing puzzle content:
+   │
+   ├─ "Edit Puzzle" → puzzle-composer.js (full-screen overlay)
+   ├─ Admin configures challenges, hints, description
+   ├─ "Save & Return" → PUT /api/content/:id { puzzle_challenges: [...], description: "..." }
+   ├─ Scroll position restored, selection state persisted
+   └─ Back in 3-pane view
+```
+
 ### Puzzle Challenges Flow (Lessons Platform)
 
 ```
-Admin: Open lesson-content-editor → click "Add Puzzle"
+Admin: Click "Edit Puzzle" in content-item-puzzle.js
    │
    ▼
 puzzle-composer.js (full-screen overlay)
    │
    ├─ Admin sets up board position (FEN), moves (UCI)
    ├─ Per-move: assign hint text + role (student | computer)
-   ├─ Optional: puzzle_instruction, puzzle_video_url
+   ├─ Optional: puzzle_instruction, puzzle_video_url, description
    ├─ "Add Another" → appends to local challenges array
    │
    ▼
-Save: POST /api/lesson-content (or PUT /:id)
-{ content_type: 'puzzle', puzzle_challenges: [...] }
+Save: PUT /api/content/:id
+{ content_type: 'puzzle', puzzle_challenges: [...], description: "..." }
    │
    ▼
-CourseRepository.createContent / updateContent
+CourseRepository.updateContent
    │
    ├─ Column allowlist validation (prevents injecting unknown columns)
    ├─ JSON serialization: puzzle_challenges → TEXT

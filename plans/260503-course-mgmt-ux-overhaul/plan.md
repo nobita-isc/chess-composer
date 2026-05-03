@@ -5,6 +5,12 @@
 **Scope:** Reduce clicks-to-edit for lessons / exercises / videos in admin Course Management.
 **Driver:** User feedback — "too many clicks to edit a specific lesson and its inside exercises/videos."
 
+## Status
+
+**Status:** ✅ COMPLETED 2026-05-03
+
+All 4 phases implemented. 3-pane workspace with inline editing, deep links, and selection persistence live. Tests 407/407 pass; client builds clean.
+
 ## Problem (from scout)
 
 Current flow stacks 3–4 full-screen modals (`pv-overlay`, z-index 50000–60000+):
@@ -32,10 +38,10 @@ Goal: single-page 3-pane workspace (Courses | Lessons | Content/Editor) using sp
 
 | # | Phase | Status | Effort |
 |---|---|---|---|
-| 1 | [Shell: 3-pane workspace + splitters + breadcrumb](phase-01-shell-3pane-layout.md) | pending | M |
-| 2 | [Inline lesson edit (title + description, no prompt)](phase-02-inline-lesson-edit.md) | pending | S |
-| 3 | [Inline content edit (video URL editable, edit-in-place where possible)](phase-03-inline-content-edit.md) | pending | M |
-| 4 | [Selection persistence + deep links](phase-04-state-persistence.md) | pending | S |
+| 1 | [Shell: 3-pane workspace + splitters + breadcrumb](phase-01-shell-3pane-layout.md) | completed | M |
+| 2 | [Inline lesson edit (title + description, no prompt)](phase-02-inline-lesson-edit.md) | completed | S |
+| 3 | [Inline content edit (video URL editable, edit-in-place where possible)](phase-03-inline-content-edit.md) | completed | M |
+| 4 | [Selection persistence + deep links](phase-04-state-persistence.md) | completed | S |
 
 ## Key Dependencies
 
