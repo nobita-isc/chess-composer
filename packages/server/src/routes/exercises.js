@@ -30,7 +30,7 @@ exercises.get('/', async (c) => {
   }
 });
 
-exercises.post('/', async (c) => {
+exercises.post('/', requireRole('admin'), async (c) => {
   try {
     const body = await c.req.json();
     const { puzzleIds, filters, name, weekStart } = body;
@@ -121,7 +121,7 @@ exercises.put('/:id', requireRole('admin'), async (c) => {
   }
 });
 
-exercises.delete('/:id', async (c) => {
+exercises.delete('/:id', requireRole('admin'), async (c) => {
   try {
     const id = c.req.param('id');
     const result = await exerciseRepository.deleteExercise(id);
@@ -133,7 +133,7 @@ exercises.delete('/:id', async (c) => {
   }
 });
 
-exercises.post('/:id/assign', async (c) => {
+exercises.post('/:id/assign', requireRole('admin'), async (c) => {
   try {
     const id = c.req.param('id');
     const body = await c.req.json();

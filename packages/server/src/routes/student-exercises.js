@@ -31,7 +31,7 @@ studentExercises.get('/:id', async (c) => {
   }
 });
 
-studentExercises.put('/:id/grade', async (c) => {
+studentExercises.put('/:id/grade', requireRole('admin'), async (c) => {
   try {
     const id = c.req.param('id');
     const body = await c.req.json();
