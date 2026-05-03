@@ -62,7 +62,11 @@
       "Bash(grep -E \"\\\\.\\(tsx|ts|jsx|js\\)$\")",
       "Bash(grep -E \"\\\\.\\(js|ts\\)$\")",
       "Bash(node:*)",
-      "Bash(git diff *)"
+      "Bash(git diff *)",
+      "Bash(npm -w packages/client run build)",
+      "Bash(npm test *)",
+      "Bash(npm -w packages/server run lint)",
+      "Bash(npm -w packages/client run lint)"
     ]
   }
 }
