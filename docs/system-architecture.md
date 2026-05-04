@@ -109,6 +109,7 @@ ExercisePanel renders puzzles
 | **shared/pane-splitter.js** | **Resizable pane divider utility** | **~100** | **✅ New** |
 | **shared/debounce.js** | **Debounce function for auto-save** | **~30** | **✅ New** |
 | **shared/selection-store.js** | **URL hash + localStorage state persistence** | **~80** | **✅ New** |
+| **shared/video-url-resolver.js** | **YouTube embed vs. video tag auto-detect** | **~50** | **✅ New** |
 
 ### State Management Pattern
 
@@ -256,6 +257,7 @@ Client
 | lichess.js | /api/lichess/... | GET (proxy) | ✅ |
 | courses.js | /api/courses/*, /api/courses/:id/lessons, assignments | CRUD + course preview | ✅ |
 | lesson-content.js | /api/lessons/:id/content, /api/content/*, file upload (100MB), learning materials | CRUD + POST upload | ✅ |
+| videos.js | /api/videos/* (list, upload, delete, search) | CRUD | ✅ New |
 
 ### Service Layer Example
 
@@ -577,13 +579,18 @@ Admin: Navigate to #/courses (CourseManagementPage.js)
    │  └─ Create/delete lesson, selection tracking
    │
    ├─ Pane 3 (RIGHT): lesson-editor-pane.js (main content area)
-   │  ├─ lesson-meta-editor.js: Inline lesson title + description (debounced auto-save)
+   │  ├─ lesson-meta-editor.js: Inline lesson title + description (debounced auto-save, Edit/Preview tabs for markdown)
    │  ├─ lesson-content-list.js: Editable content items
-   │  │  ├─ content-item-video.js: Edit video URL (now editable), title
+   │  │  ├─ content-item-video.js: Video URL picker (from library) or external URL, auto-detect YouTube
    │  │  ├─ content-item-pdf.js: Upload or select PDF
    │  │  ├─ content-item-quiz.js: Quiz config
    │  │  └─ content-item-puzzle.js: Puzzle challenges editor (launches puzzle-composer.js)
    │  └─ lesson-content-upload-dialog.js: File upload modal
+   │
+   ├─ Sidebar nav: Video Library link → #/videos (admin-only)
+   │  └─ Upload, manage, search, copy video URLs
+   │
+   ├─ Preview lesson button: Opens lesson-player at current lesson (startLessonId param)
    │
    ├─ Breadcrumb: course-mgmt-breadcrumb.js (shows: Course > Lesson > Content path)
    │

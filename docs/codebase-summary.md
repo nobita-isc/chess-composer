@@ -2,7 +2,7 @@
 
 Chess Composer is a **monorepo** with 2 npm workspaces (client & server), ~15K LOC total. Client is Vanilla JS SPA (Vite). Server is Node.js REST API (Hono). Both share chess.js dependency.
 
-**Last Updated**: 2026-05-03 (includes 3-pane course management workspace, inline editors, selection persistence)
+**Last Updated**: 2026-05-04 (includes video library, markdown lesson descriptions, lesson preview, manual save)
 
 ## Directory Structure
 
@@ -110,7 +110,12 @@ Handles puzzle solving, grading, PDF export, student management.
 
 Chess lessons platform — 3-pane workspace for course/lesson/content CRUD, inline editors, puzzle composer, and student player with rich markdown descriptions.
 
-**Key components (2026-05-03)**
+**Key components (2026-05-04)**
+
+**Video Library (Admin)**
+- **video-library-page.js** - Upload, organize, search, copy URLs for mp4/webm/mov (max 500MB)
+- Content-item-video.js picker integration: reference library videos or external URLs
+- Auto-detect YouTube URLs for iframe embed vs. `<video>` tag rendering
 
 **Admin Course Management (3-Pane Workspace)**
 - **CourseManagementPage.js** (~600 LOC) - Main coordinator: loads 3-pane layout, manages state, handles splitter/breadcrumb
@@ -119,9 +124,9 @@ Chess lessons platform — 3-pane workspace for course/lesson/content CRUD, inli
 - **lesson-editor-pane.js** (~200 LOC) - RIGHT: Main content editor (lesson meta + content list)
 - **course-mgmt-breadcrumb.js** (~80 LOC) - Breadcrumb showing course → lesson → content path
 - **course-mgmt-dialogs.js** (~100 LOC) - Create course/lesson modals
-- **lesson-meta-editor.js** (~120 LOC) - Inline lesson title + description editor (debounced auto-save)
+- **lesson-meta-editor.js** (~120 LOC) - Inline lesson title + description editor (debounced auto-save, Edit/Preview tabs for markdown)
 - **lesson-content-list.js** (~200 LOC) - Editable content items with per-type inline editors
-- **content-item-video.js** (~100 LOC) - Video URL + title (now editable)
+- **content-item-video.js** (~100 LOC) - Video picker (library or external), auto-detect YouTube, editable metadata
 - **content-item-pdf.js** (~100 LOC) - PDF file selection
 - **content-item-quiz.js** (~100 LOC) - Quiz config
 - **content-item-puzzle.js** (~100 LOC) - Puzzle challenges launcher (opens puzzle-composer.js)
@@ -131,6 +136,7 @@ Chess lessons platform — 3-pane workspace for course/lesson/content CRUD, inli
 - **shared/pane-splitter.js** (~100 LOC) - Resizable pane divider, persist widths in localStorage
 - **shared/debounce.js** (~30 LOC) - Debounce function for auto-save patterns
 - **shared/selection-store.js** (~80 LOC) - URL hash + localStorage state persistence
+- **shared/video-url-resolver.js** (~50 LOC) - YouTube embed vs. video tag auto-detection
 
 **Student-Facing Components**
 - **lesson-player.js** (320 LOC) - Coursera-style student lesson player: sidebar nav, description rendering, collapsible panels, Notes tab, download buttons (uses pane-splitter)
@@ -414,6 +420,19 @@ student_gamification (
   last_activity_date TEXT,
   badges TEXT              -- JSON array
 )
+
+-- Video library (2026-05-04)
+videos (
+  id TEXT PRIMARY KEY,
+  title TEXT,
+  file_path TEXT,          -- relative path: /uploads/videos/...
+  file_size INTEGER,
+  duration_min INTEGER,
+  mime_type TEXT,          -- video/mp4, video/webm, etc.
+  folder TEXT,             -- flat path-string for organization
+  uploaded_at TEXT,
+  uploaded_by TEXT         -- admin user ID
+)
 ```
 
 ## Build Pipeline
@@ -456,14 +475,16 @@ student_gamification (
 | Documentation | ✅ JSDoc comments, clear naming |
 | Dependencies | ✅ Minimal, production-ready packages |
 
-## Test Infrastructure (2026-05-03)
+## Test Infrastructure (2026-05-04)
 
 | Component | Type | Coverage | Count |
 |-----------|------|----------|-------|
 | **Board widget** | Unit + jsdom | 95% | 62 tests |
 | **Puzzle solving** | E2E | Full flow | 11 passing specs |
 | **Puzzle play** | E2E | Full flow | 9 passing specs |
+| **Lesson content** | Integration | Routes + DB | 12 tests |
 | **Smoke tests** | E2E | Critical paths | Multiple |
+| **Total** | - | - | **620+ tests** |
 
 **Test Utilities:**
 - `seed-test-db.js` — WAL-safe SQLite clone (puzzles-e2e.db)
@@ -506,9 +527,18 @@ student_gamification (
 - Memory footprint: ~500MB (theme index + in-memory cache)
 - Inline grading: instant (no server roundtrip until save)
 
-## Recent Changes (2026-05-03)
+## Recent Changes (2026-05-04)
 
-**New: Playwright E2E Tests + Board Widget Unit Tests**
+**New: Video Library, Markdown Descriptions, Lesson Preview**
+- video-library-page.js (admin): upload mp4/webm/mov (max 500MB), folder organization, copy URL, search
+- /api/videos/* routes: admin-only CRUD for library management
+- shared/video-url-resolver.js: auto-detect YouTube embeds (iframe) vs. raw video (`<video>` tag)
+- lesson-meta-editor.js: Edit/Preview tabs for markdown descriptions, manual Save button
+- content-item-video.js: picker for library videos or external URLs
+- lesson-player.js: startLessonId param for preview launching
+- Migration N/A: videos table added (no schema changes to existing content)
+
+**Previous (2026-05-03): Playwright E2E Tests + Board Widget Unit Tests**
 - E2E infra: Playwright (Chromium), headless + headed modes
 - E2E specs: puzzle-solving (11 pass), puzzle-play (9 pass), smoke tests
 - Board widget tests: 62 tests, 95% coverage on interactive puzzle board

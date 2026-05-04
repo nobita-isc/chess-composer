@@ -8,6 +8,29 @@ This changelog follows [Keep a Changelog](https://keepachangelog.com/) conventio
 
 ## Unreleased
 
+## [2026-05-04] — Video Library, Markdown Descriptions, Lesson Preview
+
+### Added
+- **Video library admin page** (`/videos`): upload mp4/webm/mov (max 500MB), folder organization (flat path-strings), copy URL, search
+- **Video library API routes** (`/api/videos/*`): admin-only, full CRUD for library management
+- **Video URL resolution** (`packages/client/src/shared/video-url-resolver.js`): handles YouTube embeds (iframe) vs. raw videos (`<video>` tag)
+- **Markdown support in lesson descriptions**: Edit/Preview tabs in lesson-meta-editor; renders via safe-markdown.js (DOMPurify-backed)
+- **Preview lesson button** in lesson-editor-pane: opens lesson-player at current lesson via `startLessonId` option
+- **Manual Save button**: alongside autosave in lesson-meta-editor for explicit control
+
+### Changed
+- lesson-meta-editor.js: added Edit/Preview tabs for markdown support
+- Video URL detection: auto-detect YouTube URLs for iframe embedding vs. direct video element
+- lesson-player.js: loads startLessonId from URL params when provided
+
+### Technical Details
+- YouTube detection: checks URL pattern (youtube.com, youtu.be)
+- Markdown rendering: same safe-markdown.js module (marked + DOMPurify)
+- DB schema: no changes (description already on lesson_content from migration 011)
+- Admin routes: /api/videos/list, /api/videos/upload, /api/videos/:id/delete, /api/videos/search
+
+---
+
 ## [2026-05-03] — Playwright E2E Tests + Board Widget Unit Tests
 
 ### Added
