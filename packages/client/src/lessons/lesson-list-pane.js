@@ -22,9 +22,11 @@ function escapeHtml(str) {
  * @param {() => void} opts.onLessonsChanged - notify orchestrator (e.g. refresh course list count)
  * @returns {{ refresh: () => void }}
  */
-export function renderLessonListPane(container, { apiClient, courseId, selectedLessonId, onSelectLesson, onLessonsChanged }) {
+export function renderLessonListPane(container, { apiClient, courseId, selectedLessonId, onSelectLesson, onLessonsChanged, onListLoaded }) {
   if (!courseId) {
-    container.innerHTML = '<div class="cm-empty-state">Select a course to view lessons.</div>'
+    container.innerHTML = `
+      <div class="cm-pane-header"><span class="cm-pane-title">Lessons</span></div>
+      <div class="cm-empty-state">Select a course to view its lessons.</div>`
     return { refresh: () => {} }
   }
 
@@ -51,7 +53,7 @@ export function renderLessonListPane(container, { apiClient, courseId, selectedL
               <span class="cm-lesson-index">${i + 1}</span>
               <div class="cm-lesson-info">
                 <span class="cm-lesson-title">${escapeHtml(l.title)}</span>
-                <span class="cm-lesson-meta">${l.content_count || 0} item${l.content_count !== 1 ? 's' : ''}</span>
+                <span class="cm-lesson-meta">${l.content_count || 0}</span>
               </div>
             </div>
             <div class="cm-lesson-actions">
@@ -128,6 +130,7 @@ export function renderLessonListPane(container, { apiClient, courseId, selectedL
       lessons = course.lessons || []
       container.innerHTML = renderHeader(course.title) + renderList(lessons)
       wireEvents(course)
+      if (onListLoaded) onListLoaded(lessons, course.title)
     } catch (err) {
       container.innerHTML = `<div class="cm-error">Error: ${escapeHtml(err.message)}</div>`
     }

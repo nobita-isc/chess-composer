@@ -39,20 +39,20 @@ export function createContentItem({ item: initialItem, onDelete, onRefresh, apiC
   let item = { ...initialItem }
 
   const el = document.createElement('div')
-  el.style.cssText = 'border:1px solid #86efac;border-radius:10px;background:#fff;overflow:hidden;margin-bottom:8px'
+  el.className = 'ci-card ci-puzzle'
 
   function render() {
     el.innerHTML = `
-      <div style="display:flex;align-items:center;gap:10px;padding:12px 14px">
-        <span style="font-size:18px">♟</span>
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 14px 12px 16px">
+        <span class="ci-type-icon">♟</span>
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(item.title) || '<em style="color:#94a3b8">Untitled puzzle</em>'}</div>
+          <div style="font-size:13px;font-weight:600;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(item.title) || '<em style="color:#94a3b8;font-style:normal">Untitled puzzle</em>'}</div>
           <div style="font-size:11px;color:#94a3b8;margin-top:1px">${escapeHtml(puzzleSummary(item))}</div>
         </div>
-        <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:#dcfce7;color:#059669;flex-shrink:0">PUZZLE</span>
+        <span class="ci-type-tag">PUZZLE</span>
         <div style="display:flex;gap:6px;flex-shrink:0">
-          <button class="ci-open-composer" style="padding:5px 12px;border:1px solid #86efac;border-radius:6px;background:#f0fdf4;font-size:12px;color:#059669;cursor:pointer;font-weight:500">Open Composer</button>
-          <button class="ci-delete" style="padding:5px 12px;border:1px solid #fecaca;border-radius:6px;background:#fff;font-size:12px;color:#dc2626;cursor:pointer">Delete</button>
+          <button class="ci-open-composer" style="padding:5px 12px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;font-size:12px;color:#475569;cursor:pointer;font-weight:500">Open Composer</button>
+          <button class="ci-delete" style="padding:5px 10px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;font-size:12px;color:#94a3b8;cursor:pointer">Delete</button>
         </div>
       </div>
     `

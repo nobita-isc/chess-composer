@@ -14,7 +14,6 @@ function escapeHtml(str) {
 }
 
 const SKILL_LABELS = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced' }
-const SKILL_BADGE_CLS = { beginner: 'badge-beginner', intermediate: 'badge-intermediate', advanced: 'badge-advanced' }
 
 /**
  * @param {HTMLElement} container
@@ -26,24 +25,27 @@ const SKILL_BADGE_CLS = { beginner: 'badge-beginner', intermediate: 'badge-inter
  * @param {(courseId: string) => void} opts.onAssign - triggers assign dialog in orchestrator
  * @returns {{ refresh: () => void }}
  */
-export function renderCourseListPane(container, { apiClient, selectedCourseId, onSelectCourse, onEditCourse, onAssign }) {
+export function renderCourseListPane(container, { apiClient, selectedCourseId, onSelectCourse, onEditCourse, onAssign, onListLoaded }) {
   let courses = []
 
   function render(list) {
     courses = list
     if (list.length === 0) {
-      container.innerHTML = '<div class="cm-empty-state">No courses yet.</div>'
+      container.innerHTML = `
+        <div class="cm-pane-header"><span class="cm-pane-title">Courses</span></div>
+        <div class="cm-empty-state">No courses yet.</div>`
       return
     }
     container.innerHTML = `
+      <div class="cm-pane-header"><span class="cm-pane-title">Courses</span><span style="font-weight:500;color:#cbd5e1;text-transform:none;letter-spacing:0">${list.length}</span></div>
       <ul class="cm-course-list">
         ${list.map(c => `
           <li class="cm-course-item${c.id === selectedCourseId ? ' cm-selected' : ''}" data-id="${escapeHtml(c.id)}">
             <div class="cm-course-row">
               <div class="cm-course-info" data-action="select">
+                <span class="cm-skill-dot cm-skill-${c.skill_level || 'beginner'}" title="${escapeHtml(SKILL_LABELS[c.skill_level] || c.skill_level || '')}"></span>
                 <span class="cm-course-title">${escapeHtml(c.title)}</span>
-                <span class="badge ${SKILL_BADGE_CLS[c.skill_level] || 'badge-theme'} cm-badge-sm">${SKILL_LABELS[c.skill_level] || c.skill_level}</span>
-                <span class="cm-course-meta">${c.lesson_count || 0} lesson${c.lesson_count !== 1 ? 's' : ''}</span>
+                <span class="cm-course-meta">${c.lesson_count || 0}</span>
               </div>
               <div class="cm-course-actions">
                 <button class="cm-icon-btn" data-action="edit" title="Edit course">
@@ -104,6 +106,7 @@ export function renderCourseListPane(container, { apiClient, selectedCourseId, o
     try {
       const list = await apiClient.getCourses()
       render(list)
+      if (onListLoaded) onListLoaded(list)
     } catch (err) {
       container.innerHTML = `<div class="cm-error">Error: ${escapeHtml(err.message)}</div>`
     }

@@ -37,17 +37,17 @@ export function createContentItem({ item: initialItem, onPatch, onDelete }) {
   let serverValues = { title: item.title || '', description: item.description || '', quiz_data: item.quiz_data || '[]' }
 
   const el = document.createElement('div')
-  el.style.cssText = 'border:1px solid #fca5a5;border-radius:10px;background:#fff;overflow:hidden;margin-bottom:8px'
+  el.className = 'ci-card ci-quiz'
 
   function renderHeader() {
     return `
-      <div class="ci-header" style="display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;user-select:none">
-        <span style="font-size:18px">❓</span>
+      <div class="ci-header" style="display:flex;align-items:center;gap:10px;padding:12px 14px 12px 16px;cursor:pointer;user-select:none">
+        <span class="ci-type-icon">?</span>
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(item.title) || '<em style="color:#94a3b8">Untitled</em>'}</div>
+          <div style="font-size:13px;font-weight:600;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(item.title) || '<em style="color:#94a3b8;font-style:normal">Untitled</em>'}</div>
           <div style="font-size:11px;color:#94a3b8;margin-top:1px">${quizSummary(item.quiz_data)}</div>
         </div>
-        <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:#fee2e2;color:#dc2626;flex-shrink:0">QUIZ</span>
+        <span class="ci-type-tag">QUIZ</span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" style="flex-shrink:0;transition:transform .2s;${expanded ? 'transform:rotate(180deg)' : ''}"><polyline points="6 9 12 15 18 9"/></svg>
       </div>
     `
