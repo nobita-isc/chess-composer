@@ -14,6 +14,7 @@
  */
 
 import { debounce } from './shared/debounce.js'
+import { createDescriptionEditor } from './lesson-description-editor.js'
 
 const SAVE_DELAY_MS = 500
 
@@ -30,7 +31,7 @@ export function createLessonMetaEditor({ lesson, onPatch }) {
   // Save state: 'idle' | 'saving' | 'saved' | 'error'
   let saveState = 'idle'
 
-  // --- DOM ---
+  // --- DOM shell ---
   const el = document.createElement('div')
   el.className = 'lme-root'
   el.innerHTML = `
@@ -43,29 +44,65 @@ export function createLessonMetaEditor({ lesson, onPatch }) {
         aria-label="Lesson title"
       />
       <span class="lme-badge lme-badge--idle" aria-live="polite"></span>
+      <button class="lme-save-btn" title="Save now (auto-saves on blur)" style="display:flex;align-items:center;gap:4px;padding:3px 10px;background:transparent;border:1px solid #e2e8f0;border-radius:7px;font-size:11px;font-weight:500;color:#94a3b8;cursor:default;white-space:nowrap;flex-shrink:0;transition:background .15s,color .15s,border-color .15s" disabled>Save</button>
     </div>
-    <textarea
-      class="lme-desc-textarea"
-      placeholder="Description (optional)"
-      rows="3"
-      aria-label="Lesson description"
-    ></textarea>
+    <div class="lme-desc-mount"></div>
   `
 
   const titleInput = el.querySelector('.lme-title-input')
-  const descTextarea = el.querySelector('.lme-desc-textarea')
   const badge = el.querySelector('.lme-badge')
+  const saveBtn = el.querySelector('.lme-save-btn')
+  const descMount = el.querySelector('.lme-desc-mount')
 
-  // Populate initial values
   titleInput.value = serverTitle
-  descTextarea.value = serverDesc
 
-  // --- Save state badge ---
+  // --- Description editor (tab widget) ---
+  const descEditor = createDescriptionEditor({
+    initialValue: serverDesc,
+    onChange: (value) => {
+      descDirty = true
+      setBadge('idle')
+      debouncedPatch({ description: value, ...(titleDirty ? { title: titleInput.value.trim() } : {}) })
+    },
+    onBlur: (value) => {
+      if (!descDirty) return
+      debouncedPatch.cancel()
+      executePatch({ description: value, ...(titleDirty ? { title: titleInput.value.trim() } : {}) })
+    },
+  })
+  descMount.appendChild(descEditor.element)
+
+  // --- Save button click: cancel debounce + immediate flush ---
+  saveBtn.addEventListener('click', () => {
+    const fields = collectDirtyFields()
+    if (Object.keys(fields).length === 0) return
+    debouncedPatch.cancel()
+    executePatch(fields)
+  })
+
+  // --- Save state badge + button ---
+  function setSaveBtn(dirty) {
+    const enabled = dirty && saveState !== 'saving'
+    saveBtn.disabled = !enabled
+    if (enabled) {
+      saveBtn.style.color = '#4f46e5'
+      saveBtn.style.borderColor = '#c7d2fe'
+      saveBtn.style.background = '#eef2ff'
+      saveBtn.style.cursor = 'pointer'
+    } else {
+      saveBtn.style.color = '#94a3b8'
+      saveBtn.style.borderColor = '#e2e8f0'
+      saveBtn.style.background = 'transparent'
+      saveBtn.style.cursor = 'default'
+    }
+  }
+
   function setBadge(state, msg = '') {
     saveState = state
     badge.className = `lme-badge lme-badge--${state}`
     const labels = { idle: '', saving: 'Saving…', saved: 'Saved', error: msg || 'Error' }
     badge.textContent = labels[state] ?? ''
+    setSaveBtn(titleDirty || descDirty)
   }
 
   // --- Debounced patch ---
@@ -87,14 +124,14 @@ export function createLessonMetaEditor({ lesson, onPatch }) {
       setBadge('error', err?.message || 'Save failed')
       // Rollback optimistic display
       if (fields.title !== undefined) titleInput.value = serverTitle
-      if (fields.description !== undefined) descTextarea.value = serverDesc
+      if (fields.description !== undefined) descEditor.setValue(serverDesc)
     }
   }
 
   function collectDirtyFields() {
     const fields = {}
     if (titleDirty) fields.title = titleInput.value.trim()
-    if (descDirty) fields.description = descTextarea.value
+    if (descDirty) fields.description = descEditor.getValue()
     return fields
   }
 
@@ -102,7 +139,7 @@ export function createLessonMetaEditor({ lesson, onPatch }) {
   titleInput.addEventListener('input', () => {
     titleDirty = true
     setBadge('idle')
-    debouncedPatch({ title: titleInput.value.trim(), ...(descDirty ? { description: descTextarea.value } : {}) })
+    debouncedPatch({ title: titleInput.value.trim(), ...(descDirty ? { description: descEditor.getValue() } : {}) })
   })
 
   titleInput.addEventListener('blur', () => {
@@ -120,28 +157,6 @@ export function createLessonMetaEditor({ lesson, onPatch }) {
     }
   })
 
-  // --- Description textarea handlers ---
-  descTextarea.addEventListener('input', () => {
-    descDirty = true
-    setBadge('idle')
-    debouncedPatch({ description: descTextarea.value, ...(titleDirty ? { title: titleInput.value.trim() } : {}) })
-  })
-
-  descTextarea.addEventListener('blur', () => {
-    if (!descDirty) return
-    debouncedPatch.cancel()
-    executePatch(collectDirtyFields())
-  })
-
-  descTextarea.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      debouncedPatch.cancel()
-      descTextarea.value = serverDesc
-      descDirty = false
-      setBadge('idle')
-    }
-  })
-
   // --- Public API ---
 
   /** Sync editor fields when orchestrator selects a different lesson */
@@ -150,7 +165,7 @@ export function createLessonMetaEditor({ lesson, onPatch }) {
     serverTitle = newLesson.title || ''
     serverDesc = newLesson.description || ''
     titleInput.value = serverTitle
-    descTextarea.value = serverDesc
+    descEditor.setValue(serverDesc)
     titleDirty = false
     descDirty = false
     setBadge('idle')
@@ -158,6 +173,7 @@ export function createLessonMetaEditor({ lesson, onPatch }) {
 
   function destroy() {
     debouncedPatch.cancel()
+    descEditor.destroy()
   }
 
   return { element: el, update, destroy }
