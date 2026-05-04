@@ -50,3 +50,24 @@ data_sources/
 *.db
 *.db-shm
 *.db-wal
+
+# E2E test artifacts
+packages/server/data/puzzles-e2e.db*
+e2e/.auth/
+playwright-report/
+test-results/
+
+# Server data dir (db files, backups, uploads — large/local-only)
+packages/server/data/
+
+# Design exports & uploads
+designs/images/
+packages/server/uploads/
+
+# Claude local runtime
+.claude/hooks/.logs/
+.claude/settings.local.json
+.claude/skills/.venv/
+
+# Quality gates scan outputs (config.yaml + gitleaks.toml are tracked)
+.quality-gates/reports/

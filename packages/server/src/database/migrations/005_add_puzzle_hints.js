@@ -1,23 +1,16 @@
 /**
- * Migration: Add puzzle_hints column to student_exercises
+ * Migration 005: Add puzzle_hints column to student_exercises
  * Stores per-puzzle hint usage as comma-separated values (1=used hint, 0=no hint)
- * Example: "0,1,0,0,1,0,0,0,0,0" for 10 puzzles where hints were used on puzzles 2 and 5
+ * Portable: SQLite + Postgres. Uses addColumnIfNotExists to avoid TX poisoning on PG.
  */
 
-export function migrate(db) {
-  const tableInfo = db.prepare('PRAGMA table_info(student_exercises)').all();
-  const hasColumn = tableInfo.some(col => col.name === 'puzzle_hints');
+import { addColumnIfNotExists } from '../migration-helpers.js';
 
-  if (!hasColumn) {
-    db.exec(`
-      ALTER TABLE student_exercises ADD COLUMN puzzle_hints TEXT;
-    `);
-    console.log('   Added puzzle_hints column');
-  } else {
-    console.log('   puzzle_hints column already exists');
-  }
+export async function migrate(db) {
+  const added = await addColumnIfNotExists(db, 'student_exercises', 'puzzle_hints', 'TEXT');
+  console.log(added ? '   Added puzzle_hints column' : '   puzzle_hints column already exists');
 }
 
-export function rollback(db) {
-  // SQLite doesn't support DROP COLUMN directly
+export async function rollback(db) {
+  // DROP COLUMN not universally safe; leave in place
 }

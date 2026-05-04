@@ -44,7 +44,7 @@ export class DatabaseLoader {
    * @param {object} options - Query options
    * @returns {array} - Array of puzzle objects
    */
-  queryPuzzles({
+  async queryPuzzles({
     themes = [],
     minRating = 0,
     maxRating = 5000,
@@ -74,7 +74,7 @@ export class DatabaseLoader {
       puzzleIds = Array.from(allIds);
     } else {
       // No theme filter or no index - use SQL (slower fallback)
-      const rows = this.db.query(`
+      const rows = await this.db.query(`
         SELECT id FROM puzzles
         WHERE rating BETWEEN ? AND ?
           AND popularity >= ?
@@ -164,9 +164,9 @@ export class DatabaseLoader {
    * Get total puzzle count
    * @returns {number}
    */
-  getTotalCount() {
+  async getTotalCount() {
     if (!this.isLoaded()) return 0;
-    return this.db.queryScalar('SELECT COUNT(*) FROM puzzles') || 0;
+    return (await this.db.queryScalar('SELECT COUNT(*) FROM puzzles')) || 0;
   }
 
   /**

@@ -31,7 +31,7 @@ T6 = TaskCreate(subject="Update design docs",       activeForm="Updating design 
 `TaskUpdate(T1, status="in_progress")`
 Analyze screenshots/videos with `ai-multimodal` skill.
 
-- Read `./docs/design-guidelines.md` first
+- Read `./docs/design-system/design-principles.md` first
 - Identify exact visual discrepancy
 
 `TaskUpdate(T1, status="completed")`
@@ -66,7 +66,7 @@ Use `tester` agent for compilation check.
 
 ### Step 6: Document
 `TaskUpdate(T6, status="in_progress")`
-Update `./docs/design-guidelines.md` if needed.
+Update `./docs/design-system/design-principles.md` if needed.
 
 `TaskUpdate(T6, status="completed")`
 

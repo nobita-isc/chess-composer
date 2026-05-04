@@ -37,7 +37,7 @@ users.post('/', async (c) => {
 
 users.get('/', async (c) => {
   try {
-    const allUsers = userService.getAllUsers();
+    const allUsers = await userService.getAllUsers();
     return c.json({ success: true, data: allUsers });
   } catch (error) {
     return c.json({ success: false, error: 'Failed to fetch users' }, 500);
@@ -46,7 +46,7 @@ users.get('/', async (c) => {
 
 users.get('/:id', async (c) => {
   try {
-    const result = userService.getUserProfile(c.req.param('id'));
+    const result = await userService.getUserProfile(c.req.param('id'));
 
     if (!result.success) {
       return c.json({ success: false, error: result.error }, 404);
@@ -75,7 +75,7 @@ users.put('/:id', async (c) => {
 
 users.delete('/:id', async (c) => {
   try {
-    const result = userService.deleteUser(c.req.param('id'));
+    const result = await userService.deleteUser(c.req.param('id'));
 
     if (!result.success) {
       return c.json({ success: false, error: result.error }, 400);

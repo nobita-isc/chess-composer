@@ -28,7 +28,7 @@ Choose workflow based on input type:
 2. **Plan** with `ui-ux-designer` subagent - create phased implementation
 3. **Implement** - match source precisely
 4. **Verify** - compare to original
-5. **Document** - update `./docs/design-guidelines.md` if approved
+5. **Document** - update `./docs/design-system/design-principles.md` if approved
 
 See specific workflow files for detailed steps.
 

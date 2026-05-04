@@ -19,7 +19,7 @@ Pass the gathered context to docs-manager agent to create initial documentation:
 - `docs/system-architecture.md`: System architecture
 - `docs/project-roadmap.md`: Project roadmap
 - `docs/deployment-guide.md` [optional]: Deployment guide
-- `docs/design-guidelines.md` [optional]: Design guidelines
+- `docs/design-system/design-principles.md` [optional]: Design principles
 
 ## Phase 3: Size Check (Post-Generation)
 

@@ -124,8 +124,8 @@ export function showCreateExerciseDialog(apiClient, initialPuzzles, onPuzzlesUpd
           </div>
         </div>
         <div class="confirm-actions">
-          <button class="generate-btn" id="dlg-use-existing">Use Current ${n} Puzzle${n !== 1 ? 's' : ''}</button>
           <button class="btn-outline" id="dlg-regenerate" style="padding:10px 20px">Generate New Puzzles</button>
+          <button class="generate-btn" id="dlg-use-existing" style="padding:10px 20px">Use Current ${n} Puzzle${n !== 1 ? 's' : ''}</button>
         </div>
       `;
 
@@ -207,7 +207,7 @@ export function showCreateExerciseDialog(apiClient, initialPuzzles, onPuzzlesUpd
 
             <div class="puzzles-summary">
               <h4>Puzzles to Include (${puzzles.length})</h4>
-              <div class="puzzle-thumbnail-grid" style="max-height:300px;overflow-y:auto">
+              <div class="puzzle-thumbnail-grid">
                 ${puzzles.map((p, i) => renderPuzzleThumbnail(p, i)).join('')}
               </div>
             </div>

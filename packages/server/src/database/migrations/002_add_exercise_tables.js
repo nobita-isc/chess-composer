@@ -1,13 +1,11 @@
 /**
- * Migration: Add exercise management tables
- * - students: Student profiles
- * - weekly_exercises: Weekly exercise sets
- * - student_exercises: Assignments and grades
+ * Migration 002: Add exercise management tables
+ * - students, weekly_exercises, student_exercises
+ * Portable: SQLite + Postgres. TEXT PRIMARY KEY (UUID), ISO timestamps.
  */
 
-export function migrate(db) {
-  // Create students table
-  db.exec(`
+export async function migrate(db) {
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS students (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -16,11 +14,10 @@ export function migrate(db) {
       notes TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-    );
+    )
   `);
 
-  // Create weekly_exercises table
-  db.exec(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS weekly_exercises (
       id TEXT PRIMARY KEY,
       week_start TEXT NOT NULL,
@@ -29,11 +26,10 @@ export function migrate(db) {
       puzzle_ids TEXT NOT NULL,
       filters TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    );
+    )
   `);
 
-  // Create student_exercises table (assignments and grades)
-  db.exec(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS student_exercises (
       id TEXT PRIMARY KEY,
       student_id TEXT NOT NULL,
@@ -47,23 +43,18 @@ export function migrate(db) {
       notes TEXT,
       FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
       FOREIGN KEY (exercise_id) REFERENCES weekly_exercises(id) ON DELETE CASCADE
-    );
+    )
   `);
 
-  // Create indexes
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_students_name ON students(name);
-    CREATE INDEX IF NOT EXISTS idx_weekly_exercises_week ON weekly_exercises(week_start);
-    CREATE INDEX IF NOT EXISTS idx_student_exercises_student ON student_exercises(student_id);
-    CREATE INDEX IF NOT EXISTS idx_student_exercises_exercise ON student_exercises(exercise_id);
-    CREATE INDEX IF NOT EXISTS idx_student_exercises_status ON student_exercises(status);
-  `);
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_students_name ON students(name)`);
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_weekly_exercises_week ON weekly_exercises(week_start)`);
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_student_exercises_student ON student_exercises(student_id)`);
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_student_exercises_exercise ON student_exercises(exercise_id)`);
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_student_exercises_status ON student_exercises(status)`);
 }
 
-export function rollback(db) {
-  db.exec(`
-    DROP TABLE IF EXISTS student_exercises;
-    DROP TABLE IF EXISTS weekly_exercises;
-    DROP TABLE IF EXISTS students;
-  `);
+export async function rollback(db) {
+  await db.exec(`DROP TABLE IF EXISTS student_exercises`);
+  await db.exec(`DROP TABLE IF EXISTS weekly_exercises`);
+  await db.exec(`DROP TABLE IF EXISTS students`);
 }

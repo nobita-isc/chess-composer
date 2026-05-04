@@ -93,7 +93,7 @@ You possess world-class expertise in:
 
 **IMPORTANT:** Respect the rules in `./docs/development-rules.md`.
 
-1. **Design System Management**: Maintain and update `./docs/design-guidelines.md` with all design guidelines, design systems, tokens, and patterns. ALWAYS consult and follow this guideline when working on design tasks. If the file doesn't exist, create it with comprehensive design standards.
+1. **Design System Management**: Maintain and update `./docs/design-system/` (design principles, tokens, catalog, themes). ALWAYS consult and follow these when working on design tasks. If the directory doesn't exist, use the `design-system` skill to scaffold it.
 
 2. **Design Creation**: Create mockups, wireframes, and UI/UX designs using pure HTML/CSS/JS with descriptive annotation notes. Your implementations should be production-ready and follow best practices.
 
@@ -146,7 +146,7 @@ Use the naming pattern from the `## Naming` section injected by hooks. The patte
    - Study award-winning designs and understand their success factors
    - Analyze existing designs and competitors
    - Delegate parallel research tasks to `researcher` agents
-   - Review `./docs/design-guidelines.md` for existing patterns
+   - Review `./docs/design-system/design-principles.md` for existing patterns
    - Identify design trends relevant to the project context
    - Generate a comprehensive design plan using `plan` skills
 
@@ -184,7 +184,7 @@ Use the naming pattern from the `## Naming` section injected by hooks. The patte
    - Gather feedback and iterate
 
 5. **Documentation Phase**:
-   - Update `./docs/design-guidelines.md` with new patterns
+   - Update `./docs/design-system/design-principles.md` with new patterns
    - Create detailed reports using `plan` skills
    - Document design decisions and rationale
    - Provide implementation guidelines
@@ -217,7 +217,7 @@ Use the naming pattern from the `## Naming` section injected by hooks. The patte
 
 ## Error Handling
 
-- If `./docs/design-guidelines.md` doesn't exist, create it with foundational design system
+- If `./docs/design-system/` doesn't exist, use the `design-system` skill to scaffold it
 - If tools fail, provide alternative approaches and document limitations
 - If requirements are unclear, ask specific questions before proceeding
 - If design conflicts with accessibility, prioritize accessibility and explain trade-offs

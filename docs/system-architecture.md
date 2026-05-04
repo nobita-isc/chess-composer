@@ -4,6 +4,8 @@
 
 Chess Composer is a distributed single-page application (SPA) with a REST API backend. Client and server communicate via JSON over HTTP. Authentication via JWT tokens (stateless).
 
+**Testing Strategy**: 3-layer approach — unit tests (Vitest), widget/DOM tests (Vitest + jsdom), E2E tests (Playwright). See [Testing Guide](./testing-guide.md).
+
 ```
 ┌─────────────────┐                    ┌──────────────────┐
 │   Web Browser   │                    │   Lichess CSV    │
@@ -30,7 +32,9 @@ Chess Composer is a distributed single-page application (SPA) with a REST API ba
 │  ├─ students             │
 │  ├─ users                │
 │  ├─ exercises            │
-│  └─ results              │
+│  ├─ results              │
+│  ├─ courses/lessons      │
+│  └─ lesson_content       │
 └──────────────────────────┘
 ```
 
@@ -89,6 +93,23 @@ ExercisePanel renders puzzles
 | GradeDialog.js | Grading interface | ~300 | ✅ |
 | GenerateView.js | Puzzle generation UI | ~683 | ✅ |
 | AdminPanel.js | Admin dashboard (modern UI) | 678 | ✅ |
+| **CourseManagementPage.js** | **3-pane workspace: courses \| lessons \| editor** | **~600** | **✅** |
+| **course-list-pane.js** | **Courses sidebar with create/delete** | **~150** | **✅ New** |
+| **lesson-list-pane.js** | **Lessons sidebar with create/delete** | **~150** | **✅ New** |
+| **lesson-editor-pane.js** | **Main content editor pane (video/pdf/quiz/puzzle)** | **~200** | **✅ New** |
+| **course-mgmt-breadcrumb.js** | **Breadcrumb navigation** | **~80** | **✅ New** |
+| **lesson-meta-editor.js** | **Inline lesson title + description editor** | **~120** | **✅ New** |
+| **lesson-content-list.js** | **Editable content items with inline editing** | **~200** | **✅ New** |
+| **content-item-{video,pdf,quiz,puzzle}.js** | **Per-type inline editors (4 files)** | **~100 ea** | **✅ New** |
+| **lesson-content-upload-dialog.js** | **File upload dialog** | **~150** | **✅ New** |
+| lesson-player.js | Coursera-style student lesson player (uses pane-splitter) | ~320 | ✅ |
+| lesson-puzzle-player.js | chess.com-style puzzle player (dark theme) | 387 | ✅ |
+| puzzle-composer.js | Full-screen admin puzzle composer | 558 | ✅ |
+| student-courses-page.js | Student course listing page | 164 | ✅ |
+| **shared/pane-splitter.js** | **Resizable pane divider utility** | **~100** | **✅ New** |
+| **shared/debounce.js** | **Debounce function for auto-save** | **~30** | **✅ New** |
+| **shared/selection-store.js** | **URL hash + localStorage state persistence** | **~80** | **✅ New** |
+| **shared/video-url-resolver.js** | **YouTube embed vs. video tag auto-detect** | **~50** | **✅ New** |
 
 ### State Management Pattern
 
@@ -221,7 +242,7 @@ Response formatting
 Client
 ```
 
-### Route Modules (8 total)
+### Route Modules (11 total)
 
 | Module | Endpoints | Methods | Status |
 |--------|-----------|---------|--------|
@@ -234,6 +255,9 @@ Client
 | reports.js | /api/reports/submit, /list, /dismiss | POST, GET, PATCH | ✅ |
 | users.js | /api/users/* (admin only) | CRUD | ✅ |
 | lichess.js | /api/lichess/... | GET (proxy) | ✅ |
+| courses.js | /api/courses/*, /api/courses/:id/lessons, assignments | CRUD + course preview | ✅ |
+| lesson-content.js | /api/lessons/:id/content, /api/content/*, file upload (100MB), learning materials | CRUD + POST upload | ✅ |
+| videos.js | /api/videos/* (list, upload, delete, search) | CRUD | ✅ New |
 
 ### Service Layer Example
 
@@ -322,6 +346,52 @@ class PuzzleRepository {
 └──────────────────────────────┘
 ```
 
+### Database Drivers
+
+The server exposes a pluggable async `DatabaseDriver` interface so the same
+business logic runs on both SQLite (dev default) and Postgres (production opt-in).
+
+```
+┌────────────────────────────────────┐
+│  DatabaseDriver (interface)        │
+│  ─────────────────────────────     │
+│  connect(config): Promise<void>    │
+│  query(sql, params): Promise<[]>   │
+│  queryOne(sql, params): Promise    │
+│  queryScalar(sql, params): Promise │
+│  run(sql, params): Promise         │
+│  exec(sql): Promise<void>          │
+│  transaction(fn): Promise          │
+│  close(): Promise<void>            │
+└────────────────────────────────────┘
+          ▲               ▲
+          │               │
+┌─────────────────┐  ┌──────────────────┐
+│  SqliteDriver   │  │  PostgresDriver  │
+│  (better-sqlite3│  │  (pg.Pool)       │
+│   sync wrapped  │  │  async native    │
+│   in Promises)  │  │  ? → $N adapter  │
+└─────────────────┘  └──────────────────┘
+```
+
+**Driver selection** is controlled by the `DATABASE_DRIVER` environment variable:
+
+| `DATABASE_DRIVER` | Driver used | Extra env required |
+|---|---|---|
+| `sqlite` (default) | `SqliteDriver` | `SQLITE_PATH` (optional) |
+| `postgres` | `PostgresDriver` | `DATABASE_URL` (required) |
+
+Key design points:
+- All methods return Promises — callers use `await` regardless of driver.
+- `SqliteDriver` wraps `better-sqlite3`'s synchronous API in `Promise.resolve`.
+- `PostgresDriver` converts `?` placeholders to `$N` via `param-adapter.js` before
+  forwarding to `pg.Pool`.
+- `transaction(fn)` provides atomic commit/rollback on both drivers (single-level only).
+- `database-config.js` reads env vars and instantiates the correct driver at startup.
+
+See `docs/database-driver.md` for switching drivers, running the migration CLI, and
+production deployment guidance.
+
 **In-Memory Theme Index**
 - Loaded at startup from database
 - `Map<theme, Array<puzzleIds>>`
@@ -329,15 +399,20 @@ class PuzzleRepository {
 - Updated on puzzle block
 - ~500MB memory for 3.5M puzzles
 
-### Database Migrations
+### Database Migrations (11 total)
 
 ```
-001_add_source_field.js       → Add source, game_url
-002_add_exercise_tables.js    → Create exercises tables
-003_add_puzzle_results.js     → Track puzzle attempts
-004_add_users_auth.js         → Add users, auth
-005_add_puzzle_hints.js       → Add hint field
-006_add_is_final_flag.js      → Add is_final flag
+001_add_source_field.js              → Add source, game_url
+002_add_exercise_tables.js           → Create exercises tables
+003_add_puzzle_results.js            → Track puzzle attempts
+004_add_users_auth.js                → Add users, auth
+005_add_puzzle_hints.js              → Add hint field
+006_add_is_final_flag.js             → Add is_final flag
+007_add_lessons_platform.js          → courses, lessons, lesson_content, course_assignments, lesson_progress, student_gamification
+008_add_puzzle_composer_fields.js    → puzzle_instruction, puzzle_hints, puzzle_video_url on lesson_content
+009_add_puzzle_challenges_field.js   → puzzle_challenges (JSON array) on lesson_content
+010_add_avg_rating.js                → avg_rating cache on weekly_exercises
+011_add_content_description.js       → description (markdown) on lesson_content
 ```
 
 Run automatically on startup:
@@ -489,6 +564,117 @@ Database: Update student_exercises
 Student sees grade in dashboard
 ```
 
+### Admin Course Management Flow (3-Pane Workspace)
+
+```
+Admin: Navigate to #/courses (CourseManagementPage.js)
+   │
+   ├─ 3-pane layout loads:
+   │
+   ├─ Pane 1 (LEFT): course-list-pane.js
+   │  └─ Courses table with create/delete, selection tracking
+   │
+   ├─ Pane 2 (CENTER): lesson-list-pane.js
+   │  ├─ Lessons for selected course
+   │  └─ Create/delete lesson, selection tracking
+   │
+   ├─ Pane 3 (RIGHT): lesson-editor-pane.js (main content area)
+   │  ├─ lesson-meta-editor.js: Inline lesson title + description (debounced auto-save, Edit/Preview tabs for markdown)
+   │  ├─ lesson-content-list.js: Editable content items
+   │  │  ├─ content-item-video.js: Video URL picker (from library) or external URL, auto-detect YouTube
+   │  │  ├─ content-item-pdf.js: Upload or select PDF
+   │  │  ├─ content-item-quiz.js: Quiz config
+   │  │  └─ content-item-puzzle.js: Puzzle challenges editor (launches puzzle-composer.js)
+   │  └─ lesson-content-upload-dialog.js: File upload modal
+   │
+   ├─ Sidebar nav: Video Library link → #/videos (admin-only)
+   │  └─ Upload, manage, search, copy video URLs
+   │
+   ├─ Preview lesson button: Opens lesson-player at current lesson (startLessonId param)
+   │
+   ├─ Breadcrumb: course-mgmt-breadcrumb.js (shows: Course > Lesson > Content path)
+   │
+   └─ Resizable splitters: pane-splitter.js (widths persisted in localStorage)
+      │
+      ▼
+State Management (selection-store.js):
+   │
+   ├─ URL hash: #/courses/{courseId}/lessons/{lessonId}/content/{contentId}
+   ├─ localStorage: selection state (fallback if URL cleared)
+   └─ Scroll position: restored per content item
+      │
+      ▼
+When editing content item metadata:
+   │
+   ├─ lesson-meta-editor.js: Detects changes → debounce(500ms) → PUT /api/lessons/:id
+   └─ Content fields: Auto-save on blur (PUT /api/content/:id)
+      │
+      ▼
+When editing puzzle content:
+   │
+   ├─ "Edit Puzzle" → puzzle-composer.js (full-screen overlay)
+   ├─ Admin configures challenges, hints, description
+   ├─ "Save & Return" → PUT /api/content/:id { puzzle_challenges: [...], description: "..." }
+   ├─ Scroll position restored, selection state persisted
+   └─ Back in 3-pane view
+```
+
+### Puzzle Challenges Flow (Lessons Platform)
+
+```
+Admin: Click "Edit Puzzle" in content-item-puzzle.js
+   │
+   ▼
+puzzle-composer.js (full-screen overlay)
+   │
+   ├─ Admin sets up board position (FEN), moves (UCI)
+   ├─ Per-move: assign hint text + role (student | computer)
+   ├─ Optional: puzzle_instruction, puzzle_video_url, description
+   ├─ "Add Another" → appends to local challenges array
+   │
+   ▼
+Save: PUT /api/content/:id
+{ content_type: 'puzzle', puzzle_challenges: [...], description: "..." }
+   │
+   ▼
+CourseRepository.updateContent
+   │
+   ├─ Column allowlist validation (prevents injecting unknown columns)
+   ├─ JSON serialization: puzzle_challenges → TEXT
+   └─ Stored in lesson_content.puzzle_challenges
+   │
+   ▼
+Student: lesson-player.js loads lesson content
+   │
+   ├─ content_type === 'puzzle' → mount lesson-puzzle-player.js
+   ├─ Deserialize puzzle_challenges JSON
+   ├─ For each challenge in sequence:
+   │  ├─ Render board at puzzle_fen
+   │  ├─ Student moves → validated against puzzle_moves
+   │  ├─ Per-move hints shown if student struggles
+   │  └─ Computer auto-plays opponent moves
+   │
+   ├─ ALL challenges solved → POST /api/lesson-content/:id/complete
+   │  └─ lesson_progress row: completed=1, xp_earned
+   │
+   └─ Gamification: student_gamification.total_xp += xp_reward
+```
+
+**puzzle_challenges JSON schema (per challenge):**
+```json
+{
+  "puzzle_fen": "rnbqkbnr/...",
+  "puzzle_moves": "e2e4 e7e5",
+  "puzzle_instruction": "Find the best move for White",
+  "puzzle_hints": [
+    { "move": "e2e4", "hint": "Control the center", "role": "student" },
+    { "move": "e7e5", "hint": "Black mirrors the pawn", "role": "computer" }
+  ],
+  "puzzle_video_url": "https://...",
+  "xp_reward": 10
+}
+```
+
 ### Reporting Flow
 
 ```
@@ -520,6 +706,31 @@ Teacher: View reports (AdminPanel)
          └─ Update in-memory blocked cache
          └─ Excluded from future generation
 ```
+
+### Learning Materials & Content Descriptions Flow
+
+```
+Admin: lesson-content-editor → add markdown description
+   │
+   ├─ markdown-editor.js (split-pane editor with toolbar)
+   │
+   ├─ Save to lesson_content.description (migration 011)
+   │
+   └─ POST /api/content or PUT /api/content/:id
+      │
+      ▼
+Student: lesson-player.js loads content
+   │
+   ├─ Render description via safe-markdown.js
+   │  └─ Uses marked + DOMPurify (single source of truth)
+   │
+   ├─ Show [Download Learning Materials] button
+   │
+   └─ Download as HTML or Markdown via content-download-helper.js
+      └─ Client-side Blob + createObjectURL (no server overhead)
+```
+
+**Key Pattern**: `safe-markdown.js` centralizes markdown rendering to prevent XSS across all components. All user markdown → `safeMarkdown()` → HTML.
 
 ## Performance Architecture
 

@@ -1,17 +1,16 @@
 /**
  * ExercisePuzzleViewer.js
  * Reusable puzzle viewer modal for exercise puzzles.
- * Converts exercise puzzle format (UCI moves) to interactive board.
- * Same UI as the Generate page puzzle viewer.
+ * Delegates board interaction to shared InteractivePuzzleBoard.
+ * Owns: modal UI, grading, navigation, hints/solution display.
  */
 
-import { Chess } from 'chess.js'
-import { Chessground } from 'chessground'
+import { InteractivePuzzleBoard } from '../shared/interactive-puzzle-board.js'
+import { escapeHtml, uciMovesToSan } from '../shared/chess-puzzle-utils.js'
+import { formatThemeName, THEME_CATEGORIES } from '../puzzles/puzzleGeneration.js'
 
-function escapeHtml(str) {
-  if (!str) return ''
-  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
+// Build set of all categorized tactical themes (checkmates, tactics, endgames, etc.)
+const TACTICAL_THEMES = new Set(Object.values(THEME_CATEGORIES).flat())
 
 function getDifficultyInfo(rating) {
   if (rating >= 2000) return { label: 'Advanced', cls: 'badge-advanced' }
@@ -19,35 +18,36 @@ function getDifficultyInfo(rating) {
   return { label: 'Beginner', cls: 'badge-beginner' }
 }
 
-function parseUciMove(uci) {
-  return { from: uci.substring(0, 2), to: uci.substring(2, 4), promotion: uci.length > 4 ? uci[4] : undefined }
-}
-
+/** Convert raw exercise puzzle to display format */
 function convertExercisePuzzle(puzzle, index) {
-  const chess = new Chess(puzzle.fen)
   const uciMoves = (puzzle.moves || '').split(' ').filter(Boolean)
+  const sanMoves = uciMovesToSan(puzzle.fen, uciMoves)
 
-  // Convert UCI moves to SAN
-  const tempChess = new Chess(puzzle.fen)
-  const sanMoves = []
-  for (const uci of uciMoves) {
-    const parsed = parseUciMove(uci)
-    try {
-      const move = tempChess.move({ from: parsed.from, to: parsed.to, promotion: parsed.promotion })
-      if (move) sanMoves.push(move.san)
-    } catch { break }
-  }
-
-  const fenTurn = chess.turn()
+  // Determine whose turn from FEN (active color field)
+  const fenTurn = puzzle.fen.split(' ')[1] === 'w' ? 'w' : 'b'
   const hasOpponentMove = sanMoves.length > 1
-  const opponentMoveSAN = hasOpponentMove ? sanMoves[0] : null
   const sideToFind = hasOpponentMove
     ? (fenTurn === 'w' ? 'Black' : 'White')
     : (fenTurn === 'w' ? 'White' : 'Black')
 
-  const themes = typeof puzzle.themes === 'string'
+  const allThemes = typeof puzzle.themes === 'string'
     ? puzzle.themes.split(',').map(t => t.trim()).filter(Boolean)
     : (puzzle.themes || [])
+
+  // Show categorized tactical themes, removing redundant parent themes
+  // e.g., if "knightendgame" is present, "endgame" is redundant
+  const tacticalThemes = allThemes.filter(t => TACTICAL_THEMES.has(t.toLowerCase()))
+  const dedupedThemes = tacticalThemes.filter(t => {
+    const lower = t.toLowerCase()
+    // Remove generic "endgame" if a specific endgame type exists
+    if (lower === 'endgame') return !tacticalThemes.some(o => o.toLowerCase().endsWith('endgame') && o.toLowerCase() !== 'endgame')
+    // Remove length descriptors (short/long/verylong) — not useful as badges
+    if (['short', 'long', 'verylong'].includes(lower)) return false
+    return true
+  })
+  const themeNames = dedupedThemes.length > 0
+    ? dedupedThemes.map(t => formatThemeName(t))
+    : [formatThemeName(allThemes[0] || null)]
 
   const movesCount = hasOpponentMove
     ? Math.ceil((sanMoves.length - 1) / 2)
@@ -56,23 +56,15 @@ function convertExercisePuzzle(puzzle, index) {
   return {
     id: puzzle.id || `ex_${index}`,
     fen: puzzle.fen,
+    uciMoves,
+    sanMoves,
     rating: puzzle.rating || 0,
-    themeName: themes[0] ? themes[0].charAt(0).toUpperCase() + themes[0].slice(1) : 'Puzzle',
-    solutionLine: sanMoves,
-    opponentMove: opponentMoveSAN,
-    sideToMove: fenTurn === 'w' ? 'White' : 'Black',
+    themeName: themeNames[0],
+    themeNames,
     sideToFind,
-    movesCount
+    movesCount,
+    hasOpponentMove
   }
-}
-
-function getDestinationMap(chess) {
-  const dests = new Map()
-  chess.moves({ verbose: true }).forEach(move => {
-    if (!dests.has(move.from)) dests.set(move.from, [])
-    dests.get(move.from).push(move.to)
-  })
-  return dests
 }
 
 /**
@@ -88,7 +80,6 @@ export function openExercisePuzzleViewer(exercise, options = {}) {
   const title = exercise.name || exercise.week_label || 'Exercise'
   const startIndex = options.startIndex || 0
 
-  // Grading state: array of true/false/null per puzzle
   const gradingCtx = options.gradingMode ? {
     enabled: true,
     results: new Array(puzzles.length).fill(null),
@@ -114,22 +105,9 @@ function _openViewer(puzzles, title, puzzleIndex, gradingCtx = null) {
   const puzzle = puzzles[puzzleIndex]
   if (!puzzle) return
 
-  const chess = new Chess(puzzle.fen)
-  const fenTurn = chess.turn()
-  const solverColor = puzzle.opponentMove
-    ? (fenTurn === 'w' ? 'black' : 'white')
-    : (fenTurn === 'w' ? 'white' : 'black')
-
   const diff = getDifficultyInfo(puzzle.rating)
-
-  const state = {
-    chess,
-    currentMoveIndex: 0,
-    isComplete: false,
-    moveLog: [],
-    boardInstance: null,
-    orientation: solverColor
-  }
+  const moveLog = []
+  let puzzleBoard = null
 
   document.body.style.overflow = 'hidden'
 
@@ -138,22 +116,24 @@ function _openViewer(puzzles, title, puzzleIndex, gradingCtx = null) {
   overlay.innerHTML = `
     <div class="pv-dialog">
       <div class="pv-header">
-        <div class="pv-header-left">
+        <div class="pv-header-top">
           <span class="pv-title">${escapeHtml(title)} - #${puzzleIndex + 1}</span>
-          <span class="badge badge-theme">${escapeHtml(puzzle.themeName)}</span>
-          <span class="badge ${diff.cls}">${diff.label}</span>
+          <div class="pv-header-right">
+            <button class="pv-nav-btn" data-action="prev" ${puzzleIndex === 0 ? 'disabled' : ''}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <span class="pv-nav-text">${puzzleIndex + 1} / ${puzzles.length}</span>
+            <button class="pv-nav-btn pv-nav-btn-primary" data-action="next" ${puzzleIndex === puzzles.length - 1 ? 'disabled' : ''}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+            <button class="pv-close-btn" data-action="close">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
         </div>
-        <div class="pv-header-right">
-          <button class="pv-nav-btn" data-action="prev" ${puzzleIndex === 0 ? 'disabled' : ''}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-          </button>
-          <span class="pv-nav-text">${puzzleIndex + 1} / ${puzzles.length}</span>
-          <button class="pv-nav-btn pv-nav-btn-primary" data-action="next" ${puzzleIndex === puzzles.length - 1 ? 'disabled' : ''}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
-          <button class="pv-close-btn" data-action="close">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
+        <div class="pv-header-themes">
+          ${puzzle.themeNames.map(t => `<span class="badge badge-theme">${escapeHtml(t)}</span>`).join('')}
+          <span class="badge ${diff.cls}">${diff.label}</span>
         </div>
       </div>
       <div class="pv-body">
@@ -221,68 +201,63 @@ function _openViewer(puzzles, title, puzzleIndex, gradingCtx = null) {
 
   document.body.appendChild(overlay)
 
+  let gradeKeyHandler = null
+
   const close = () => {
     document.body.style.overflow = ''
-    if (state._gradeKeyHandler) document.removeEventListener('keydown', state._gradeKeyHandler)
-    if (state.boardInstance?.destroy) state.boardInstance.destroy()
+    if (gradeKeyHandler) document.removeEventListener('keydown', gradeKeyHandler)
+    if (puzzleBoard) puzzleBoard.destroy()
     document.body.removeChild(overlay)
     if (gradingCtx?.onGraded) gradingCtx.onGraded()
   }
 
-  // Init board
+  const navigateTo = (idx) => {
+    document.body.style.overflow = ''
+    if (gradeKeyHandler) document.removeEventListener('keydown', gradeKeyHandler)
+    if (puzzleBoard) puzzleBoard.destroy()
+    document.body.removeChild(overlay)
+    _openViewer(puzzles, title, idx, gradingCtx)
+  }
+
+  // Init board via shared module
   setTimeout(() => {
     const boardEl = document.getElementById('epv-board')
     if (!boardEl) return
 
-    const moveHandler = (orig, dest) => {
-      _handleMove(puzzle, state, orig, dest, overlay)
-    }
-
-    state.boardInstance = Chessground(boardEl, {
+    puzzleBoard = new InteractivePuzzleBoard({
       fen: puzzle.fen,
-      orientation: state.orientation,
-      coordinates: true,
-      movable: {
-        free: false,
-        color: chess.turn() === 'w' ? 'white' : 'black',
-        dests: getDestinationMap(chess),
-        events: { after: moveHandler }
+      solutionMoves: puzzle.uciMoves,
+      boardEl,
+      onCorrectMove: (san, idx) => {
+        _logMove(moveLog, san, 'correct')
+        _renderMoves(moveLog, puzzleBoard?.getState()?.isComplete === true, overlay)
       },
-      draggable: { enabled: true, showGhost: true },
-      animation: { enabled: true, duration: 200 },
-      highlight: { lastMove: true, check: true },
-      selectable: { enabled: true }
+      onWrongMove: (san) => {
+        _showStatus(overlay, 'error', 'Wrong move!', `${san} is not the best move here. Try again.`)
+        setTimeout(() => {
+          const statusEl = overlay.querySelector('#epv-status')
+          if (statusEl?.classList.contains('pv-status-error')) statusEl.style.display = 'none'
+        }, 3000)
+      },
+      onOpponentMove: (san, idx) => {
+        _logMove(moveLog, san, 'opponent')
+        _renderMoves(moveLog, false, overlay)
+      },
+      onPuzzleComplete: () => {
+        _renderMoves(moveLog, true, overlay)
+        _showStatus(overlay, 'success', 'Puzzle Solved!', 'Great work! You found the correct sequence.')
+        _hideActions(overlay, ['hint', 'solution'])
+      }
     })
-
-    state._moveHandler = moveHandler
-
-    if (puzzle.opponentMove) {
-      setTimeout(() => _autoPlayOpponent(puzzle, state, overlay), 600)
-    }
+    puzzleBoard.init()
   }, 50)
 
-  // Events
+  // --- Event handlers ---
   overlay.querySelector('[data-action="close"]').addEventListener('click', close)
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close() })
-
-  // Navigate without triggering onGraded callback
-  const navigateTo = (idx) => {
-    document.body.style.overflow = ''
-    if (state._gradeKeyHandler) document.removeEventListener('keydown', state._gradeKeyHandler)
-    if (state.boardInstance?.destroy) state.boardInstance.destroy()
-    document.body.removeChild(overlay)
-    _openViewer(puzzles, title, idx, gradingCtx)
-  }
-  overlay.querySelector('[data-action="prev"]').addEventListener('click', () => {
-    if (puzzleIndex > 0) navigateTo(puzzleIndex - 1)
-  })
-  overlay.querySelector('[data-action="next"]').addEventListener('click', () => {
-    if (puzzleIndex < puzzles.length - 1) navigateTo(puzzleIndex + 1)
-  })
-  overlay.querySelector('[data-action="flip"]').addEventListener('click', () => {
-    state.orientation = state.orientation === 'white' ? 'black' : 'white'
-    state.boardInstance.set({ orientation: state.orientation })
-  })
+  overlay.querySelector('[data-action="prev"]').addEventListener('click', () => { if (puzzleIndex > 0) navigateTo(puzzleIndex - 1) })
+  overlay.querySelector('[data-action="next"]').addEventListener('click', () => { if (puzzleIndex < puzzles.length - 1) navigateTo(puzzleIndex + 1) })
+  overlay.querySelector('[data-action="flip"]').addEventListener('click', () => { if (puzzleBoard) puzzleBoard.flip() })
   overlay.querySelector('[data-action="copy-fen"]').addEventListener('click', (e) => {
     navigator.clipboard.writeText(puzzle.fen)
     const btn = e.currentTarget
@@ -292,23 +267,26 @@ function _openViewer(puzzles, title, puzzleIndex, gradingCtx = null) {
     }, 2000)
   })
   overlay.querySelector('[data-action="hint"]').addEventListener('click', () => {
-    if (state.isComplete) return
-    const nextMove = puzzle.solutionLine[state.currentMoveIndex]
-    if (!nextMove) return
-    const firstChar = nextMove.charAt(0)
-    const hint = (firstChar === firstChar.toLowerCase()) ? 'Consider a pawn move' : `Consider moving your ${firstChar}`
+    if (!puzzleBoard || puzzleBoard.getState().isComplete) return
+    const expectedUci = puzzleBoard.getExpectedMove()
+    if (!expectedUci) return
+    // Find SAN for the expected move from the pre-computed list
+    const state = puzzleBoard.getState()
+    const san = puzzle.sanMoves[state.currentMoveIndex]
+    const firstChar = san?.charAt(0)
+    const hint = firstChar && firstChar === firstChar.toLowerCase() ? 'Consider a pawn move' : `Consider moving your ${firstChar}`
     _showStatus(overlay, 'hint', 'Hint', hint)
     const btn = overlay.querySelector('[data-action="hint"]')
     if (btn) { btn.disabled = true; btn.style.opacity = '0.5' }
   })
   overlay.querySelector('[data-action="solution"]').addEventListener('click', () => {
-    const playerMoves = puzzle.solutionLine.filter((_, i) => i % 2 === (puzzle.opponentMove ? 1 : 0))
+    const playerMoves = puzzle.sanMoves.filter((_, i) => i % 2 === (puzzle.hasOpponentMove ? 1 : 0))
     _showStatus(overlay, 'solution', 'Solution', playerMoves.join(' \u2192 '))
     const btn = overlay.querySelector('[data-action="solution"]')
     if (btn) { btn.disabled = true; btn.style.opacity = '0.5' }
   })
 
-  // Grading button handlers
+  // --- Grading handlers ---
   if (gradingCtx) {
     let isSaving = false
     const gradeAndSave = async (result) => {
@@ -316,17 +294,14 @@ function _openViewer(puzzles, title, puzzleIndex, gradingCtx = null) {
       isSaving = true
       gradingCtx.results[puzzleIndex] = result
 
-      // Update button states
       const correctBtn = overlay.querySelector('[data-action="grade-correct"]')
       const wrongBtn = overlay.querySelector('[data-action="grade-wrong"]')
       correctBtn.classList.toggle('active', result === true)
       wrongBtn.classList.toggle('active', result === false)
 
-      // Update summary
       const statusEl = overlay.querySelector('#epv-grade-status')
       if (statusEl) statusEl.innerHTML = _gradeSummaryHtml(gradingCtx)
 
-      // Save to server
       try {
         const score = gradingCtx.results.filter(r => r === true).length
         const puzzleResults = gradingCtx.results.map(r => r === true ? '1' : r === false ? '0' : '').join(',')
@@ -337,12 +312,10 @@ function _openViewer(puzzles, title, puzzleIndex, gradingCtx = null) {
         isSaving = false
       }
 
-      // Auto-advance to next ungraded puzzle
       const nextUngraded = gradingCtx.results.findIndex((r, i) => r === null && i > puzzleIndex)
       if (nextUngraded !== -1) {
         setTimeout(() => navigateTo(nextUngraded), 400)
       } else {
-        // Check if all graded
         const allGraded = gradingCtx.results.every(r => r !== null)
         if (allGraded) {
           _showStatus(overlay, 'success', 'All puzzles graded!',
@@ -354,116 +327,33 @@ function _openViewer(puzzles, title, puzzleIndex, gradingCtx = null) {
     overlay.querySelector('[data-action="grade-correct"]').addEventListener('click', () => gradeAndSave(true))
     overlay.querySelector('[data-action="grade-wrong"]').addEventListener('click', () => gradeAndSave(false))
 
-    // Keyboard shortcuts: C=correct, X=wrong
-    const keyHandler = (e) => {
+    gradeKeyHandler = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
       if (e.key === 'c' || e.key === 'C') gradeAndSave(true)
       else if (e.key === 'x' || e.key === 'X') gradeAndSave(false)
     }
-    document.addEventListener('keydown', keyHandler)
-    // Store for cleanup on navigation/close
-    state._gradeKeyHandler = keyHandler
+    document.addEventListener('keydown', gradeKeyHandler)
   }
 }
 
-function _autoPlayOpponent(puzzle, state, overlay) {
-  const moveSAN = puzzle.solutionLine[0]
-  try {
-    const move = state.chess.move(moveSAN)
-    if (!move) return
-    state.currentMoveIndex = 1
-    state.moveLog.push({ moveNum: 1, white: move.san, black: null, whiteType: 'opponent', blackType: null })
-    _updateBoard(state)
-    _renderMoves(state, overlay)
-  } catch { /* skip */ }
-}
+// --- Helper functions ---
 
-function _handleMove(puzzle, state, source, target, overlay) {
-  const solutionLine = puzzle.solutionLine
-  const expectedMove = solutionLine[state.currentMoveIndex]
-
-  let move = null
-  try {
-    move = state.chess.move({ from: source, to: target, promotion: 'q' })
-  } catch { return }
-
-  if (move.san === expectedMove) {
-    state.currentMoveIndex++
-    _logMove(state, move.san, 'correct')
-    _renderMoves(state, overlay)
-    _updateBoard(state)
-
-    if (state.currentMoveIndex >= solutionLine.length) {
-      state.isComplete = true
-      state.boardInstance.set({ movable: { color: undefined } })
-      _showStatus(overlay, 'success', 'Puzzle Solved!', 'Great work! You found the correct sequence.')
-      _hideActions(overlay, ['hint', 'solution'])
-      return
-    }
-
-    setTimeout(() => {
-      const oppMove = solutionLine[state.currentMoveIndex]
-      try {
-        const opp = state.chess.move(oppMove)
-        if (opp) {
-          state.currentMoveIndex++
-          _logMove(state, opp.san, 'opponent')
-          _renderMoves(state, overlay)
-          _updateBoard(state)
-
-          if (state.currentMoveIndex >= solutionLine.length) {
-            state.isComplete = true
-            state.boardInstance.set({ movable: { color: undefined } })
-            _showStatus(overlay, 'success', 'Puzzle Solved!', 'Great work! You found the correct sequence.')
-            _hideActions(overlay, ['hint', 'solution'])
-          }
-        }
-      } catch { /* skip */ }
-    }, 500)
-  } else {
-    state.chess.undo()
-    _updateBoard(state)
-    _showStatus(overlay, 'error', 'Wrong move!', `${move.san} is not the best move here. Try again.`)
-    setTimeout(() => {
-      const statusEl = overlay.querySelector('#epv-status')
-      if (statusEl?.classList.contains('pv-status-error')) statusEl.style.display = 'none'
-    }, 3000)
-  }
-}
-
-function _updateBoard(state) {
-  const newColor = state.chess.turn() === 'w' ? 'white' : 'black'
-  state.boardInstance.set({
-    fen: state.chess.fen(),
-    turnColor: newColor,
-    check: state.chess.inCheck(),
-    movable: {
-      free: false,
-      color: state.isComplete ? undefined : newColor,
-      dests: state.isComplete ? new Map() : getDestinationMap(state.chess),
-      showDests: true,
-      events: { after: state._moveHandler }
-    }
-  })
-}
-
-function _logMove(state, san, type) {
-  const lastEntry = state.moveLog[state.moveLog.length - 1]
+function _logMove(moveLog, san, type) {
+  const lastEntry = moveLog[moveLog.length - 1]
   if (lastEntry && lastEntry.black === null) {
-    state.moveLog[state.moveLog.length - 1] = { ...lastEntry, black: san, blackType: type }
+    moveLog[moveLog.length - 1] = { ...lastEntry, black: san, blackType: type }
   } else {
-    const moveNum = state.moveLog.length + 1
-    state.moveLog.push({ moveNum, white: san, whiteType: type, black: null, blackType: null })
+    const moveNum = moveLog.length + 1
+    moveLog.push({ moveNum, white: san, whiteType: type, black: null, blackType: null })
   }
 }
 
-function _renderMoves(state, overlay) {
+function _renderMoves(moveLog, isComplete, overlay) {
   const container = overlay.querySelector('#epv-moves')
   if (!container) return
 
-  const waitingForMove = !state.isComplete
-  container.innerHTML = state.moveLog.map((entry, i) => {
-    const isLast = i === state.moveLog.length - 1
+  container.innerHTML = moveLog.map((entry, i) => {
+    const isLast = i === moveLog.length - 1
     const wCls = entry.whiteType === 'opponent' ? 'pv-move-opp' : entry.whiteType === 'correct' ? 'pv-move-correct' : ''
     const bCls = entry.blackType === 'opponent' ? 'pv-move-opp' : entry.blackType === 'correct' ? 'pv-move-correct' : ''
 
@@ -472,7 +362,7 @@ function _renderMoves(state, overlay) {
       <span class="pv-move ${wCls}">${escapeHtml(entry.white)}</span>
       ${entry.black
         ? `<span class="pv-move ${bCls}">${escapeHtml(entry.black)}</span>`
-        : (isLast && waitingForMove ? '<span class="pv-move pv-move-waiting">Your move...</span>' : '')}
+        : (isLast && !isComplete ? '<span class="pv-move pv-move-waiting">Your move...</span>' : '')}
     </div>`
   }).join('')
 }

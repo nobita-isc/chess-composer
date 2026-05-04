@@ -10,7 +10,8 @@ vi.mock('../src/database/SqliteDatabase.js', () => ({
   database: {
     run: vi.fn(() => ({ changes: 1 })),
     query: vi.fn(() => []),
-    queryOne: vi.fn(() => null)
+    queryOne: vi.fn(() => null),
+    getPuzzlesByIds: vi.fn(() => [])
   }
 }))
 
@@ -40,53 +41,53 @@ describe('ExerciseService.createWeeklyExercise', () => {
     vi.clearAllMocks()
   })
 
-  it('rejects empty puzzleIds', () => {
-    const result = service.createWeeklyExercise({ puzzleIds: [] })
+  it('rejects empty puzzleIds', async () => {
+    const result = await service.createWeeklyExercise({ puzzleIds: [] })
     expect(result.success).toBe(false)
     expect(result.error).toContain('At least one puzzle')
   })
 
-  it('rejects null puzzleIds', () => {
-    const result = service.createWeeklyExercise({ puzzleIds: null })
+  it('rejects null puzzleIds', async () => {
+    const result = await service.createWeeklyExercise({ puzzleIds: null })
     expect(result.success).toBe(false)
   })
 
-  it('rejects non-array puzzleIds', () => {
-    const result = service.createWeeklyExercise({ puzzleIds: 'abc' })
+  it('rejects non-array puzzleIds', async () => {
+    const result = await service.createWeeklyExercise({ puzzleIds: 'abc' })
     expect(result.success).toBe(false)
   })
 
-  it('rejects invalid puzzle ID format (spaces)', () => {
-    const result = service.createWeeklyExercise({ puzzleIds: ['valid_id', 'invalid id'] })
+  it('rejects invalid puzzle ID format (spaces)', async () => {
+    const result = await service.createWeeklyExercise({ puzzleIds: ['valid_id', 'invalid id'] })
     expect(result.success).toBe(false)
     expect(result.error).toContain('Invalid puzzle ID format')
   })
 
-  it('rejects puzzle IDs with special characters', () => {
-    const result = service.createWeeklyExercise({ puzzleIds: ['abc<script>'] })
+  it('rejects puzzle IDs with special characters', async () => {
+    const result = await service.createWeeklyExercise({ puzzleIds: ['abc<script>'] })
     expect(result.success).toBe(false)
   })
 
-  it('accepts valid alphanumeric puzzle IDs', () => {
+  it('accepts valid alphanumeric puzzle IDs', async () => {
     exerciseRepository.createExercise.mockReturnValue({
       success: true,
       data: { id: 'test_id_123' }
     })
 
-    const result = service.createWeeklyExercise({
+    const result = await service.createWeeklyExercise({
       puzzleIds: ['abc123', 'def-456', 'ghi_789'],
       weekStart: '2026-03-23'
     })
     expect(result.success).toBe(true)
   })
 
-  it('passes correct data to repository', () => {
+  it('passes correct data to repository', async () => {
     exerciseRepository.createExercise.mockReturnValue({
       success: true,
       data: { id: 'test_id_123' }
     })
 
-    service.createWeeklyExercise({
+    await service.createWeeklyExercise({
       puzzleIds: ['p1', 'p2'],
       name: 'Test Exercise',
       weekStart: '2026-03-23',
@@ -103,13 +104,13 @@ describe('ExerciseService.createWeeklyExercise', () => {
     )
   })
 
-  it('generates default name when none provided', () => {
+  it('generates default name when none provided', async () => {
     exerciseRepository.createExercise.mockReturnValue({
       success: true,
       data: { id: 'test_id_123' }
     })
 
-    service.createWeeklyExercise({
+    await service.createWeeklyExercise({
       puzzleIds: ['p1'],
       weekStart: '2026-03-23'
     })

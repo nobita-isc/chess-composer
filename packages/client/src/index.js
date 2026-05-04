@@ -11,6 +11,8 @@ import { authManager } from './auth/AuthManager.js'
 import { renderLoginView } from './auth/LoginView.js'
 import { renderStudentDashboard } from './auth/StudentDashboard.js'
 import { renderUsersPage } from './auth/UserManagementPanel.js'
+import { renderCoursesPage } from './lessons/CourseManagementPage.js'
+import { renderVideoManagerPage } from './lessons/video-manager-page.js'
 import { HashRouter } from './core/HashRouter.js'
 import {
   createAdminRoutes,
@@ -80,6 +82,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderMyExercises: (container) => {
         return renderStudentDashboard(container, apiClient, { initialTab: 'exercises' })
       },
+      renderCourses: (container) => {
+        return renderStudentDashboard(container, apiClient, { initialTab: 'courses' })
+      },
       renderPerformance: (container) => {
         return renderStudentDashboard(container, apiClient, { initialTab: 'performance' })
       }
@@ -135,6 +140,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       <span class="sidebar-label">Users</span>
     `
     dynamicNav.appendChild(usersBtn)
+
+    const videosBtn = document.createElement('button')
+    videosBtn.id = 'nav-videos'
+    videosBtn.className = 'sidebar-nav-item'
+    videosBtn.title = 'Video Library'
+    videosBtn.innerHTML = `
+      <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+      <span class="sidebar-label">Videos</span>
+    `
+    dynamicNav.appendChild(videosBtn)
   }
 
   // Initialize puzzle generator
@@ -158,7 +173,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       )
     },
     renderReports: (container) => renderAdminPage(container, apiClient),
-    renderUsers: (container) => renderUsersPage(container, apiClient)
+    renderCourses: (container) => renderCoursesPage(container, apiClient),
+    renderUsers: (container) => renderUsersPage(container, apiClient),
+    renderVideos: (container) => renderVideoManagerPage(container)
   })
 
   const router = new HashRouter({
@@ -199,8 +216,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const navMap = {
     'nav-generate': '/generate',
     'exercises-btn': '/exercises',
+    'nav-courses': '/courses',
     'admin-btn': '/reports',
-    'users-btn': '/users'
+    'users-btn': '/users',
+    'nav-videos': '/videos'
   }
 
   Object.entries(navMap).forEach(([btnId, path]) => {

@@ -35,7 +35,7 @@ auth.post('/refresh', async (c) => {
       return c.json({ success: false, error: 'Refresh token is required' }, 400);
     }
 
-    const result = authService.refreshAccessToken(refresh_token);
+    const result = await authService.refreshAccessToken(refresh_token);
 
     if (!result.success) {
       return c.json({ success: false, error: result.error }, 401);

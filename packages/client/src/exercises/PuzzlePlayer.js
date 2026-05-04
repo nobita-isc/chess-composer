@@ -2,40 +2,14 @@
  * PuzzlePlayer.js
  * Interactive puzzle player for exercises
  * Allows users to play through puzzles and check their answers
+ * Board interaction delegated to shared InteractivePuzzleBoard.
  */
 
 import { Chess } from 'chess.js';
 import { Chessground } from 'chessground';
+import { InteractivePuzzleBoard } from '../shared/interactive-puzzle-board.js';
+import { escapeHtml, uciMovesToSan, parseUciMove } from '../shared/chess-puzzle-utils.js';
 import { showAppAlert } from '../shared/app-dialogs.js';
-
-/**
- * Parse UCI move (e.g., "e2e4") to { from, to, promotion }
- */
-function parseUciMove(uci) {
-  if (!uci || uci.length < 4) return null;
-  return {
-    from: uci.slice(0, 2),
-    to: uci.slice(2, 4),
-    promotion: uci.length > 4 ? uci[4] : undefined
-  };
-}
-
-/**
- * Get legal moves as a Map for chessground
- */
-function getLegalMoves(chess) {
-  const dests = new Map();
-  const moves = chess.moves({ verbose: true });
-
-  for (const move of moves) {
-    if (!dests.has(move.from)) {
-      dests.set(move.from, []);
-    }
-    dests.get(move.from).push(move.to);
-  }
-
-  return dests;
-}
 
 /**
  * Open interactive puzzle player
@@ -70,18 +44,16 @@ export function openPuzzlePlayer(exercise, options = {}) {
 
   // Build students list from assignments or single assignment
   const students = assignments || (assignment ? [assignment] : []);
-  const multiStudentMode = students.length > 1;
 
   let currentIndex = 0;
   let currentStudentIndex = 0;
+  // boardInstance: InteractivePuzzleBoard (interactive) or Chessground instance (review)
   let boardInstance = null;
-  let puzzleState = null;
   let savePending = false;
 
   // For grading mode: track results per student
   // studentResults[studentIndex][puzzleIndex] = true/false/null
   const studentResults = students.map((student) => {
-    // Load existing puzzle_results if available
     if (student.puzzle_results) {
       const parts = student.puzzle_results.split(',');
       return puzzles.map((_, i) => {
@@ -681,13 +653,17 @@ export function openPuzzlePlayer(exercise, options = {}) {
   `;
   document.head.appendChild(style);
 
+  // Per-puzzle data cache (fen, moves array) for hint/solution/review access
+  let currentPuzzleData = null;
+
   /**
    * Initialize puzzle at given index
    */
   function initPuzzle(index) {
     // Student mode: mark previous puzzle as wrong if navigating away without solving
-    if (studentMode && solveResults && puzzleState && currentIndex !== index) {
-      if (solveResults[currentIndex] === null && !puzzleState.isComplete) {
+    if (studentMode && solveResults && currentPuzzleData && currentIndex !== index) {
+      const prevState = boardInstance && !reviewMode ? boardInstance.getState() : null;
+      if (solveResults[currentIndex] === null && !(prevState && prevState.isComplete)) {
         solveResults[currentIndex] = false;
         saveStudentSolveResults();
       }
@@ -695,239 +671,102 @@ export function openPuzzlePlayer(exercise, options = {}) {
 
     currentIndex = index;
     const puzzle = puzzles[index];
+    const moves = puzzle.moves ? puzzle.moves.split(' ').filter(Boolean) : [];
+
+    // Derive the SAN of the first (opponent) move for display
+    const sanMoves = uciMovesToSan(puzzle.fen, moves);
+    const lastMoveSan = sanMoves.length > 0 ? sanMoves[0] : null;
+
+    // Determine player color from original FEN (player is opposite of whose turn in FEN)
+    const fenTurn = puzzle.fen.split(' ')[1];
+    const playerColor = fenTurn === 'w' ? 'black' : 'white';
+
+    // Cache current puzzle data for hint/solution/showSolution access
+    currentPuzzleData = { puzzle, moves, sanMoves };
 
     // Update navigation
     overlay.querySelector('#puzzle-current').textContent = index + 1;
     overlay.querySelector('#btn-prev').disabled = index === 0;
     overlay.querySelector('#btn-next').disabled = index === puzzles.length - 1;
 
-    // Parse moves
-    const moves = puzzle.moves ? puzzle.moves.split(' ') : [];
-
-    // Create chess instance and play opponent's first move
-    const chess = new Chess(puzzle.fen);
-    let lastMoveSan = null;
-
-    if (moves.length > 0) {
-      const uciMove = parseUciMove(moves[0]);
-      if (uciMove) {
-        const move = chess.move(uciMove);
-        if (move) {
-          lastMoveSan = move.san;
-        }
-      }
-    }
-
-    // Determine player color (whose turn after opponent's move)
-    const playerColor = chess.turn();
-    const orientation = playerColor === 'b' ? 'black' : 'white';
-
-    // Store puzzle state
-    puzzleState = {
-      puzzle,
-      chess,
-      moves,
-      currentMoveIndex: 1, // Start after opponent's first move
-      playerColor,
-      isComplete: false,
-      solutionShown: false
-    };
-
-    // Update UI
-    const turnText = playerColor === 'w' ? 'White to move' : 'Black to move';
+    // Update UI labels
+    const turnText = playerColor === 'white' ? 'White to move' : 'Black to move';
     const turnEl = overlay.querySelector('#puzzle-turn');
     turnEl.textContent = turnText;
-    turnEl.className = `puzzle-turn-indicator ${playerColor === 'w' ? 'white' : 'black'}`;
+    turnEl.className = `puzzle-turn-indicator ${playerColor}`;
 
     overlay.querySelector('#puzzle-last-move').textContent =
       lastMoveSan ? `After ${lastMoveSan}` : '';
-
     overlay.querySelector('#puzzle-rating').textContent =
       puzzle.rating ? `Rating: ${puzzle.rating}` : '';
-
     overlay.querySelector('#puzzle-solution-display').innerHTML = '';
     hideFeedback();
 
-    // Update grading UI if in grading mode
-    if (gradingMode) {
-      updateGradingUI();
-    }
+    if (gradingMode) updateGradingUI();
+    if (studentMode || reviewMode) updateStudentSolveUI();
 
-    // Update student/review mode UI
-    if (studentMode || reviewMode) {
-      updateStudentSolveUI();
-    }
-
-    // Initialize or update board
-    const boardEl = overlay.querySelector('#puzzle-board');
-
+    // Destroy previous board
     if (boardInstance) {
       boardInstance.destroy();
+      boardInstance = null;
     }
 
-    boardInstance = Chessground(boardEl, {
-      fen: chess.fen(),
-      orientation,
-      turnColor: playerColor === 'w' ? 'white' : 'black',
-      movable: {
-        free: false,
-        color: playerColor === 'w' ? 'white' : 'black',
-        dests: getLegalMoves(chess),
-        events: {
-          after: handleMove
-        }
-      },
-      draggable: {
-        enabled: true,
-        showGhost: true
-      },
-      animation: {
-        enabled: true,
-        duration: 200
-      },
-      highlight: {
-        lastMove: true,
-        check: true
-      },
-      premovable: {
-        enabled: false
-      }
-    });
+    const boardEl = overlay.querySelector('#puzzle-board');
 
-    // Review mode: disable board interaction
     if (reviewMode) {
-      boardInstance.set({
+      // Review mode: view-only Chessground — apply opponent's first move manually
+      const chess = new Chess(puzzle.fen);
+      if (moves.length > 0) {
+        const parsed = parseUciMove(moves[0]);
+        if (parsed) chess.move(parsed);
+      }
+      boardInstance = Chessground(boardEl, {
+        fen: chess.fen(),
+        orientation: playerColor,
+        coordinates: true,
+        viewOnly: true,
         movable: { free: false, color: undefined, dests: new Map() },
-        draggable: { enabled: false }
+        draggable: { enabled: false },
+        animation: { enabled: true, duration: 200 },
+        highlight: { lastMove: true, check: chess.inCheck() },
+        premovable: { enabled: false }
       });
-    }
-  }
-
-  /**
-   * Handle user move
-   */
-  function handleMove(from, to) {
-    if (puzzleState.isComplete) return;
-
-    const { chess, moves, currentMoveIndex, playerColor } = puzzleState;
-
-    // Try to make the move
-    const move = chess.move({ from, to, promotion: 'q' });
-
-    if (!move) {
-      // Invalid move, reset board
-      boardInstance.set({ fen: chess.fen() });
       return;
     }
 
-    // Check if this is the expected move
-    const expectedUci = moves[currentMoveIndex];
-    const expectedMove = parseUciMove(expectedUci);
-
-    const isCorrect = expectedMove &&
-      move.from === expectedMove.from &&
-      move.to === expectedMove.to;
-
-    if (isCorrect) {
-      // Correct move
-      showFeedback('Correct!', 'correct');
-      puzzleState.currentMoveIndex++;
-
-      // Update board
-      boardInstance.set({
-        fen: chess.fen(),
-        lastMove: [from, to],
-        turnColor: chess.turn() === 'w' ? 'white' : 'black',
-        movable: {
-          dests: new Map() // Disable moves temporarily
+    // Interactive mode: delegate to shared InteractivePuzzleBoard
+    boardInstance = new InteractivePuzzleBoard({
+      fen: puzzle.fen,
+      solutionMoves: moves,
+      boardEl,
+      opponentMoveDelay: 500,
+      initialDelay: 600,
+      onBoardReady: () => {
+        // Board ready after first opponent move — no extra action needed
+      },
+      onCorrectMove: (san) => {
+        showFeedback('Correct!', 'correct');
+      },
+      onWrongMove: () => {
+        showFeedback('Try again', 'incorrect');
+        // Student mode: track wrong attempt
+        if (studentMode && solveResults) {
+          if (!currentPuzzleData._wrongAttempts) currentPuzzleData._wrongAttempts = 0;
+          currentPuzzleData._wrongAttempts++;
         }
-      });
-
-      // Check if puzzle is complete
-      if (puzzleState.currentMoveIndex >= moves.length) {
-        puzzleState.isComplete = true;
+      },
+      onPuzzleComplete: () => {
         showFeedback('Puzzle Complete!', 'complete');
-        boardInstance.set({
-          movable: { dests: new Map() }
-        });
-
-        // Student mode: auto-mark as correct (allows re-solving previously wrong puzzles)
+        // Student mode: auto-mark as correct
         if (studentMode && solveResults && solveResults[currentIndex] !== true) {
           solveResults[currentIndex] = true;
           updateStudentSolveUI();
           saveStudentSolveResults();
         }
-      } else {
-        // Play opponent's next move after delay
-        setTimeout(() => playOpponentMove(), 500);
-      }
-    } else {
-      // Incorrect move - undo and allow retry
-      chess.undo();
-      showFeedback('Try again', 'incorrect');
-
-      // Student mode: track wrong attempt
-      if (studentMode && solveResults) {
-        puzzleState.wrongAttempts = (puzzleState.wrongAttempts || 0) + 1;
-      }
-
-      boardInstance.set({
-        fen: chess.fen(),
-        turnColor: playerColor === 'w' ? 'white' : 'black',
-        movable: {
-          color: playerColor === 'w' ? 'white' : 'black',
-          dests: getLegalMoves(chess)
-        }
-      });
-    }
-  }
-
-  /**
-   * Play opponent's next move
-   */
-  function playOpponentMove() {
-    const { chess, moves, currentMoveIndex, playerColor } = puzzleState;
-
-    if (currentMoveIndex >= moves.length) return;
-
-    const uciMove = parseUciMove(moves[currentMoveIndex]);
-    if (!uciMove) return;
-
-    const move = chess.move(uciMove);
-    if (!move) return;
-
-    puzzleState.currentMoveIndex++;
-
-    // Animate the move
-    boardInstance.move(move.from, move.to);
-
-    boardInstance.set({
-      fen: chess.fen(),
-      lastMove: [move.from, move.to],
-      turnColor: playerColor === 'w' ? 'white' : 'black',
-      check: chess.inCheck(),
-      movable: {
-        color: playerColor === 'w' ? 'white' : 'black',
-        dests: getLegalMoves(chess)
       }
     });
 
-    // Check if puzzle is complete after opponent's move
-    if (puzzleState.currentMoveIndex >= moves.length) {
-      puzzleState.isComplete = true;
-      showFeedback('Puzzle Complete!', 'complete');
-
-      // Student mode: auto-mark as correct (allows re-solving previously wrong puzzles)
-      if (studentMode && solveResults && solveResults[currentIndex] !== true) {
-        solveResults[currentIndex] = true;
-        updateStudentSolveUI();
-        saveStudentSolveResults();
-      }
-
-      boardInstance.set({
-        movable: { dests: new Map() }
-      });
-    }
+    boardInstance.init();
   }
 
   /**
@@ -951,66 +790,70 @@ export function openPuzzlePlayer(exercise, options = {}) {
    * Reset current puzzle
    */
   function resetPuzzle() {
-    initPuzzle(currentIndex);
+    if (reviewMode) {
+      initPuzzle(currentIndex);
+      return;
+    }
+    if (boardInstance && boardInstance.reset) {
+      boardInstance.reset();
+      hideFeedback();
+      overlay.querySelector('#puzzle-solution-display').innerHTML = '';
+    }
   }
 
   /**
-   * Show hint (highlight the target square)
+   * Show hint (highlight the source square of the expected move)
    */
   function showHint() {
-    const { moves, currentMoveIndex, isComplete } = puzzleState;
+    if (!currentPuzzleData || reviewMode) return;
+    if (!boardInstance) return;
 
-    if (isComplete || currentMoveIndex >= moves.length) return;
+    const state = boardInstance.getState();
+    if (state.isComplete) return;
+
+    const expectedUci = boardInstance.getExpectedMove();
+    if (!expectedUci) return;
 
     // Student mode: record hint usage for this puzzle
     if (studentMode && hintUsed) {
       hintUsed[currentIndex] = true;
     }
 
-    const expectedMove = parseUciMove(moves[currentMoveIndex]);
-    if (!expectedMove) return;
+    const parsed = parseUciMove(expectedUci);
+    if (!parsed) return;
 
-    // Flash the source square
-    boardInstance.setAutoShapes([
-      { orig: expectedMove.from, brush: 'green' }
-    ]);
+    const cgBoard = boardInstance.getBoard();
+    if (!cgBoard) return;
 
-    setTimeout(() => {
-      boardInstance.setAutoShapes([]);
-    }, 1500);
+    cgBoard.setAutoShapes([{ orig: parsed.from, brush: 'green' }]);
+    setTimeout(() => cgBoard.setAutoShapes([]), 1500);
   }
 
   /**
    * Show solution
    */
   function showSolution() {
-    const { puzzle, moves } = puzzleState;
-    puzzleState.solutionShown = true;
+    if (!currentPuzzleData) return;
+    const { puzzle, moves, sanMoves } = currentPuzzleData;
 
-    // Parse all moves to SAN
-    const tempChess = new Chess(puzzle.fen);
-    const sanMoves = [];
+    // currentMoveIndex from shared module (number of moves played so far, including opponent's first)
+    const currentMoveIndex = reviewMode
+      ? moves.length
+      : (boardInstance ? boardInstance.getState().currentMoveIndex : 0);
 
-    for (const uci of moves) {
-      const uciMove = parseUciMove(uci);
-      if (uciMove) {
-        const move = tempChess.move(uciMove);
-        if (move) {
-          sanMoves.push(move.san);
-        }
-      }
-    }
-
-    // Display solution
     const solutionEl = overlay.querySelector('#puzzle-solution-display');
+
+    // Determine initial FEN turn for move number prefix logic
+    const fenTurnChar = puzzle.fen.split(' ')[1];
+
     solutionEl.innerHTML = `
       <strong>Solution:</strong><br>
       ${sanMoves.map((san, i) => {
-        const isPlayed = i < puzzleState.currentMoveIndex;
-        const isCurrent = i === puzzleState.currentMoveIndex;
+        const isPlayed = i < currentMoveIndex;
+        const isCurrent = i === currentMoveIndex;
         const moveNum = Math.floor(i / 2) + 1;
-        const isWhite = i % 2 === (tempChess.turn() === 'b' ? 1 : 0);
-        const prefix = isWhite || i === 0 ? `${moveNum}. ` : '';
+        const isWhiteMove = i % 2 === (fenTurnChar === 'b' ? 1 : 0);
+        const prefix = isWhiteMove || i === 0 ? `${moveNum}. ` : '';
         return `<span class="move ${isPlayed ? 'played' : ''} ${isCurrent ? 'current' : ''}">${prefix}${san}</span>`;
       }).join(' ')}
     `;
@@ -1018,16 +861,10 @@ export function openPuzzlePlayer(exercise, options = {}) {
 
   // ==================== Grading Functions ====================
 
-  /**
-   * Get current student's results array
-   */
   function getCurrentResults() {
     return studentResults[currentStudentIndex] || [];
   }
 
-  /**
-   * Save grade for a specific student immediately
-   */
   async function saveStudentGrade(studentIndex) {
     if (!gradingMode || !apiClient || !students[studentIndex]) return;
 
@@ -1035,14 +872,12 @@ export function openPuzzlePlayer(exercise, options = {}) {
     const results = studentResults[studentIndex];
     const correctCount = results.filter(r => r === true).length;
 
-    // Convert results to comma-separated string (1=correct, 0=wrong, empty=not graded)
     const puzzleResultsStr = results.map(r => {
       if (r === true) return '1';
       if (r === false) return '0';
       return '';
     }).join(',');
 
-    // Show saving indicator
     const statusEl = overlay.querySelector('#puzzle-grade-status');
     if (statusEl) {
       statusEl.textContent = 'Saving...';
@@ -1073,9 +908,6 @@ export function openPuzzlePlayer(exercise, options = {}) {
     }
   }
 
-  /**
-   * Mark current puzzle as correct and save immediately
-   */
   function markCorrect() {
     studentResults[currentStudentIndex][currentIndex] = true;
     updateGradingUI();
@@ -1083,9 +915,6 @@ export function openPuzzlePlayer(exercise, options = {}) {
     autoAdvance();
   }
 
-  /**
-   * Mark current puzzle as wrong and save immediately
-   */
   function markWrong() {
     studentResults[currentStudentIndex][currentIndex] = false;
     updateGradingUI();
@@ -1093,87 +922,57 @@ export function openPuzzlePlayer(exercise, options = {}) {
     autoAdvance();
   }
 
-  /**
-   * Auto-advance to next ungraded puzzle (within same student only)
-   */
   function autoAdvance() {
     const results = getCurrentResults();
-
-    // Find next ungraded puzzle for current student
     for (let i = currentIndex + 1; i < puzzles.length; i++) {
       if (results[i] === null) {
         setTimeout(() => initPuzzle(i), 300);
         return;
       }
     }
-    // Check before current
     for (let i = 0; i < currentIndex; i++) {
       if (results[i] === null) {
         setTimeout(() => initPuzzle(i), 300);
         return;
       }
     }
-
-    // All puzzles graded for current student - stay on current puzzle
-    // User can manually switch to next student using tabs
   }
 
-  /**
-   * Switch to a different student
-   */
   function switchStudent(studentIndex) {
     currentStudentIndex = studentIndex;
 
-    // Update student tabs
     const tabs = overlay.querySelectorAll('.student-tab');
     tabs.forEach((tab, i) => {
       tab.classList.toggle('active', i === studentIndex);
     });
 
-    // Go to first ungraded puzzle for this student, or puzzle 0
     const results = getCurrentResults();
     const firstUngraded = results.findIndex(r => r === null);
     initPuzzle(firstUngraded >= 0 ? firstUngraded : 0);
   }
 
-  /**
-   * Update grading UI elements
-   */
   function updateGradingUI() {
     if (!gradingMode) return;
 
     const results = getCurrentResults();
 
-    // Update dots for current student
     const dots = overlay.querySelectorAll('.grading-dot');
     dots.forEach((dot, i) => {
       dot.classList.remove('active', 'correct', 'wrong');
-      if (i === currentIndex) {
-        dot.classList.add('active');
-      }
-      if (results[i] === true) {
-        dot.classList.add('correct');
-      } else if (results[i] === false) {
-        dot.classList.add('wrong');
-      }
+      if (i === currentIndex) dot.classList.add('active');
+      if (results[i] === true) dot.classList.add('correct');
+      else if (results[i] === false) dot.classList.add('wrong');
     });
 
-    // Update current student score
     const correctCount = results.filter(r => r === true).length;
     const scoreEl = overlay.querySelector('#grading-score');
-    if (scoreEl) {
-      scoreEl.textContent = `Score: ${correctCount}/${puzzles.length}`;
-    }
+    if (scoreEl) scoreEl.textContent = `Score: ${correctCount}/${puzzles.length}`;
 
-    // Update all student tabs with their scores
     students.forEach((_, i) => {
       const studentCorrect = studentResults[i].filter(r => r === true).length;
       const studentScoreEl = overlay.querySelector(`#student-score-${i}`);
-      if (studentScoreEl) {
-        studentScoreEl.textContent = `${studentCorrect}/${puzzles.length}`;
-      }
+      if (studentScoreEl) studentScoreEl.textContent = `${studentCorrect}/${puzzles.length}`;
 
-      // Mark tab as complete if all graded
       const tab = overlay.querySelector(`.student-tab[data-index="${i}"]`);
       if (tab) {
         const allGraded = studentResults[i].every(r => r !== null);
@@ -1181,7 +980,6 @@ export function openPuzzlePlayer(exercise, options = {}) {
       }
     });
 
-    // Update grade buttons
     const correctBtn = overlay.querySelector('#btn-correct');
     const wrongBtn = overlay.querySelector('#btn-wrong');
     const statusEl = overlay.querySelector('#puzzle-grade-status');
@@ -1201,14 +999,12 @@ export function openPuzzlePlayer(exercise, options = {}) {
       }
     }
 
-    // Update done button (grades auto-save, this just closes)
     const saveBtn = overlay.querySelector('#btn-save-grade');
     if (saveBtn) {
       const allStudentsGraded = studentResults.every(sr => sr.every(r => r !== null));
       const totalGraded = studentResults.flat().filter(r => r !== null).length;
       const totalPuzzles = students.length * puzzles.length;
 
-      // Always enabled - grades are auto-saved
       saveBtn.disabled = false;
 
       if (allStudentsGraded) {
@@ -1227,22 +1023,15 @@ export function openPuzzlePlayer(exercise, options = {}) {
     }
   }
 
-  /**
-   * Close and notify (grades are already auto-saved)
-   */
   function finishGrading() {
-    close(); // close() handles the onGraded callback
+    close();
   }
 
   // ==================== Student Solve Functions ====================
 
-  /**
-   * Update student/review mode UI: progress dots, score, status, finish button
-   */
   function updateStudentSolveUI() {
     if (!solveResults) return;
 
-    // Update progress dots
     const dots = overlay.querySelectorAll('.grading-dot');
     dots.forEach((dot, i) => {
       dot.classList.remove('active', 'correct', 'wrong', 'hint-used');
@@ -1255,14 +1044,10 @@ export function openPuzzlePlayer(exercise, options = {}) {
       }
     });
 
-    // Update score
     const correctCount = solveResults.filter(r => r === true).length;
     const scoreEl = overlay.querySelector('#student-solve-score');
-    if (scoreEl) {
-      scoreEl.textContent = `${correctCount}/${puzzles.length}`;
-    }
+    if (scoreEl) scoreEl.textContent = `${correctCount}/${puzzles.length}`;
 
-    // Update puzzle status text (student mode only)
     if (studentMode) {
       const statusEl = overlay.querySelector('#student-puzzle-status');
       if (statusEl) {
@@ -1282,10 +1067,7 @@ export function openPuzzlePlayer(exercise, options = {}) {
           statusEl.className = 'puzzle-grade-status';
         }
       }
-    }
 
-    // Update finish button (student mode only)
-    if (studentMode) {
       const finishBtn = overlay.querySelector('#btn-finish-solving');
       if (finishBtn) {
         const solvedCount = solveResults.filter(r => r !== null).length;
@@ -1301,9 +1083,6 @@ export function openPuzzlePlayer(exercise, options = {}) {
     }
   }
 
-  /**
-   * Save student solve results to server via gradeExercise API
-   */
   async function saveStudentSolveResults() {
     if (!studentMode || !apiClient || !studentExerciseId || !solveResults) return;
     if (savePending) return;
@@ -1353,13 +1132,10 @@ export function openPuzzlePlayer(exercise, options = {}) {
     }
   }
 
-  /**
-   * Finish solving: mark current puzzle as wrong if unsolved, then close
-   */
   async function finishSolving() {
     if (studentMode && solveResults) {
-      // Mark current puzzle as wrong if unsolved
-      if (solveResults[currentIndex] === null && puzzleState && !puzzleState.isComplete) {
+      const state = boardInstance && !reviewMode ? boardInstance.getState() : null;
+      if (solveResults[currentIndex] === null && !(state && state.isComplete)) {
         solveResults[currentIndex] = false;
         await saveStudentSolveResults();
       }
@@ -1375,59 +1151,44 @@ export function openPuzzlePlayer(exercise, options = {}) {
   });
 
   overlay.querySelector('#btn-prev').addEventListener('click', () => {
-    if (currentIndex > 0) {
-      initPuzzle(currentIndex - 1);
-    }
+    if (currentIndex > 0) initPuzzle(currentIndex - 1);
   });
 
   overlay.querySelector('#btn-next').addEventListener('click', () => {
-    if (currentIndex < puzzles.length - 1) {
-      initPuzzle(currentIndex + 1);
-    }
+    if (currentIndex < puzzles.length - 1) initPuzzle(currentIndex + 1);
   });
 
   overlay.querySelector('#btn-reset').addEventListener('click', resetPuzzle);
   overlay.querySelector('#btn-hint')?.addEventListener('click', showHint);
   overlay.querySelector('#btn-solution')?.addEventListener('click', showSolution);
 
-  // Student/review mode event listeners
   if (studentMode || reviewMode) {
-    // Dot click handlers
     overlay.querySelectorAll('.grading-dot').forEach(dot => {
       dot.addEventListener('click', () => {
-        const index = parseInt(dot.dataset.index, 10);
-        initPuzzle(index);
+        initPuzzle(parseInt(dot.dataset.index, 10));
       });
     });
-
-    // Finish button (student mode only)
     overlay.querySelector('#btn-finish-solving')?.addEventListener('click', finishSolving);
   }
 
-  // Grading mode event listeners
   if (gradingMode) {
     overlay.querySelector('#btn-correct')?.addEventListener('click', markCorrect);
     overlay.querySelector('#btn-wrong')?.addEventListener('click', markWrong);
     overlay.querySelector('#btn-save-grade')?.addEventListener('click', finishGrading);
 
-    // Grading dot click handlers
     overlay.querySelectorAll('.grading-dot').forEach(dot => {
       dot.addEventListener('click', () => {
-        const index = parseInt(dot.dataset.index, 10);
-        initPuzzle(index);
+        initPuzzle(parseInt(dot.dataset.index, 10));
       });
     });
 
-    // Student tab click handlers
     overlay.querySelectorAll('.student-tab').forEach(tab => {
       tab.addEventListener('click', () => {
-        const index = parseInt(tab.dataset.index, 10);
-        switchStudent(index);
+        switchStudent(parseInt(tab.dataset.index, 10));
       });
     });
   }
 
-  // Keyboard navigation
   function handleKeyDown(e) {
     if (e.key === 'Escape') {
       close();
@@ -1454,11 +1215,11 @@ export function openPuzzlePlayer(exercise, options = {}) {
     document.removeEventListener('keydown', handleKeyDown);
     if (boardInstance) {
       boardInstance.destroy();
+      boardInstance = null;
     }
     style.remove();
     overlay.remove();
 
-    // Call onGraded callback to refresh the list
     if (gradingMode && onGraded) {
       const results = students.map((student, i) => ({
         studentId: student.id,
@@ -1468,26 +1229,13 @@ export function openPuzzlePlayer(exercise, options = {}) {
       onGraded(results);
     }
 
-    // Call onComplete callback for student mode
     if ((studentMode || reviewMode) && onComplete) {
       onComplete();
     }
   }
 
-  // Initialize
   document.body.appendChild(overlay);
   initPuzzle(0);
-}
-
-function escapeHtml(str) {
-  if (!str) return '';
-  return str.replace(/[&<>"']/g, char => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  }[char]));
 }
 
 export default openPuzzlePlayer;

@@ -26,10 +26,15 @@ Chess Composer follows consistent patterns for code organization, error handling
   5. GenerateView.js (~683 LOC) → Extract panels, filters
   6. AdminPanel.js (678 LOC) → Extract sub-sections
 
-**Last refactored**: 2026-03-28
+**Last refactored**: 2026-04-18
 - ExercisePanel & AdminPanel: Modern UI patterns added (ep-table, gd-dropdown)
 - PuzzlePlayer: Compatible with new grading mode
-- Small optimizations: password toggle, inline create
+- lesson-puzzle-player.js (387 LOC): chess.com-style puzzle player (dark theme)
+- puzzle-composer.js (558 LOC): full-screen admin composer (multi-puzzle batch)
+- lesson-content-editor.js (326 LOC): rich editor with Preview button + markdown
+- CourseRepository.js: column allowlist for dynamic UPDATE (includes description column)
+- shared/interactive-puzzle-board.js: Chessground lifecycle management (board recreation pattern)
+- shared/safe-markdown.js: marked + DOMPurify sanitization (single source of truth)
 
 ### Directory Structure
 
@@ -40,6 +45,7 @@ Chess Composer follows consistent patterns for code organization, error handling
 ├── core/             # Routing, chess engine
 ├── data/             # Fallback sample data
 ├── exercises/        # Puzzle solving, grading, PDF
+├── lessons/          # Courses, lesson player, puzzle composer
 ├── puzzles/          # Generation, creation, validation
 ├── reports/          # Admin, reporting
 └── views/            # Page-level components
@@ -50,10 +56,11 @@ Chess Composer follows consistent patterns for code organization, error handling
 ├── auth/             # JWT, password hashing
 ├── database/         # SQLite wrapper, migrations
 ├── exercises/        # Exercise logic, PDF generation
+├── lessons/          # CourseRepository, lessons business logic
 ├── middleware/       # Auth, role checking
 ├── puzzles/          # Generation, validation
 ├── reports/          # Reporting system
-├── routes/           # API endpoints (8 modules)
+├── routes/           # API endpoints (11 modules)
 ├── shared/           # Utilities, converters
 ├── students/         # Student management
 └── users/            # User management, auth
@@ -287,36 +294,6 @@ app.post('/api/users', requireAdmin, async (c) => {
 })
 ```
 
-### Client State Management (Closures)
-
-```javascript
-// ✅ GOOD: Encapsulated state in closure (client)
-const createAppState = () => {
-  let puzzles = []
-  let currentExercise = null
-
-  return {
-    getPuzzles() {
-      return [...puzzles]  // Return copy (immutable)
-    },
-
-    setPuzzles(newPuzzles) {
-      puzzles = newPuzzles.map(p => ({ ...p }))  // Copy & update
-    },
-
-    getCurrentExercise() {
-      return currentExercise ? { ...currentExercise } : null
-    },
-
-    setCurrentExercise(exercise) {
-      currentExercise = exercise ? { ...exercise } : null
-    }
-  }
-}
-
-const appState = createAppState()
-```
-
 ### Modal/Dialog Pattern (Client)
 
 ```javascript
@@ -358,6 +335,144 @@ class CreateExerciseDialog {
 }
 ```
 
+### Markdown Rendering (Safe HTML)
+
+When rendering user-supplied markdown content, always sanitize through a central module. This prevents XSS injection while supporting rich formatting.
+
+```javascript
+// ✅ GOOD: All markdown goes through safe-markdown module
+import { safeMarkdown } from '../shared/safe-markdown.js'
+
+const htmlContent = safeMarkdown(markdownText)
+containerElement.innerHTML = htmlContent
+
+// safe-markdown.js uses marked + DOMPurify (single source of truth):
+import marked from 'marked'
+import DOMPurify from 'dompurify'
+
+export function safeMarkdown(markdown) {
+  const parsed = marked(markdown, { breaks: true })
+  return DOMPurify.sanitize(parsed)
+}
+
+// ❌ WRONG: Parsing markdown multiple places
+containerA.innerHTML = marked(userMarkdown)      // No sanitization!
+containerB.innerHTML = DOMPurify(userMarkdown)   // Not parsed!
+```
+
+**When to use**: Lesson content descriptions, learning material notes, any user-supplied markdown.
+
+### File Upload Validation (Size & Path)
+
+When accepting file uploads from admin users, validate size limits and prevent path traversal attacks.
+
+```javascript
+// ✅ GOOD: File upload with size validation
+app.post('/api/content/upload', adminRequired, async (c) => {
+  const formData = await c.req.formData()
+  const file = formData.get('file')
+  
+  const MAX_FILE_SIZE = 100 * 1024 * 1024  // 100MB
+  if (file.size > MAX_FILE_SIZE) {
+    return c.json({
+      success: false,
+      error: `File too large (max ${MAX_FILE_SIZE / 1024 / 1024}MB)`
+    }, 400)
+  }
+  
+  // Generate safe filename (strip directory separators)
+  const safeName = `${Date.now()}-${file.name.replace(/[\/\\]/g, '_')}`
+  const filePath = path.join(__dirname, '../uploads', safeName)
+  
+  // Verify resolved path is within uploads directory
+  const uploadDir = path.resolve(__dirname, '../uploads')
+  if (!path.resolve(filePath).startsWith(uploadDir)) {
+    return c.json({ success: false, error: 'Invalid path' }, 400)
+  }
+  
+  // Save file
+  await fs.promises.writeFile(filePath, await file.arrayBuffer())
+  return c.json({ success: true, data: { path: safeName } })
+})
+
+// ❌ WRONG: Trusting filename from upload
+const filePath = path.join(uploadDir, file.name)  // Path traversal!
+```
+
+**When to use**: POST /api/content/upload and any file upload endpoint.
+
+### Preview Button Pattern (Lesson Content Editor)
+
+Content editors should provide a "Preview" button showing final rendered output before saving.
+
+```javascript
+// lesson-content-editor.js
+class LessonContentEditor {
+  attachPreviewButton(container) {
+    const previewBtn = document.createElement('button')
+    previewBtn.textContent = 'Preview'
+    previewBtn.addEventListener('click', () => this.showPreview())
+    container.appendChild(previewBtn)
+  }
+
+  showPreview() {
+    // Render content as student would see it
+    const modal = document.createElement('div')
+    modal.className = 'modal-preview'
+    
+    if (this.contentType === 'puzzle') {
+      // Show lesson-puzzle-player with current puzzle_challenges
+    } else if (this.contentType === 'video') {
+      // Show video player
+    } else {
+      // Show markdown description + content
+    }
+    
+    document.body.appendChild(modal)
+  }
+}
+```
+
+**When to use**: All content type editors (video, PDF, puzzle, quiz).
+
+### Column Allowlist Pattern (Dynamic Updates)
+
+When building dynamic SQL UPDATE statements from user-supplied data, always validate against an explicit allowlist of permitted column names. This prevents injection of unexpected columns.
+
+```javascript
+// ✅ GOOD: Column allowlist for dynamic UPDATE (see CourseRepository.updateContent)
+updateContent(id, data) {
+  const allowedColumns = new Set([
+    'order_index', 'content_type', 'title', 'video_url', 'file_path',
+    'puzzle_fen', 'puzzle_moves', 'puzzle_instruction', 'puzzle_hints',
+    'puzzle_video_url', 'puzzle_challenges', 'description', 'xp_reward'
+  ])
+  const jsonFields = new Set(['quiz_data', 'puzzle_hints', 'puzzle_challenges'])
+
+  const fields = []
+  const values = []
+  for (const [key, val] of Object.entries(data)) {
+    if (!allowedColumns.has(key)) continue   // skip unknown columns
+    const serialized = jsonFields.has(key) && typeof val !== 'string'
+      ? JSON.stringify(val)
+      : val
+    fields.push(`${key} = ?`)
+    values.push(serialized)
+  }
+  if (fields.length === 0) return { success: true }
+  values.push(id)
+  return database.run(`UPDATE lesson_content SET ${fields.join(', ')} WHERE id = ?`, values)
+}
+
+// ❌ WRONG: Blindly trusting keys from request body
+for (const [key, val] of Object.entries(req.body)) {
+  fields.push(`${key} = ?`)  // SQL injection / unintended columns!
+  values.push(val)
+}
+```
+
+**When to use**: Any repository method that builds a dynamic SET clause from caller-supplied data objects.
+
 ### Database Transaction Pattern
 
 ```javascript
@@ -383,95 +498,15 @@ function createStudentWithUser(studentData, userName, passwordHash) {
 }
 ```
 
-### UI Component Patterns (New 2026-03-28)
+### UI Component Patterns (Updated 2026-04-18)
 
-**Modern Table Pattern (ep-table)**
-```html
-<!-- ✅ GOOD: Styled table with hover, compact spacing -->
-<div class="ep-table">
-  <div class="ep-table-row ep-table-header">
-    <div class="ep-table-cell">Name</div>
-    <div class="ep-table-cell">Status</div>
-    <div class="ep-table-cell">Actions</div>
-  </div>
-  <div class="ep-table-row">
-    <div class="ep-table-cell">Exercise 1</div>
-    <div class="ep-table-cell">Active</div>
-    <div class="ep-table-cell">
-      <div class="gd-dropdown">
-        <button class="btn-outline btn-sm">...</button>
-        <div class="dropdown-menu">
-          <button>Edit</button>
-          <button>Delete</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-```
+**Modern Table (ep-table)**: Use `<div class="ep-table">` with rows/cells for consistent styling with hover and compact spacing.
 
-**Dropdown Menus with Fixed Positioning**
-```javascript
-// ✅ GOOD: Fixed positioning to escape overflow containers
-.gd-dropdown {
-  position: relative;
-}
+**Dropdown Menus**: Use `position: fixed` (not absolute) to escape overflow containers and prevent z-index issues.
 
-.gd-dropdown .dropdown-menu {
-  position: fixed;  // NOT absolute - breaks out of overflow: hidden
-  top: 0;
-  left: 0;
-  background: white;
-  border: 1px solid #ccc;
-  z-index: 1000;
-}
-```
+**Password Toggle**: Provide eye icon button to toggle input type between password/text.
 
-**Password Toggle Component**
-```html
-<!-- ✅ GOOD: Toggle show/hide password -->
-<div class="password-input-wrap">
-  <input type="password" id="pw" name="password" />
-  <button class="password-toggle" aria-label="Show password">👁️</button>
-</div>
-
-<style>
-.password-toggle {
-  cursor: pointer;
-  border: none;
-  background: none;
-}
-
-.password-toggle.visible ~ input {
-  /* When active, input type changes to text */
-}
-</style>
-```
-
-**Styled Button Classes**
-```css
-/* ✅ GOOD: Semantic button classes */
-.btn-primary {
-  background: #007bff;
-  color: white;
-  padding: 8px 16px;
-  border-radius: 4px;
-}
-
-.btn-outline {
-  background: transparent;
-  border: 1px solid #999;
-  color: #333;
-  padding: 6px 12px;
-}
-
-.btn-sm {
-  font-size: 12px;
-  padding: 4px 8px;
-}
-
-/* Usage: <button class="btn-outline btn-sm">Delete</button> */
-```
+**Styled Buttons**: Use classes `.btn-primary`, `.btn-outline`, `.btn-sm` for semantic, reusable styling.
 
 ## Naming Conventions
 
@@ -630,6 +665,16 @@ const passwordHash = crypto.md5(password)  // Weak
 
 ## Testing Standards
 
+### Test Layers
+
+Chess Composer uses a **3-layer testing strategy**: unit tests for isolated logic, jsdom widget tests for DOM interactions, and E2E tests for full user flows.
+
+| Layer | Framework | Scope | Example |
+|-------|-----------|-------|---------|
+| **Unit (Vitest)** | Vitest | Functions, utilities, services | `PuzzleValidator.validateFEN()` |
+| **Widget (Vitest + jsdom)** | Vitest + jsdom | Client DOM components, board interactions | `interactive-puzzle-board.js` move validation |
+| **E2E (Playwright)** | Playwright (Chromium) | Complete user flows, puzzle solving, lesson playback | Solve puzzle → submit → grade |
+
 ### Test Structure
 
 ```javascript
@@ -651,12 +696,12 @@ describe('PuzzleValidator', () => {
 })
 ```
 
-### Code Coverage Target
+### Test Coverage Target
 
-- **Minimum**: 80% coverage
-- **Units**: Functions, utilities, services
-- **Integration**: API endpoints, database operations
-- **E2E**: Critical user flows (Playwright)
+- **Unit**: 80%+ coverage on services, utilities, validators
+- **Widget**: 95% coverage on interactive board and puzzle components
+- **E2E**: Critical user flows (puzzle solving, lesson playback, course management)
+- **Overall**: 80%+ project coverage
 
 ## Performance Guidelines
 

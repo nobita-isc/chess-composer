@@ -30,10 +30,16 @@ ALWAYS read these files first:
    - Language-specific patterns
    - Naming conventions
 
-4. **`./docs/design-guidelines.md`** (if exists)
-   - Design system guidelines
-   - Branding and UI/UX conventions
-   - Component library usage
+4. **`./docs/design-system/`** (if exists)
+   - `design-principles.md` — Visual principles, do's/don'ts, rationale
+   - `tokens.json` — W3C DTCG design tokens
+   - `component-catalog.md` — Component inventory
+
+5. **`./docs/project-fsd.md`** (if exists)
+   - Functional specifications and requirements
+   - Feature specs per module, business rules, data models
+   - Use case references linking to `docs/usecases/`
+   - If available, read relevant module sections as implementation context
 
 ### Environment Analysis
 - Review development environment setup

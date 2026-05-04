@@ -41,7 +41,7 @@ docs/
     hero-image.png
     hero-analysis.md       # Analysis report
     hero-color-palette.md  # Extracted colors
-  design-guidelines/
+  design-system/
     asset-usage.md         # Guidelines derived from analysis
 ```
 

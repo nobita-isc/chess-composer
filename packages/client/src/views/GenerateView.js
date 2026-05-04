@@ -275,22 +275,24 @@ export class ChessQuizComposer {
     overlay.innerHTML = `
       <div class="pv-dialog">
         <div class="pv-header">
-          <div class="pv-header-left">
+          <div class="pv-header-top">
             <span class="pv-title">Puzzle #${puzzleIndex + 1}</span>
-            <span class="badge badge-theme">${escapeHtml(puzzle.themeName)}</span>
-            <span class="badge ${diff.cls}">${diff.label}</span>
+            <div class="pv-header-right">
+              <button class="pv-nav-btn" data-action="prev" ${puzzleIndex === 0 ? 'disabled' : ''}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <span class="pv-nav-text">${puzzleIndex + 1} / ${this.puzzles.length}</span>
+              <button class="pv-nav-btn pv-nav-btn-primary" data-action="next" ${puzzleIndex === this.puzzles.length - 1 ? 'disabled' : ''}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+              <button class="pv-close-btn" data-action="close">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
           </div>
-          <div class="pv-header-right">
-            <button class="pv-nav-btn" data-action="prev" ${puzzleIndex === 0 ? 'disabled' : ''}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-            </button>
-            <span class="pv-nav-text">${puzzleIndex + 1} / ${this.puzzles.length}</span>
-            <button class="pv-nav-btn pv-nav-btn-primary" data-action="next" ${puzzleIndex === this.puzzles.length - 1 ? 'disabled' : ''}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-            </button>
-            <button class="pv-close-btn" data-action="close">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
+          <div class="pv-header-themes">
+            ${(puzzle.themeNames || [puzzle.themeName]).map(t => `<span class="badge badge-theme">${escapeHtml(t)}</span>`).join('')}
+            <span class="badge ${diff.cls}">${diff.label}</span>
           </div>
         </div>
         <div class="pv-body">

@@ -1,0 +1,31 @@
+# ============================================================
+# DEV ONLY — Local Postgres for testing the migration CLI.
+#
+# Credentials here (postgres/postgres) are intentionally weak
+# and are ONLY safe for a loopback dev environment.
+# NEVER use these defaults in staging or production.
+# For production: use a managed secret (Vault, SSM, k8s secret)
+# and rotate the password before first deploy.
+# ============================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  pg_data:

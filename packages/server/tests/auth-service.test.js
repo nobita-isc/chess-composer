@@ -56,36 +56,36 @@ describe('AuthService', () => {
   })
 
   describe('refreshAccessToken', () => {
-    it('issues new tokens from valid refresh token', () => {
+    it('issues new tokens from valid refresh token', async () => {
       const refreshToken = service.generateRefreshToken({ id: 'u1', username: 'test', role: 'admin' })
-      userRepository.findById.mockReturnValue({ id: 'u1', username: 'test', role: 'admin', student_id: null })
+      userRepository.findById.mockResolvedValue({ id: 'u1', username: 'test', role: 'admin', student_id: null })
 
-      const result = service.refreshAccessToken(refreshToken)
+      const result = await service.refreshAccessToken(refreshToken)
 
       expect(result.success).toBe(true)
       expect(result.data.access_token).toBeTruthy()
       expect(result.data.refresh_token).toBeTruthy()
     })
 
-    it('rejects access token used as refresh token', () => {
+    it('rejects access token used as refresh token', async () => {
       const accessToken = service.generateAccessToken({ id: 'u1', username: 'test', role: 'admin' })
-      const result = service.refreshAccessToken(accessToken)
+      const result = await service.refreshAccessToken(accessToken)
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Invalid refresh token')
     })
 
-    it('rejects if user no longer exists', () => {
+    it('rejects if user no longer exists', async () => {
       const refreshToken = service.generateRefreshToken({ id: 'deleted_user', username: 'ghost', role: 'student' })
-      userRepository.findById.mockReturnValue(null)
+      userRepository.findById.mockResolvedValue(null)
 
-      const result = service.refreshAccessToken(refreshToken)
+      const result = await service.refreshAccessToken(refreshToken)
       expect(result.success).toBe(false)
       expect(result.error).toContain('no longer exists')
     })
 
-    it('rejects invalid refresh token', () => {
-      const result = service.refreshAccessToken('garbage')
+    it('rejects invalid refresh token', async () => {
+      const result = await service.refreshAccessToken('garbage')
       expect(result.success).toBe(false)
     })
   })
@@ -103,7 +103,7 @@ describe('AuthService', () => {
     })
 
     it('rejects unknown username', async () => {
-      userRepository.findByUsername.mockReturnValue(null)
+      userRepository.findByUsername.mockResolvedValue(null)
       const result = await service.login('unknown', 'password')
       expect(result.success).toBe(false)
       expect(result.error).toContain('Invalid')
@@ -111,7 +111,7 @@ describe('AuthService', () => {
 
     it('rejects wrong password', async () => {
       const hash = await service.hashPassword('correct_password')
-      userRepository.findByUsername.mockReturnValue({ id: 'u1', username: 'admin', password_hash: hash, role: 'admin' })
+      userRepository.findByUsername.mockResolvedValue({ id: 'u1', username: 'admin', password_hash: hash, role: 'admin' })
 
       const result = await service.login('admin', 'wrong_password')
       expect(result.success).toBe(false)
@@ -119,7 +119,7 @@ describe('AuthService', () => {
 
     it('succeeds with correct credentials', async () => {
       const hash = await service.hashPassword('Correct1')
-      userRepository.findByUsername.mockReturnValue({ id: 'u1', username: 'admin', password_hash: hash, role: 'admin', student_id: null })
+      userRepository.findByUsername.mockResolvedValue({ id: 'u1', username: 'admin', password_hash: hash, role: 'admin', student_id: null })
 
       const result = await service.login('admin', 'Correct1')
       expect(result.success).toBe(true)

@@ -43,7 +43,7 @@ TaskUpdate(taskId=step1, status="completed")
 
 ## Deep Workflow Tasks
 
-Same pattern but with research/brainstorm/plan phases:
+Same pattern but with research/brainstorm-technical/plan phases:
 
 ```
 TaskCreate(subject="Debug & investigate",    metadata={step: 1, phase: "diagnose"})

@@ -24,10 +24,10 @@ describe.skipIf(!dbExists)('Multi-theme DB integration', () => {
     const mod = await import('../src/database/DatabaseGenerator.js')
     databaseGenerator = mod.databaseGenerator
     databaseGenerator.initialize()
-  })
+  }, 60000) // 457MB puzzle DB load can exceed default 10s hookTimeout
 
-  it('single theme returns puzzles with that theme', () => {
-    const puzzles = databaseGenerator.generatePuzzles('pin', 10)
+  it('single theme returns puzzles with that theme', async () => {
+    const puzzles = await databaseGenerator.generatePuzzles('pin', 10)
     expect(puzzles.length).toBe(10)
 
     const withPin = puzzles.filter(p =>
@@ -36,8 +36,8 @@ describe.skipIf(!dbExists)('Multi-theme DB integration', () => {
     expect(withPin.length).toBe(10)
   })
 
-  it('two themes returns puzzles from BOTH themes', () => {
-    const puzzles = databaseGenerator.generatePuzzles('pin,fork', 10)
+  it('two themes returns puzzles from BOTH themes', async () => {
+    const puzzles = await databaseGenerator.generatePuzzles('pin,fork', 10)
     expect(puzzles.length).toBe(10)
 
     const withPin = puzzles.filter(p =>
@@ -54,8 +54,8 @@ describe.skipIf(!dbExists)('Multi-theme DB integration', () => {
     expect(withPin.length + withFork.length).toBeGreaterThanOrEqual(10)
   })
 
-  it('three themes distributes across all three', () => {
-    const puzzles = databaseGenerator.generatePuzzles('pin,fork,skewer', 12)
+  it('three themes distributes across all three', async () => {
+    const puzzles = await databaseGenerator.generatePuzzles('pin,fork,skewer', 12)
     expect(puzzles.length).toBe(12)
 
     const withPin = puzzles.filter(p => p.themes.some(t => t.toLowerCase() === 'pin'))
@@ -68,14 +68,14 @@ describe.skipIf(!dbExists)('Multi-theme DB integration', () => {
     expect(withSkewer.length).toBeGreaterThanOrEqual(2)
   })
 
-  it('multi-theme produces unique puzzle IDs (no duplicates)', () => {
-    const puzzles = databaseGenerator.generatePuzzles('pin,fork', 10)
+  it('multi-theme produces unique puzzle IDs (no duplicates)', async () => {
+    const puzzles = await databaseGenerator.generatePuzzles('pin,fork', 10)
     const ids = puzzles.map(p => p.id)
     expect(new Set(ids).size).toBe(ids.length)
   })
 
-  it('single theme with no theme returns mixed puzzles', () => {
-    const puzzles = databaseGenerator.generatePuzzles(null, 10)
+  it('single theme with no theme returns mixed puzzles', async () => {
+    const puzzles = await databaseGenerator.generatePuzzles(null, 10)
     expect(puzzles.length).toBe(10)
 
     // Should have varied themes
@@ -84,8 +84,8 @@ describe.skipIf(!dbExists)('Multi-theme DB integration', () => {
     expect(allThemes.size).toBeGreaterThan(3)
   })
 
-  it('multi-theme respects rating range', () => {
-    const puzzles = databaseGenerator.generatePuzzles('pin,fork', 10, {
+  it('multi-theme respects rating range', async () => {
+    const puzzles = await databaseGenerator.generatePuzzles('pin,fork', 10, {
       minRating: 1500,
       maxRating: 2000,
       minPopularity: 80
@@ -98,8 +98,8 @@ describe.skipIf(!dbExists)('Multi-theme DB integration', () => {
     })
   })
 
-  it('multi-theme with checkmate patterns works', () => {
-    const puzzles = databaseGenerator.generatePuzzles('backrankmate,smotheredmate', 6)
+  it('multi-theme with checkmate patterns works', async () => {
+    const puzzles = await databaseGenerator.generatePuzzles('backrankmate,smotheredmate', 6)
     expect(puzzles.length).toBeGreaterThanOrEqual(1)
 
     const hasBackrank = puzzles.some(p => p.themes.some(t => t.includes('backrank')))

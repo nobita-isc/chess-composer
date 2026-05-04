@@ -21,7 +21,7 @@ Current development workflows, system constraints, scale requirements, and busin
 ├── project-overview-pdr.md
 ├── code-standards.md
 ├── codebase-summary.md
-├── design-guidelines.md
+├── design-system/            # Design principles, tokens, catalog, themes
 ├── deployment-guide.md
 ├── system-architecture.md
 └── project-roadmap.md

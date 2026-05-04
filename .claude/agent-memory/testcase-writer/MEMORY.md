@@ -1,0 +1,1 @@
+- [Project: chess_composer QA baseline](project-chess-composer-qa-baseline.md) — LSN + WEX modules fully documented; notable auth gaps in exercises routes

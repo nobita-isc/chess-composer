@@ -33,7 +33,9 @@ Pass the gathered context to docs-manager agent to update documentation:
 - `docs/system-architecture.md`: Update system architecture
 - `docs/project-roadmap.md`: Update project roadmap
 - `docs/deployment-guide.md` [optional]: Update deployment guide
-- `docs/design-guidelines.md` [optional]: Update design guidelines
+- `docs/design-system/design-principles.md` [optional]: Update design principles
+- `docs/project-fsd.md` [if exists]: Check FSD staleness — if new modules/features in code lack FSD coverage, flag and suggest running `/specs update`
+- `docs/usecases/` [if exists]: Check for orphaned use cases or missing coverage
 
 ## Additional requests
 <additional_requests>

@@ -54,7 +54,7 @@ Use `media-processing` skill for:
 - Request approval
 
 ### 5. Document
-Update `./docs/design-guidelines.md` with:
+Update `./docs/design-system/design-principles.md` with:
 - 3D design patterns
 - Shader libraries
 - Reusable components

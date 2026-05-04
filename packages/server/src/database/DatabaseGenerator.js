@@ -110,7 +110,7 @@ export class DatabaseGenerator {
    * @param {number} count - Number of puzzles
    * @param {object} options - Filter options
    */
-  generatePuzzles(theme, count = 10, options = {}) {
+  async generatePuzzles(theme, count = 10, options = {}) {
     if (!this.initialized) {
       return [];
     }
@@ -137,8 +137,7 @@ export class DatabaseGenerator {
       for (const t of themeList) {
         const lichessTags = this.toLichessTag(t);
         const tags = Array.isArray(lichessTags) ? lichessTags : [lichessTags];
-        let candidates = this.loader.queryPuzzles({ themes: tags, minRating, maxRating, minPopularity, limit: perTheme * 2 });
-        // Deduplicate across themes
+        let candidates = await this.loader.queryPuzzles({ themes: tags, minRating, maxRating, minPopularity, limit: perTheme * 2 });
         candidates = candidates.filter(p => !usedIds.has(p.id));
         const picked = candidates.slice(0, perTheme);
         picked.forEach(p => usedIds.add(p.id));
@@ -154,11 +153,10 @@ export class DatabaseGenerator {
         themes = Array.isArray(lichessTags) ? lichessTags : [lichessTags];
       }
 
-      let candidates = this.loader.queryPuzzles({ themes, minRating, maxRating, minPopularity, limit: count * 2 });
+      let candidates = await this.loader.queryPuzzles({ themes, minRating, maxRating, minPopularity, limit: count * 2 });
 
-      // Relax criteria if not enough puzzles
       if (candidates.length < count) {
-        candidates = this.loader.queryPuzzles({
+        candidates = await this.loader.queryPuzzles({
           themes,
           minRating: minRating - 200,
           maxRating: maxRating + 200,
@@ -283,12 +281,12 @@ export class DatabaseGenerator {
   /**
    * Get available themes
    */
-  getAvailableThemes() {
+  async getAvailableThemes() {
     if (!this.initialized || !database.isReady()) {
       return [];
     }
 
-    const rows = database.query(`
+    const rows = await database.query(`
       SELECT lichess_tag
       FROM themes
       WHERE puzzle_count > 0
@@ -301,18 +299,18 @@ export class DatabaseGenerator {
   /**
    * Get themes grouped by category
    */
-  getThemesWithCategories() {
+  async getThemesWithCategories() {
     if (!this.initialized || !database.isReady()) {
       return { categories: [], themes: [] };
     }
 
-    const categories = database.query(`
+    const categories = await database.query(`
       SELECT id, name, display_name, icon, display_order
       FROM categories
       ORDER BY display_order
     `);
 
-    const themes = database.query(`
+    const themes = await database.query(`
       SELECT t.id, t.lichess_tag, t.display_name, t.description,
              t.display_order, t.puzzle_count, t.category_id,
              c.name as category_name
@@ -328,14 +326,14 @@ export class DatabaseGenerator {
   /**
    * Get database statistics
    */
-  getStats() {
+  async getStats() {
     if (!this.initialized || !database.isReady()) {
       return { totalPuzzles: 0, totalThemes: 0, themes: [] };
     }
 
-    const totalPuzzles = database.queryScalar('SELECT COUNT(*) FROM puzzles') || 0;
+    const totalPuzzles = (await database.queryScalar('SELECT COUNT(*) FROM puzzles')) || 0;
 
-    const themeStats = database.query(`
+    const themeStats = await database.query(`
       SELECT lichess_tag as theme, puzzle_count as count
       FROM themes
       WHERE puzzle_count > 0

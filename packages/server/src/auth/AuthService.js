@@ -22,7 +22,7 @@ export class AuthService {
       return { success: false, error: 'Username and password are required' };
     }
 
-    const user = userRepository.findByUsername(username);
+    const user = await userRepository.findByUsername(username);
 
     if (!user) {
       return { success: false, error: 'Invalid username or password' };
@@ -75,14 +75,14 @@ export class AuthService {
     }
   }
 
-  refreshAccessToken(refreshToken) {
+  async refreshAccessToken(refreshToken) {
     const decoded = this.verifyToken(refreshToken);
 
     if (!decoded || decoded.type !== 'refresh') {
       return { success: false, error: 'Invalid refresh token' };
     }
 
-    const user = userRepository.findById(decoded.id);
+    const user = await userRepository.findById(decoded.id);
 
     if (!user) {
       return { success: false, error: 'User no longer exists' };

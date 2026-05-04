@@ -11,8 +11,8 @@ export class PuzzleRepository {
    * @param {string} id - Puzzle ID to check
    * @returns {boolean}
    */
-  checkDuplicateId(id) {
-    const result = database.queryOne('SELECT id FROM puzzles WHERE id = ? LIMIT 1', [id]);
+  async checkDuplicateId(id) {
+    const result = await database.queryOne('SELECT id FROM puzzles WHERE id = ? LIMIT 1', [id]);
     return result !== null;
   }
 
@@ -21,39 +21,19 @@ export class PuzzleRepository {
    * @param {object} puzzleData - Validated puzzle data
    * @returns {{ success: boolean, error?: string }}
    */
-  createPuzzle(puzzleData) {
+  async createPuzzle(puzzleData) {
     try {
-      const {
-        id,
-        fen,
-        moves,
-        rating,
-        themes,
-        game_url,
-        source
-      } = puzzleData;
+      const { id, fen, moves, rating, themes, game_url, source } = puzzleData;
 
-      database.run(
+      await database.run(
         `INSERT INTO puzzles (
           id, fen, moves, rating, rating_deviation, popularity,
           nb_plays, themes, game_url, opening_tags, source
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          id,
-          fen,
-          moves,
-          rating,
-          75, // rating_deviation default
-          100, // popularity default for custom puzzles
-          0, // nb_plays
-          themes,
-          game_url || '',
-          '', // opening_tags
-          source
-        ]
+        [id, fen, moves, rating, 75, 100, 0, themes, game_url || '', '', source]
       );
 
-      // Update the in-memory theme index
+      // Update the in-memory theme index (sqlite path only — no-op if themeIndex is null)
       database.addToThemeIndex(id, themes, rating, 100);
 
       return { success: true };
@@ -67,7 +47,7 @@ export class PuzzleRepository {
    * @param {string} id - Puzzle ID
    * @returns {object|null}
    */
-  getPuzzleById(id) {
+  async getPuzzleById(id) {
     return database.queryOne('SELECT * FROM puzzles WHERE id = ?', [id]);
   }
 
@@ -77,7 +57,7 @@ export class PuzzleRepository {
    * @param {object} options - { limit, offset }
    * @returns {object[]}
    */
-  getPuzzlesBySource(source, { limit = 100, offset = 0 } = {}) {
+  async getPuzzlesBySource(source, { limit = 100, offset = 0 } = {}) {
     return database.query(
       'SELECT * FROM puzzles WHERE source = ? LIMIT ? OFFSET ?',
       [source, limit, offset]
@@ -89,8 +69,8 @@ export class PuzzleRepository {
    * @param {string} source - Source type
    * @returns {number}
    */
-  countPuzzlesBySource(source) {
-    const result = database.queryScalar(
+  async countPuzzlesBySource(source) {
+    const result = await database.queryScalar(
       'SELECT COUNT(*) as count FROM puzzles WHERE source = ?',
       [source]
     );
@@ -102,9 +82,9 @@ export class PuzzleRepository {
    * @param {string} id - Puzzle ID
    * @returns {{ success: boolean, error?: string }}
    */
-  deletePuzzle(id) {
+  async deletePuzzle(id) {
     try {
-      const result = database.run('DELETE FROM puzzles WHERE id = ?', [id]);
+      const result = await database.run('DELETE FROM puzzles WHERE id = ?', [id]);
       if (result.changes === 0) {
         return { success: false, error: 'Puzzle not found' };
       }

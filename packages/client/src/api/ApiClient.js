@@ -347,6 +347,31 @@ export class ApiClient {
     return response.data;
   }
 
+  // ==================== Course API ====================
+
+  async getCourses() { return (await this.get('/courses')).data; }
+  async getCourse(id) { return (await this.get(`/courses/${id}`)).data; }
+  async createCourse(data) { return (await this.post('/courses', data)).data; }
+  async updateCourse(id, data) { return await this.put(`/courses/${id}`, data); }
+  async deleteCourse(id) { return await this.delete(`/courses/${id}`); }
+  async getCourseLessons(id) { return (await this.get(`/courses/${id}/lessons`)).data; }
+  async createLesson(courseId, data) { return (await this.post(`/courses/${courseId}/lessons`, data)).data; }
+  async updateLesson(id, data) { return await this.put(`/lessons/${id}`, data); }
+  async deleteLesson(id) { return await this.delete(`/lessons/${id}`); }
+  async getLessonContent(lessonId) { return (await this.get(`/lessons/${lessonId}/content`)).data; }
+  async createContent(lessonId, data) { return (await this.post(`/lessons/${lessonId}/content`, data)).data; }
+  async updateContent(id, data) { return await this.put(`/content/${id}`, data); }
+  async deleteContent(id) { return await this.delete(`/content/${id}`); }
+  async reorderContent(lessonId, orderedIds) { return await this.put(`/lessons/${lessonId}/reorder`, { orderedIds }); }
+  async assignCourse(courseId, studentIds) { return await this.post(`/courses/${courseId}/assign`, { studentIds }); }
+  async getCourseAssignments(id) { return (await this.get(`/courses/${id}/assignments`)).data; }
+  async previewCourse(id) { return (await this.get(`/courses/${id}/preview`)).data; }
+  async getMyCourses() { return (await this.get('/my/courses')).data; }
+  async getMyCourse(id) { return (await this.get(`/my/courses/${id}`)).data; }
+  async markContentComplete(contentId, data = {}) { return await this.put(`/my/content/${contentId}/complete`, data); }
+  async resetContentProgress(contentId) { return await this.put(`/my/content/${contentId}/reset`, {}); }
+  async getMyGamification() { return (await this.get('/my/gamification')).data; }
+
   // ==================== Exercise API ====================
 
   /**
@@ -516,6 +541,68 @@ export class ApiClient {
   getAnswerPdfUrl(studentExerciseId) {
     const token = this._authManager?.getAccessToken() || '';
     return `${this.baseUrl}/student-exercises/${studentExerciseId}/download?token=${encodeURIComponent(token)}`;
+  }
+
+  // ==================== Video API ====================
+
+  /** List videos. opts: { folder?, q?, limit?, offset? } */
+  async getVideos(opts = {}) {
+    const params = {}
+    if (opts.folder) params.folder = opts.folder
+    if (opts.q) params.q = opts.q
+    if (opts.limit != null) params.limit = opts.limit
+    if (opts.offset != null) params.offset = opts.offset
+    return (await this.get('/videos', params)).data
+  }
+
+  /** Get distinct folder strings */
+  async getVideoFolders() {
+    return (await this.get('/videos/folders')).data
+  }
+
+  /**
+   * Upload a video file (with XHR for progress callback).
+   * @param {File} file
+   * @param {string} [folder]
+   * @param {(pct: number) => void} [onProgress]
+   */
+  uploadVideo(file, folder, onProgress) {
+    return new Promise((resolve, reject) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      if (folder) formData.append('folder', folder)
+
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', `${this.baseUrl}/videos/upload`)
+      const token = this._authManager?.getAccessToken()
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+
+      if (onProgress) {
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100))
+        })
+      }
+
+      xhr.onload = () => {
+        try {
+          const data = JSON.parse(xhr.responseText)
+          if (xhr.status >= 200 && xhr.status < 300) resolve(data.data || data)
+          else reject(new Error(data.error || `Upload failed (${xhr.status})`))
+        } catch { reject(new Error('Invalid server response')) }
+      }
+      xhr.onerror = () => reject(new Error('Network error during upload'))
+      xhr.send(formData)
+    })
+  }
+
+  /** Update video fields. fields: { title?, description?, folder? } */
+  async updateVideo(id, fields) {
+    return (await this.put(`/videos/${id}`, fields)).data
+  }
+
+  /** Delete a video by id */
+  async deleteVideo(id) {
+    return this.delete(`/videos/${id}`)
   }
 
   // ==================== User Management API (Admin) ====================
