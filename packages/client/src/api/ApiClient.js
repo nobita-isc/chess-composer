@@ -543,6 +543,68 @@ export class ApiClient {
     return `${this.baseUrl}/student-exercises/${studentExerciseId}/download?token=${encodeURIComponent(token)}`;
   }
 
+  // ==================== Video API ====================
+
+  /** List videos. opts: { folder?, q?, limit?, offset? } */
+  async getVideos(opts = {}) {
+    const params = {}
+    if (opts.folder) params.folder = opts.folder
+    if (opts.q) params.q = opts.q
+    if (opts.limit != null) params.limit = opts.limit
+    if (opts.offset != null) params.offset = opts.offset
+    return (await this.get('/videos', params)).data
+  }
+
+  /** Get distinct folder strings */
+  async getVideoFolders() {
+    return (await this.get('/videos/folders')).data
+  }
+
+  /**
+   * Upload a video file (with XHR for progress callback).
+   * @param {File} file
+   * @param {string} [folder]
+   * @param {(pct: number) => void} [onProgress]
+   */
+  uploadVideo(file, folder, onProgress) {
+    return new Promise((resolve, reject) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      if (folder) formData.append('folder', folder)
+
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', `${this.baseUrl}/videos/upload`)
+      const token = this._authManager?.getAccessToken()
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+
+      if (onProgress) {
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100))
+        })
+      }
+
+      xhr.onload = () => {
+        try {
+          const data = JSON.parse(xhr.responseText)
+          if (xhr.status >= 200 && xhr.status < 300) resolve(data.data || data)
+          else reject(new Error(data.error || `Upload failed (${xhr.status})`))
+        } catch { reject(new Error('Invalid server response')) }
+      }
+      xhr.onerror = () => reject(new Error('Network error during upload'))
+      xhr.send(formData)
+    })
+  }
+
+  /** Update video fields. fields: { title?, description?, folder? } */
+  async updateVideo(id, fields) {
+    return (await this.put(`/videos/${id}`, fields)).data
+  }
+
+  /** Delete a video by id */
+  async deleteVideo(id) {
+    return this.delete(`/videos/${id}`)
+  }
+
   // ==================== User Management API (Admin) ====================
 
   async getUsers() {

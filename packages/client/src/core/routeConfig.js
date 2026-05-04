@@ -13,7 +13,8 @@ const SIDEBAR_MAP = {
   generate: 'nav-generate',
   exercises: 'exercises-btn',
   reports: 'admin-btn',
-  users: 'users-btn'
+  users: 'users-btn',
+  videos: 'nav-videos'
 }
 
 export function updateSidebarActive(routeName) {
@@ -41,7 +42,7 @@ export function studentGuard() {
   return authManager.isStudent() ? true : ADMIN_DEFAULT_PATH
 }
 
-export function createAdminRoutes({ renderGenerate, renderExercises, renderReports, renderUsers, renderCourses }) {
+export function createAdminRoutes({ renderGenerate, renderExercises, renderReports, renderUsers, renderCourses, renderVideos }) {
   const guards = [authGuard, adminGuard]
   return [
     {
@@ -72,6 +73,12 @@ export function createAdminRoutes({ renderGenerate, renderExercises, renderRepor
       path: '/users',
       name: 'users',
       render: renderUsers,
+      guards
+    },
+    {
+      path: '/videos',
+      name: 'videos',
+      render: renderVideos,
       guards
     }
   ]
