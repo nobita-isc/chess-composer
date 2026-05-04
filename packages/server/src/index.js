@@ -30,6 +30,7 @@ import exercises from './routes/exercises.js';
 import studentExercises from './routes/student-exercises.js';
 import coursesRoute from './routes/courses.js';
 import lessonContentRoute from './routes/lesson-content.js';
+import videosRoute from './routes/videos.js';
 
 const app = new Hono();
 
@@ -103,11 +104,42 @@ app.route('/api/exercises', exercises);
 app.route('/api/student-exercises', studentExercises);
 app.route('/api/courses', coursesRoute);
 app.route('/api', lessonContentRoute);
+app.route('/api/videos', videosRoute);
+
+// Serve uploaded video library files with range request support
+app.get('/uploads/videos/:filename', (c) => {
+  const filename = c.req.param('filename')
+  const baseDir = path.resolve(path.join(__dirname, '../uploads/videos'))
+  const filePath = path.resolve(path.join(baseDir, filename))
+  if (!filePath.startsWith(baseDir + path.sep)) return c.json({ error: 'Forbidden' }, 403)
+  if (!fs.existsSync(filePath)) return c.json({ error: 'Not found' }, 404)
+  const ext = path.extname(filename).toLowerCase()
+  const mimeTypes = { '.mp4': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime' }
+  const stat = fs.statSync(filePath)
+  const range = c.req.header('Range')
+
+  if (range && (ext === '.mp4' || ext === '.webm' || ext === '.mov')) {
+    const parts = range.replace(/bytes=/, '').split('-')
+    const start = parseInt(parts[0], 10)
+    const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1
+    const chunk = end - start + 1
+    const stream = fs.createReadStream(filePath, { start, end })
+    return new Response(stream, {
+      status: 206,
+      headers: { 'Content-Range': `bytes ${start}-${end}/${stat.size}`, 'Accept-Ranges': 'bytes', 'Content-Length': chunk.toString(), 'Content-Type': mimeTypes[ext] || 'video/mp4' }
+    })
+  }
+
+  const data = fs.readFileSync(filePath)
+  return new Response(data, { headers: { 'Content-Type': mimeTypes[ext] || 'application/octet-stream', 'Accept-Ranges': 'bytes', 'Content-Length': stat.size.toString() } })
+})
 
 // Serve uploaded course files with range request support (for video seeking)
 app.get('/uploads/courses/:filename', (c) => {
   const filename = c.req.param('filename')
-  const filePath = path.join(__dirname, '../uploads/courses', filename)
+  const baseDir = path.resolve(path.join(__dirname, '../uploads/courses'))
+  const filePath = path.resolve(path.join(baseDir, filename))
+  if (!filePath.startsWith(baseDir + path.sep)) return c.json({ error: 'Forbidden' }, 403)
   if (!fs.existsSync(filePath)) return c.json({ error: 'Not found' }, 404)
   const ext = path.extname(filename).toLowerCase()
   const mimeTypes = { '.mp4': 'video/mp4', '.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webm': 'video/webm' }
