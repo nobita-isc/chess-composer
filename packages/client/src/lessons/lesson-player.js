@@ -9,6 +9,7 @@ import { openExercisePuzzleViewer } from '../exercises/ExercisePuzzleViewer.js'
 import { openLessonPuzzlePlayer } from './lesson-puzzle-player.js'
 import { downloadAsStyledHtml, downloadAllNotes } from '../shared/content-download-helper.js'
 import { attachSplitterRaw as attachSplitter } from './shared/pane-splitter.js'
+import { resolveVideoUrl } from '../shared/video-url-resolver.js'
 
 function escapeHtml(str) {
   if (!str) return ''
@@ -37,17 +38,21 @@ function renderNotesBody(markdown) {
 /**
  * Open the lesson player.
  * @param {object} course - { title, lessons: [{ title, content: [{ id, content_type, title, video_url, puzzle_fen, completed }] }] }
- * @param {object} options - { apiClient?, readOnly?, onClose? }
+ * @param {object} options - { apiClient?, readOnly?, onClose?, startLessonId? }
  */
 export function openLessonPlayer(course, options = {}) {
-  const { apiClient, readOnly = false, onClose } = options
+  const { apiClient, readOnly = false, onClose, startLessonId } = options
   const lessons = course.lessons || []
   const allItems = []
-  lessons.forEach(l => (l.content || []).forEach(item => { item.lessonTitle = l.title; allItems.push(item) }))
+  lessons.forEach(l => (l.content || []).forEach(item => { item.lessonTitle = l.title; item.lessonId = l.id; allItems.push(item) }))
 
   if (allItems.length === 0) return
 
-  let currentIndex = allItems.findIndex(i => !i.completed)
+  let currentIndex = -1
+  if (startLessonId != null) {
+    currentIndex = allItems.findIndex(i => i.lessonId === startLessonId)
+  }
+  if (currentIndex === -1) currentIndex = allItems.findIndex(i => !i.completed)
   if (currentIndex === -1) currentIndex = 0
   let activeTab = 'content'
 
@@ -411,18 +416,20 @@ export function openLessonPlayer(course, options = {}) {
 
   function renderContent(item) {
     if (item.content_type === 'video') {
-      const url = item.video_url || item.file_path || ''
-      const isYouTube = url.includes('youtube.com') || url.includes('youtu.be')
-      const isUploadedVideo = url.startsWith('/uploads/') || url.endsWith('.mp4') || url.endsWith('.webm')
-      const embedUrl = url.includes('youtube.com/watch') ? url.replace('watch?v=', 'embed/') :
-                        url.includes('youtu.be/') ? `https://www.youtube.com/embed/${url.split('youtu.be/')[1]}` : url
+      const rawUrl = item.video_url || item.file_path || ''
+      const r = resolveVideoUrl(rawUrl)
+      let videoEl
+      if (r.kind === 'youtube' && r.embedUrl) {
+        videoEl = `<iframe src="${escapeHtml(r.embedUrl)}" style="width:100%;height:100%;border:none;display:block" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen frameborder="0"></iframe>`
+      } else if (r.playUrl) {
+        videoEl = `<video src="${escapeHtml(r.playUrl)}" controls style="width:100%;height:100%;display:block"></video>`
+      } else {
+        videoEl = '<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#1e293b"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg><span style="color:#64748b;font-size:14px">No video uploaded yet</span></div>'
+      }
       return `
         <div class="lp-video-stage" style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:#0f172a;overflow:hidden">
           <div class="lp-video-shell" style="background:#0f172a;overflow:hidden;width:100%;aspect-ratio:16/9;max-width:100%;max-height:100%">
-            ${isYouTube ? `<iframe src="${escapeHtml(embedUrl)}" style="width:100%;height:100%;border:none;display:block" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen></iframe>` :
-             isUploadedVideo ? `<video src="${escapeHtml(url)}" controls style="width:100%;height:100%;display:block"></video>` :
-             url ? `<iframe src="${escapeHtml(url)}" style="width:100%;height:100%;border:none;display:block"></iframe>` :
-            '<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#1e293b"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg><span style="color:#64748b;font-size:14px">No video uploaded yet</span></div>'}
+            ${videoEl}
           </div>
         </div>
         <div style="padding:16px 32px;flex-shrink:0;border-top:1px solid #f1f5f9">

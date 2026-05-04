@@ -9,65 +9,12 @@ import { createSplitter } from './shared/pane-splitter.js'
 import { renderCourseListPane } from './course-list-pane.js'
 import { renderLessonListPane } from './lesson-list-pane.js'
 import { renderLessonEditorPane } from './lesson-editor-pane.js'
+import { openLessonPlayer } from './lesson-player.js'
 import { renderBreadcrumb } from './course-mgmt-breadcrumb.js'
 import { showCreateCourseDialog, showAssignDialog } from './course-mgmt-dialogs.js'
 import * as selectionStore from './shared/selection-store.js'
+import { CM_STYLES as STYLES } from './cm-styles.js'
 
-const STYLES = `<style>
-.cm-workspace{display:flex;flex-direction:column;height:100%;min-height:0;font-family:inherit}
-.cm-topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-bottom:1px solid #e2e8f0;background:#fff;flex-shrink:0}
-.cm-breadcrumb{display:flex;align-items:center;gap:4px}
-.cm-bc-seg{background:none;border:none;cursor:pointer;font-size:13px;color:#4f46e5;padding:2px 4px;border-radius:4px;font-family:inherit}
-.cm-bc-seg:hover{background:#ede9fe}
-.cm-bc-seg.cm-bc-active{color:#1e293b;font-weight:600;cursor:default}
-.cm-bc-seg.cm-bc-active:hover{background:none}
-.cm-bc-sep{color:#94a3b8;font-size:13px;user-select:none}
-.cm-body{display:flex;flex:1;min-height:0;overflow:hidden}
-.cm-pane{overflow-y:auto;display:flex;flex-direction:column;min-width:0}
-.cm-pane-courses{width:260px;flex-shrink:0;border-right:1px solid #e2e8f0;background:#f8fafc}
-.cm-pane-lessons{width:280px;flex-shrink:0;border-right:1px solid #e2e8f0;background:#fff}
-.cm-pane-editor{flex:1;background:#fff;overflow-y:auto}
-.cm-splitter{width:4px;flex-shrink:0;cursor:col-resize;background:transparent;transition:background 0.15s}
-.cm-pane-header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;flex-shrink:0}
-.cm-pane-title{flex:1}
-.cm-add-btn{width:22px;height:22px;border-radius:6px;border:none;background:#ede9fe;color:#4f46e5;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
-.cm-add-btn:hover{background:#ddd6fe}
-.cm-course-list,.cm-lesson-list{list-style:none;margin:0;padding:4px 0}
-.cm-course-item,.cm-lesson-item{position:relative}
-.cm-course-row,.cm-lesson-row{display:flex;align-items:flex-start;gap:8px;padding:10px 12px;cursor:pointer;transition:background .1s}
-.cm-course-row:hover,.cm-lesson-row:hover{background:#f1f5f9}
-.cm-course-item.cm-selected .cm-course-row,.cm-lesson-item.cm-selected .cm-lesson-row{background:#ede9fe}
-.cm-course-info{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
-.cm-course-title,.cm-lesson-title{font-size:13px;font-weight:500;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cm-course-meta,.cm-lesson-meta{font-size:11px;color:#94a3b8}
-.cm-badge-sm{font-size:9px;padding:1px 5px}
-.cm-course-actions,.cm-lesson-actions{display:none;align-items:center;gap:2px;position:absolute;right:8px;top:50%;transform:translateY(-50%)}
-.cm-course-item:hover .cm-course-actions,.cm-lesson-item:hover .cm-lesson-actions{display:flex}
-.cm-icon-btn{width:24px;height:24px;border:none;background:none;cursor:pointer;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#64748b}
-.cm-icon-btn:hover{background:#e2e8f0;color:#1e293b}
-.cm-icon-btn-danger:hover{background:#fee2e2;color:#ef4444}
-.cm-lesson-row{align-items:center}
-.cm-lesson-index{width:22px;height:22px;border-radius:8px;background:#ede9fe;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#4f46e5;flex-shrink:0}
-.cm-lesson-info{flex:1;min-width:0}
-.cm-editor-shell{padding:24px;display:flex;flex-direction:column;gap:20px}
-.cm-editor-header{border-bottom:1px solid #e2e8f0;padding-bottom:12px}
-.cm-editor-title{font-size:20px;font-weight:700;color:#1e293b;margin:0}
-.cm-editor-section{border:1px solid #e2e8f0;border-radius:10px;padding:16px}
-.cm-placeholder-section{border-style:dashed;background:#f8fafc}
-.cm-placeholder-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;background:#ede9fe;color:#4f46e5;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em}
-.cm-placeholder-label{font-size:13px;color:#94a3b8;margin:0}
-.cm-editor-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;height:100%;color:#94a3b8;font-size:13px;text-align:center;padding:40px}
-.cm-empty-state{padding:40px 16px;text-align:center;color:#94a3b8;font-size:13px}
-.cm-loading{padding:20px 16px;text-align:center;color:#94a3b8;font-size:13px}
-.cm-error{padding:16px;color:#ef4444;font-size:13px}
-@media(max-width:768px){
-  .cm-body{flex-direction:column}
-  .cm-splitter{display:none}
-  .cm-pane-courses,.cm-pane-lessons{width:100%!important;border-right:none;border-bottom:1px solid #e2e8f0}
-  .cm-pane-editor{min-height:300px}
-  .cm-course-actions,.cm-lesson-actions{display:flex}
-}
-</style>`
 
 export function renderCoursesPage(container, apiClient) {
   // Restore persisted selection on init (hash → localStorage → null)
@@ -83,7 +30,9 @@ export function renderCoursesPage(container, apiClient) {
     <div class="cm-workspace">
       <div class="cm-topbar">
         <div id="cm-breadcrumb"></div>
-        <button id="cm-create-btn" class="generate-btn" style="font-size:12px;padding:6px 12px">+ Create Course</button>
+        <div class="cm-topbar-actions">
+          <button id="cm-create-btn" class="cm-create-btn" title="Create a new course"><span style="font-size:14px;line-height:1">+</span> New course</button>
+        </div>
       </div>
       <div class="cm-body">
         <div id="cm-pane-courses" class="cm-pane cm-pane-courses"></div>
@@ -129,7 +78,14 @@ export function renderCoursesPage(container, apiClient) {
         refreshBreadcrumb(); refreshLessonList(); refreshLessonEditor()
       },
       onEditCourse: (course) => showCreateCourseDialog(apiClient, () => courseListCtrl?.refresh(), course),
-      onAssign: (courseId) => showAssignDialog(apiClient, courseId)
+      onAssign: (courseId) => showAssignDialog(apiClient, courseId),
+      onListLoaded: (list) => {
+        // Resolve breadcrumb name from fetched data on initial restore from selectionStore
+        if (sel.courseId && !sel.courseTitle) {
+          const c = list.find(x => x.id === sel.courseId)
+          if (c) { sel = { ...sel, courseTitle: c.title }; refreshBreadcrumb() }
+        }
+      }
     })
   }
 
@@ -144,7 +100,16 @@ export function renderCoursesPage(container, apiClient) {
         selectionStore.write({ courseId: sel.courseId, lessonId: id })
         refreshBreadcrumb(); refreshLessonEditor()
       },
-      onLessonsChanged: () => courseListCtrl?.refresh()
+      onLessonsChanged: () => courseListCtrl?.refresh(),
+      onListLoaded: (lessons, courseTitle) => {
+        let changed = false
+        if (sel.courseId && courseTitle && !sel.courseTitle) { sel = { ...sel, courseTitle }; changed = true }
+        if (sel.lessonId && !sel.lessonTitle) {
+          const l = lessons.find(x => x.id === sel.lessonId)
+          if (l) { sel = { ...sel, lessonTitle: l.title }; changed = true }
+        }
+        if (changed) refreshBreadcrumb()
+      }
     })
   }
 
@@ -196,7 +161,13 @@ export function renderCoursesPage(container, apiClient) {
       }
       selectedLesson = null
     }
-    renderLessonEditorPane(editorPane, { lesson: selectedLesson, onPatch: patchLesson, apiClient })
+    const onPreview = selectedLesson ? async () => {
+      try {
+        const course = await apiClient.previewCourse(sel.courseId)
+        openLessonPlayer(course, { readOnly: true, startLessonId: sel.lessonId })
+      } catch (e) { console.error('preview failed', e) }
+    } : undefined
+    renderLessonEditorPane(editorPane, { lesson: selectedLesson, onPatch: patchLesson, apiClient, onPreview })
   }
 
   function refreshLessonEditor() {

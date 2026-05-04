@@ -9,13 +9,12 @@ import { createLessonMetaEditor } from './lesson-meta-editor.js'
 import { createLessonContentList } from './lesson-content-list.js'
 
 const META_EDITOR_STYLES = `<style>
-.lme-root{display:flex;flex-direction:column;gap:8px;padding:0}
+.lme-root{display:flex;flex-direction:column;gap:4px;padding:0}
 .lme-field-row{display:flex;align-items:center;gap:8px}
-.lme-title-input{flex:1;font-size:18px;font-weight:700;color:#1e293b;border:none;border-bottom:2px solid transparent;outline:none;padding:2px 0;background:transparent;font-family:inherit;transition:border-color .15s}
-.lme-title-input:focus{border-bottom-color:#4f46e5}
-.lme-title-input::placeholder{color:#cbd5e1}
-.lme-desc-textarea{width:100%;font-size:13px;color:#475569;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;resize:vertical;font-family:inherit;line-height:1.5;outline:none;transition:border-color .15s;box-sizing:border-box}
-.lme-desc-textarea:focus{border-color:#4f46e5}
+.lme-title-input{flex:1;font-size:22px;font-weight:700;color:#0f172a;border:none;border-bottom:1px solid transparent;outline:none;padding:2px 0;background:transparent;font-family:inherit;transition:border-color .15s;letter-spacing:-.01em}
+.lme-title-input:focus{border-bottom-color:#cbd5e1}
+.lme-title-input::placeholder{color:#cbd5e1;font-weight:600}
+.lme-desc-textarea{width:100%;font-size:13px;color:#475569;border:none;border-radius:0;padding:2px 0;resize:none;font-family:inherit;line-height:1.55;outline:none;background:transparent;box-sizing:border-box;overflow:hidden;min-height:1.55em}
 .lme-desc-textarea::placeholder{color:#cbd5e1}
 .lme-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;white-space:nowrap;flex-shrink:0;min-width:0;transition:opacity .2s}
 .lme-badge--idle{opacity:0}
@@ -30,8 +29,9 @@ const META_EDITOR_STYLES = `<style>
  * @param {object|null} opts.lesson      - full lesson object (id, title, description, …)
  * @param {Function}    opts.onPatch     - async (fields) => void — called with changed fields
  * @param {object}      opts.apiClient   - ApiClient instance for content CRUD
+ * @param {Function}    [opts.onPreview] - () => void — called when Preview button clicked; omit to hide button
  */
-export function renderLessonEditorPane(container, { lesson, onPatch, apiClient }) {
+export function renderLessonEditorPane(container, { lesson, onPatch, apiClient, onPreview }) {
   // Destroy previous instances if present
   if (container._metaEditor) {
     container._metaEditor.destroy()
@@ -60,10 +60,26 @@ export function renderLessonEditorPane(container, { lesson, onPatch, apiClient }
 
   container.innerHTML = META_EDITOR_STYLES + `
     <div class="cm-editor-shell">
+      ${onPreview ? `
+      <div class="cm-editor-toolbar" style="display:flex;justify-content:flex-end;align-items:center;padding:6px 12px 0;flex-shrink:0">
+        <button id="lep-preview-btn" style="display:flex;align-items:center;gap:5px;padding:5px 12px;background:transparent;border:1px solid #e2e8f0;border-radius:7px;font-size:12px;font-weight:500;color:#475569;cursor:pointer;transition:background .15s,color .15s" title="Open lesson in player (read-only preview)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          Preview lesson
+        </button>
+      </div>` : ''}
       <div class="cm-editor-meta-section" id="lme-mount"></div>
       <div id="lcl-mount"></div>
     </div>
   `
+
+  if (onPreview) {
+    const previewBtn = container.querySelector('#lep-preview-btn')
+    if (previewBtn) {
+      previewBtn.addEventListener('mouseenter', () => { previewBtn.style.background = '#f1f5f9'; previewBtn.style.color = '#1e293b' })
+      previewBtn.addEventListener('mouseleave', () => { previewBtn.style.background = 'transparent'; previewBtn.style.color = '#475569' })
+      previewBtn.addEventListener('click', () => onPreview())
+    }
+  }
 
   const mountEl = container.querySelector('#lme-mount')
   const metaEditor = createLessonMetaEditor({ lesson, onPatch })
